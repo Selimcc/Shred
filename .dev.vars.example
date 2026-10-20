@@ -1,0 +1,8 @@
+# Copie ce fichier en .dev.vars pour le développement local (jamais commité).
+# Code qui crée un compte administrateur à l’inscription
+ADMIN_CODE=change-moi
+ANTHROPIC_API_KEY=
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+# 1 = réponses IA simulées, aucun appel payant
+MOCK_AI=1
