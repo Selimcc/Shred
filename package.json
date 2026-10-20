@@ -1,0 +1,36 @@
+{
+  "name": "shred",
+  "private": true,
+  "version": "0.5.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:api": "wrangler dev --test-scheduled",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.worker.json --noEmit",
+    "build": "npm run typecheck && vite build",
+    "build:demo": "vite build --mode demo",
+    "deploy": "npm run build && wrangler deploy",
+    "vapid": "node scripts/gen-vapid.mjs",
+    "test": "node scripts/test-webpush.mjs && node scripts/test-reminders.mjs && node scripts/test-health.mjs && node scripts/test-auth.mjs && node scripts/test-knowledge.mjs && node scripts/test-flames.mjs && node scripts/test-coaching.mjs",
+    "setup": "node scripts/setup.mjs",
+    "admin": "node scripts/admin.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261013.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "esbuild": "^0.28.2",
+    "http_ece": "^1.2.1",
+    "qrcode-terminal": "^0.12.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vite-plugin-singlefile": "^2.3.3",
+    "wrangler": "^4.150.0"
+  }
+}
