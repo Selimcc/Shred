@@ -15,7 +15,7 @@
 
   // Stockage clé-valeur : comptes, sessions, sauvegardes chiffrées, rappels, Santé.
   // npm run setup le crée et colle l'id ici.
-  "kv_namespaces": [{ "binding": "KV", "id": "REMPLACE_PAR_TON_ID_KV" }],
+  "kv_namespaces": [{ "binding": "KV", "id": "40104c1ad36948488ff181569284fdde" }],
 
   // Vérifie les rappels toutes les 15 minutes.
   "triggers": { "crons": ["*/15 * * * *"] },
@@ -27,6 +27,6 @@
     "DAILY_AI_LIMIT": "60",
     "GUEST_AI_LIMIT": "10",
     "MOCK_AI": "0",
-    "VAPID_SUBJECT": "mailto:ton-email@exemple.com"
+    "VAPID_SUBJECT": "mailto:selimjabnoun039@gmail.com"
   }
 }
