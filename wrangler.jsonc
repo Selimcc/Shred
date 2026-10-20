@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "shred",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "observability": { "enabled": true },
+
+  // Le front (dist/) et l'API sont servis par le même Worker : une seule URL, pas de CORS.
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Stockage clé-valeur : comptes, sessions, sauvegardes chiffrées, rappels, Santé.
+  // npm run setup le crée et colle l'id ici.
+  "kv_namespaces": [{ "binding": "KV", "id": "REMPLACE_PAR_TON_ID_KV" }],
+
+  // Vérifie les rappels toutes les 15 minutes.
+  "triggers": { "crons": ["*/15 * * * *"] },
+
+  "vars": {
+    "MODEL_VISION": "claude-sonnet-5-5",
+    "MODEL_COACH": "claude-haiku-5-5",
+    // Requêtes IA par jour (photo ou coach) : toi, puis chaque personne invitée. 0 = réservé à toi.
+    "DAILY_AI_LIMIT": "60",
+    "GUEST_AI_LIMIT": "10",
+    "MOCK_AI": "0",
+    "VAPID_SUBJECT": "mailto:ton-email@exemple.com"
+  }
+}
