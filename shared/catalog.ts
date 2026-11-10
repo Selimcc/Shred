@@ -99,6 +99,7 @@ export const CATALOG: CatalogEntry[] = [
   c('crunch', 'Crunchs', 'core', 'core', ['Abdos'], 'Décolle les épaules, bas du dos au sol.', [3, '15–20', 45]),
   c('plank', 'Gainage', 'core', 'core', ['Gainage'], 'Corps aligné, fessiers et abdos serrés.', [3, '30–60 s', 45]),
   c('side-plank', 'Gainage latéral (par côté)', 'core', 'core', ['Obliques', 'Gainage'], 'Corps aligné de la tête aux pieds, hanches hautes.', [3, '30–45 s', 45]),
+  c('wood-chop', 'Wood chop à la poulie (par côté)', 'core', 'core', ['Obliques', 'Gainage'], 'Bras tendus, tourne le buste en diagonale, hanches stables.', [3, '12', 45]),
   c('pallof', 'Pallof press (par côté)', 'core', 'core', ['Obliques', 'Gainage'], 'Pousse la poignée devant toi et résiste à la rotation.', [3, '12', 45]),
   c('russian-twist', 'Russian twist', 'core', 'core', ['Obliques'], 'Pieds décollés, tourne les épaules, pas seulement les bras.', [3, '20', 45]),
 
@@ -137,6 +138,7 @@ export const CATALOG: CatalogEntry[] = [
   // Récupération
   c('walk', 'Marche, 8 000 pas ou plus', 'task', 'other', ['Cardio léger'], 'Répartis tes pas sur la journée : trajets, pauses, appels.', [1, '1', 0]),
   c('mobility', 'Mobilité 10 min (hanches, épaules, dos)', 'task', 'other', ['Mobilité'], 'Hanches, épaules et haut du dos, 10 minutes au calme.', [1, '1', 0]),
+  c('incline-walk', 'Marche inclinée sur tapis', 'task', 'cardio', ['Cardio'], 'Pente 10 à 12 %, 5 à 6 km/h, sans te tenir aux barres.', [1, '25 min', 0]),
   c('zone2', 'Zone 2, 30 min', 'task', 'cardio', ['Cardio'], 'Un rythme où tu peux encore parler.', [1, '1', 0]),
 ];
 

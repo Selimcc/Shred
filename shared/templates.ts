@@ -197,7 +197,81 @@ const BLANK: Program = {
   sessions: [{ id: 'session-1', name: 'Séance 1', focus: 'À composer', type: 'lifting', exercises: [] }, REST],
 };
 
+
+/** Recompo : priorité épaules et épaisseur du dos, abdos et cardio le jeudi. */
+const RECOMP: Program = {
+  name: 'Recompo épaules et dos',
+  template: 'recomp-shoulders-back',
+  schedule: ['rest', 'push', 'pull', 'legs', 'cardio-abs', 'upper', 'lower'],
+  sessions: [
+    {
+      id: 'push',
+      name: 'Push',
+      focus: 'Épaules en priorité, pecs, triceps',
+      type: 'lifting',
+      exercises: [
+        s('military-press', 5, '5', { note: 'Strict, sans élan. Le cœur de la séance.' }),
+        s('bench', 4, '6–8'),
+        s('db-lateral-raise', 4, '10–12', { note: 'Lourd mais contrôlé.' }),
+        s('dips', 3, '8–12'),
+        s('rope-pushdown', 3, '12–15'),
+      ],
+    },
+    {
+      id: 'pull',
+      name: 'Pull',
+      focus: 'Épaisseur du dos en priorité, arrière d’épaules, trapèzes',
+      type: 'lifting',
+      exercises: [
+        s('barbell-row', 5, '5–6', { note: 'Cœur de séance : buste penché, tire vers le nombril.' }),
+        s('pullup', 4, '6–10'),
+        s('face-pull', 4, '12–15'),
+        s('barbell-curl', 3, '10–12'),
+        s('shrug', 3, '15'),
+        s('neck-extension', 2, '15'),
+      ],
+    },
+    {
+      id: 'legs',
+      name: 'Legs',
+      focus: 'Quadris, ischios, mollets, abdos',
+      type: 'lifting',
+      exercises: [s('squat', 4, '6–10'), s('rdl', 4, '8–10'), s('leg-press', 3, '10–12'), s('standing-calf', 4, '15'), s('hanging-leg-raise', 3, '12')],
+    },
+    {
+      id: 'cardio-abs',
+      name: 'Cardio + abdos',
+      focus: '25 min de cardio modéré, puis abdos',
+      type: 'cardio',
+      exercises: [s('incline-walk', 1, '25 min'), s('hanging-leg-raise', 4, '10'), s('cable-crunch', 4, '12'), s('plank', 3, '45 s')],
+    },
+    {
+      id: 'upper',
+      name: 'Upper',
+      focus: 'Haut des pecs, dos, obliques',
+      type: 'lifting',
+      exercises: [
+        s('incline-db-press', 4, '8–10'),
+        s('db-row', 4, '8–10'),
+        s('db-bench', 3, '10–12'),
+        s('seated-cable-row', 3, '10–12'),
+        s('pallof', 3, '12'),
+        s('neck-flexion', 2, '15'),
+      ],
+    },
+    {
+      id: 'lower',
+      name: 'Lower + pump',
+      focus: 'Jambes, puis bras et abdos',
+      type: 'lifting',
+      exercises: [s('leg-press', 4, '8'), s('rdl', 3, '10'), s('leg-curl', 3, '12'), s('dips', 3, '10'), s('arms-superset', 3, '12'), s('crunch', 3, '20')],
+    },
+    REST,
+  ],
+};
+
 export const TEMPLATES: { id: string; name: string; days: string; description: string; program: Program }[] = [
+  { id: 'recomp-shoulders-back', name: 'Recompo épaules et dos', days: '6 j', description: 'Militaire 5×5 et rowing barre lourds en priorité, obliques et cou, cardio + abdos le jeudi.', program: RECOMP },
   { id: 'ppl-ul', name: 'PPL + Upper/Lower', days: '5 j', description: 'Chaque muscle 2 fois par semaine, priorité épaules, cou et abdos. Conditionnement le dimanche.', program: PPL_UL },
   { id: 'upper-lower', name: 'Upper / Lower', days: '4 j', description: 'Haut et bas du corps en alternance, force puis volume.', program: UPPER_LOWER },
   { id: 'full-body', name: 'Full body', days: '3 j', description: 'Tout le corps à chaque séance. Idéal avec un emploi du temps chargé.', program: FULL_BODY },
