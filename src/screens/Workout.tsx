@@ -6,6 +6,8 @@ import { ask, Bar, Check, Sheet, toast } from '../components/ui';
 import { chooseSession, finishSession, parseDecimal, previousWeight, toggleSet, updateSet } from '../lib/actions';
 import { formatShort, weekdayOf, WEEKDAY_NAMES } from '../lib/date';
 import { exerciseFrames, exerciseInfo, videoUrl } from '../lib/exercise-info';
+import { adviseLoad, loadFor } from '../lib/advisor';
+import { e1rm } from '../lib/strength';
 import { fmtKg, formatSets, lastPerformance, nextTarget, sessionFor, setProgress } from '../lib/logic';
 import { readDay, type SetLog, useApp } from '../lib/store';
 
@@ -169,6 +171,8 @@ function ExerciseCard({
   const s = useApp();
   const last = lastPerformance(s, ex.key, date);
   const target = nextTarget(ex, last);
+  const advice = adviseLoad(s, ex, date);
+  const aim = advice ? { weight: advice.weight, up: advice.weight > (last ? Math.max(...last.sets.map((l) => l.w ?? 0)) : 0) } : target;
   const done = logs.filter((l) => l.done).length;
   const complete = done >= ex.sets;
   const isTask = ex.kind === 'task';
@@ -197,10 +201,10 @@ function ExerciseCard({
                   <Icon name="clock" size={13} /> {fmtRest(ex.rest)}
                 </span>
               )}
-              {target.weight !== undefined && (
-                <span className={`tag num ${target.up ? 'up' : 'blue'}`}>
-                  {target.up ? '↑ ' : ''}
-                  {fmtKg(target.weight)}
+              {aim.weight !== undefined && (
+                <span className={`tag num ${aim.up ? 'up' : 'blue'}`}>
+                  {aim.up ? '↑ ' : ''}
+                  {fmtKg(aim.weight)}
                 </span>
               )}
               {complete && <span className="tag up">Fait</span>}
@@ -217,14 +221,19 @@ function ExerciseCard({
       {last && !isTask && (
         <p className="small faint num" style={{ margin: '10px 0 0' }}>
           Dernière fois ({formatShort(last.date)}) : {ex.noLoad ? last.sets.map((l) => l.r ?? '?').join(', ') : formatSets(last.sets)}
-          {target.up ? '. Toutes les reps au max : on monte.' : ''}
+          {!advice && target.up ? '. Toutes les reps au max : on monte.' : ''}
+        </p>
+      )}
+      {advice && !complete && (
+        <p className="small advice" style={{ margin: '6px 0 0' }}>
+          <Icon name="bolt" size={13} /> {advice.text}
         </p>
       )}
 
       <div style={{ marginTop: 10 }}>
         {Array.from({ length: ex.sets }, (_, i) => {
           const log = logs[i] ?? { done: false };
-          const prevW = previousWeight(logs, i) ?? last?.sets[i]?.w ?? target.weight;
+          const prevW = previousWeight(logs, i) ?? aim.weight ?? last?.sets[i]?.w;
           return (
             <div key={i} className={`set-row ${loaded ? '' : 'noload'}`}>
               <span className="small faint num" style={{ fontWeight: 700 }}>
@@ -290,10 +299,58 @@ function DemoSheet({ ex, onClose }: { ex: Exercise; onClose: () => void }) {
           {ex.rest > 0 ? `, ${fmtRest(ex.rest)} de repos` : ''}.
         </p>
       )}
+      <LoadCalculator ex={ex} />
       <a className="btn block" style={{ marginTop: 18, textDecoration: 'none' }} href={videoUrl(ex.name)} target="_blank" rel="noreferrer">
         <Icon name="play" size={16} filled /> Voir des vidéos de l’exercice
       </a>
     </Sheet>
+  );
+}
+
+function LoadCalculator({ ex }: { ex: Exercise }) {
+  const s = useApp();
+  const advice = adviseLoad(s, ex, '9999-12-31');
+  const [w, setW] = useState<number | undefined>();
+  const [r, setR] = useState<number | undefined>();
+  if (ex.noLoad || ex.kind === 'task' || ex.kind === 'cardio') return null;
+  const manual = w && r ? e1rm(w, r) : undefined;
+  const oneRm = manual ?? advice?.oneRm;
+  const step = ex.step ?? 2.5;
+  const table = oneRm ? [3, 5, 6, 8, 10, 12, 15].map((n) => ({ reps: n, weight: Math.max(step, Math.floor(loadFor(oneRm, n) / step) * step) })) : [];
+  return (
+    <div className="card stack" style={{ marginTop: 16, gap: 10, background: 'var(--surface-2)' }}>
+      <div style={{ fontWeight: 800 }}>Combien mettre ?</div>
+      <p className="small muted" style={{ margin: 0 }}>
+        {manual
+          ? 'D’après la série que tu viens de saisir.'
+          : advice
+            ? 'D’après tes dernières séances. Saisis une série pour recalculer.'
+            : 'Saisis une série que tu as faite (charge et reps) pour estimer tes charges.'}
+      </p>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <NumInput value={w} placeholder="kg" label="Charge" onCommit={setW} />
+        <span className="muted">×</span>
+        <NumInput value={r} placeholder="reps" label="Répétitions" onCommit={setR} />
+      </div>
+      {oneRm && (
+        <>
+          <div className="small">
+            1RM estimé : <b className="num">{fmtKg(Math.round(oneRm * 2) / 2)}</b>
+          </div>
+          <div className="calc-grid">
+            {table.map((t) => (
+              <div key={t.reps} className={`calc-cell ${advice && advice.reps.split('–').map(Number).includes(t.reps) ? 'on' : ''}`}>
+                <div className="num" style={{ fontWeight: 800 }}>{fmtKg(t.weight)}</div>
+                <div className="small faint">{t.reps} reps</div>
+              </div>
+            ))}
+          </div>
+          <p className="small faint" style={{ margin: 0 }}>
+            Charges qui laissent environ 2 reps en réserve. Pour progresser : 3 à 5 séries dans ta fourchette, et +1 rep par séance jusqu’au haut de la fourchette avant de monter.
+          </p>
+        </>
+      )}
+    </div>
   );
 }
 

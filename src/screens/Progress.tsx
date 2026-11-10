@@ -9,6 +9,7 @@ import { addDays, formatNumber, formatShort, mondayOf, WEEKDAY_LETTERS } from '.
 import { bestLifts, dayStatus, fmtKg, levelFor, streakInfo, totalXp, weeklyChange, weightSeries } from '../lib/logic';
 import { useApp, WEIGHT_GOALS } from '../lib/store';
 import { strengthProfile } from '../lib/strength';
+import { focusPlan } from '../lib/advisor';
 import { gymDuration } from '../lib/health';
 import { Flame } from '../components/Flame';
 import { flameInfo, TIERS, tierAt } from '../lib/flames';
@@ -83,6 +84,7 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
       <Reports today={today} openCoach={openCoach} />
 
       {mod.strength && <Strength today={today} />}
+      {mod.strength && <Focus today={today} />}
 
       {(mod.health || mod.gym) && <ActivitySection today={today} />}
 
@@ -308,6 +310,40 @@ function Strength({ today }: { today: string }) {
       </div>
       <p className="small faint" style={{ margin: '8px 2px 0' }}>
         Notes indicatives : 1RM estimé (formule d’Epley) rapporté à {p.estimatedBodyweight ? 'un poids de 75 kg, pèse-toi pour affiner' : `ton poids (${formatNumber(p.bodyweight, 1)} kg)`}, comparé à des repères de force débutant à avancé.
+      </p>
+    </section>
+  );
+}
+
+function Focus({ today }: { today: string }) {
+  const s = useApp();
+  const f = focusPlan(s, today);
+  if (!f.logged) return null;
+  const color = { low: 'var(--flame)', ok: 'var(--green)', high: 'var(--blue)' } as const;
+  return (
+    <section className="section">
+      <div className="section-head">
+        <h2>Où mettre l’effort</h2>
+        <span className="small muted">séries / semaine</span>
+      </div>
+      {f.headline && <p style={{ margin: '0 2px 10px', fontWeight: 700 }}>{f.headline}</p>}
+      <div className="group">
+        {f.items.map((i) => (
+          <div className="row" key={i.group} style={{ alignItems: 'flex-start' }}>
+            <div className="grow">
+              <div className="title">
+                {i.name} {i.weak && <span className="tag up">point faible</span>}
+              </div>
+              <div className="focus-bar">
+                <i style={{ width: `${Math.min(100, (i.sets / i.target[1]) * 100)}%`, background: color[i.status] }} />
+              </div>
+              <div className="small muted" style={{ marginTop: 4 }}>{i.text}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="small faint" style={{ margin: '8px 2px 0' }}>
+        Moyenne des 2 dernières semaines. Repères hypertrophie : environ 10 à 20 séries par muscle et par semaine.
       </p>
     </section>
   );
