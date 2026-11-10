@@ -1,9 +1,8 @@
 // Accueil : créer son compte avec une invitation, se connecter, ou retrouver l'accès avec un code.
 import { type FormEvent, useState } from 'react';
 import { Field, PasswordInput } from '../components/form';
-import { Flame } from '../components/Flame';
 import { Icon } from '../components/Icon';
-import { Kilo } from '../components/Kilo';
+import { Braise } from '../components/Braise';
 import { ask, errorText, toast } from '../components/ui';
 import { continueWithoutAccount, hasData, login, logout, MIN_PASSWORD, register, resetPassword } from '../lib/account';
 import type { Account } from '../lib/session';
@@ -71,9 +70,7 @@ export function Welcome({ expired }: { expired?: Account }) {
   return (
     <main className="app welcome">
       <header className="welcome-hero">
-        <Kilo size={104} className="kilo-enter" happy>
-          <Flame size={26} />
-        </Kilo>
+        <Braise mood="cheer" tier={0} size={110} className="kilo-enter" />
         <h1 className="display">Shred</h1>
         <p className="muted">Ta séance, tes repas et ta série du jour. Une app privée, sur invitation.</p>
       </header>

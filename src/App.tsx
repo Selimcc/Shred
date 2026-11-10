@@ -18,12 +18,13 @@ import { Workout } from './screens/Workout';
 export type Tab = 'today' | 'workout' | 'food' | 'coach' | 'progress';
 
 /** Onglets disponibles ; chacun peut dépendre d'un module ou du mode IA. */
-const TABS: { id: Tab; label: string; icon: string; enabled?: (s: AppState) => boolean }[] = [
-  { id: 'today', label: 'Aujourd’hui', icon: 'flame' },
+const TABS: { id: Tab; label: string; icon: string; enabled?: (s: AppState) => boolean; hidden?: boolean }[] = [
+  { id: 'today', label: 'Accueil', icon: 'flame' },
   { id: 'workout', label: 'Séance', icon: 'dumbbell' },
   { id: 'food', label: 'Repas', icon: 'utensils', enabled: (s) => s.settings.modules.nutrition },
-  { id: 'coach', label: 'Coach', icon: 'chat', enabled: (s) => s.settings.ai !== 'off' },
-  { id: 'progress', label: 'Fiche', icon: 'radar' },
+  { id: 'progress', label: 'Progrès', icon: 'chart' },
+  // Le coach s'ouvre en touchant Braise : pas d'onglet en plus.
+  { id: 'coach', label: 'Braise', icon: 'chat', enabled: (s) => s.settings.ai !== 'off', hidden: true },
 ];
 
 function initialTab(): Tab {
@@ -91,13 +92,13 @@ export function App() {
         {tab === 'today' && <Today today={today} go={go} openSettings={() => setSettings('menu')} />}
         {tab === 'workout' && <Workout today={today} editProgram={() => setSettings('program')} />}
         {tab === 'food' && <Food today={today} openCoach={() => go('coach')} />}
-        {tab === 'coach' && <Coach today={today} />}
+        {tab === 'coach' && <Coach today={today} onBack={() => go('today')} />}
         {tab === 'progress' && <Progress today={today} openSettings={(p = 'menu') => setSettings(p)} openCoach={() => go('coach')} />}
       </main>
 
       <div className="tabbar">
-        <nav aria-label="Navigation" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
-          {tabs.map((t) => (
+        <nav aria-label="Navigation" style={{ gridTemplateColumns: `repeat(${tabs.filter((t) => !t.hidden).length}, 1fr)` }}>
+          {tabs.filter((t) => !t.hidden).map((t) => (
             <button
               key={t.id}
               className={`tab ${tab === t.id ? 'active' : ''}`}

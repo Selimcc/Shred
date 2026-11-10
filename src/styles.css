@@ -1,97 +1,39 @@
 @import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource-variable/nunito';
 
-/* Concept : une fiche de combattant. Fond nuit de salle, flamme pour la série, bleu pour l'action,
-   vert pour ce qui est fait, or pour l'XP. Boutons épais qui s'enfoncent au toucher. */
+/* Concept : clair, ludique et chaleureux. Braise, la petite flamme, guide chaque écran.
+   Vert pour agir, orange pour la série, bleu pour l'info, gros boutons qui s'enfoncent au toucher. */
 :root {
-  --bg: #0b1020;
-  --surface: #141b30;
-  --surface-2: #1c2541;
-  --surface-3: #263052;
-  --line: #2a355a;
-  --ink: #f2f5fc;
-  --ink-2: #a9b3cc;
-  --ink-3: #6b7694;
-  --blue: #4f7cff;
-  --blue-deep: #2e54cc;
-  --blue-soft: rgba(79, 124, 255, 0.16);
-  --flame: #ff7a1f;
-  --flame-2: #ffb02e;
-  --flame-deep: #c4500a;
-  --flame-soft: rgba(255, 122, 31, 0.16);
-  --green: #2fd27c;
-  --green-deep: #1c9a57;
-  --green-soft: rgba(47, 210, 124, 0.16);
-  --gold: #ffc83d;
-  --gold-soft: rgba(255, 200, 61, 0.16);
-  --red: #ff5468;
-  --red-soft: rgba(255, 84, 104, 0.16);
-  --ice: #7fd3ff;
-  --ice-soft: rgba(127, 211, 255, 0.18);
-  --on-accent: #ffffff;
-  --veil: rgba(11, 16, 32, 0.94);
-  --radius: 20px;
-  --tabbar: 68px;
-  --font: 'Archivo Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  color-scheme: dark;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    --bg: #f2f4fa;
-    --surface: #ffffff;
-    --surface-2: #ebeef6;
-    --surface-3: #d6dceb;
-    --line: #dde2ee;
-    --ink: #0f1630;
-    --ink-2: #4d5874;
-    --ink-3: #8a93ab;
-    --blue: #3563f0;
-    --blue-deep: #2447b8;
-    --blue-soft: rgba(53, 99, 240, 0.12);
-    --flame: #f26a10;
-    --flame-2: #f59e0b;
-    --flame-deep: #b44d06;
-    --flame-soft: rgba(242, 106, 16, 0.12);
-    --green: #12a35a;
-    --green-deep: #0b7a42;
-    --green-soft: rgba(18, 163, 90, 0.12);
-    --gold: #d99a00;
-    --gold-soft: rgba(217, 154, 0, 0.14);
-    --red: #e5384e;
-    --red-soft: rgba(229, 56, 78, 0.12);
-    --ice: #2f9fe0;
-    --ice-soft: rgba(47, 159, 224, 0.14);
-    --veil: rgba(242, 244, 250, 0.95);
-    color-scheme: light;
-  }
-}
-
-:root[data-theme='light'] {
-  --bg: #f2f4fa;
+  --bg: #f4f6fb;
   --surface: #ffffff;
-  --surface-2: #ebeef6;
-  --surface-3: #d6dceb;
-  --line: #dde2ee;
-  --ink: #0f1630;
-  --ink-2: #4d5874;
-  --ink-3: #8a93ab;
-  --blue: #3563f0;
-  --blue-deep: #2447b8;
-  --blue-soft: rgba(53, 99, 240, 0.12);
-  --flame: #f26a10;
-  --flame-2: #f59e0b;
-  --flame-deep: #b44d06;
-  --flame-soft: rgba(242, 106, 16, 0.12);
-  --green: #12a35a;
-  --green-deep: #0b7a42;
-  --green-soft: rgba(18, 163, 90, 0.12);
-  --gold: #d99a00;
-  --gold-soft: rgba(217, 154, 0, 0.14);
-  --red: #e5384e;
-  --red-soft: rgba(229, 56, 78, 0.12);
-  --ice: #2f9fe0;
-  --ice-soft: rgba(47, 159, 224, 0.14);
-  --veil: rgba(242, 244, 250, 0.95);
+  --surface-2: #eef1f8;
+  --surface-3: #dde3f0;
+  --line: #e3e7f1;
+  --ink: #1b2240;
+  --ink-2: #5a6382;
+  --ink-3: #98a0b8;
+  --blue: #1c9cf6;
+  --blue-deep: #1279c7;
+  --blue-soft: rgba(28, 156, 246, 0.12);
+  --flame: #ff8a1f;
+  --flame-2: #ffb21e;
+  --flame-deep: #d9640a;
+  --flame-soft: rgba(255, 138, 31, 0.14);
+  --green: #3cc45a;
+  --green-deep: #2a9944;
+  --green-soft: rgba(60, 196, 90, 0.14);
+  --gold: #f5b400;
+  --gold-soft: rgba(245, 180, 0, 0.16);
+  --red: #ff4b5c;
+  --red-soft: rgba(255, 75, 92, 0.12);
+  --ice: #2fa8f0;
+  --ice-soft: rgba(47, 168, 240, 0.14);
+  --purple: #8b5cf6;
+  --on-accent: #ffffff;
+  --veil: rgba(244, 246, 251, 0.97);
+  --radius: 22px;
+  --tabbar: 72px;
+  --font: 'Nunito Variable', 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
   color-scheme: light;
 }
 
@@ -143,15 +85,13 @@ img {
 /* ---------- Typographie ---------- */
 
 .display {
-  font-stretch: 125%;
   font-weight: 900;
   letter-spacing: -0.02em;
-  line-height: 0.92;
+  line-height: 0.95;
 }
 
 h1 {
-  font-stretch: 125%;
-  font-weight: 850;
+  font-weight: 900;
   font-size: 1.75rem;
   letter-spacing: -0.02em;
   line-height: 1.05;
@@ -215,12 +155,16 @@ h2 {
   background: var(--surface);
   border-radius: var(--radius);
   padding: 16px;
+  border: 2px solid var(--line);
+  border-bottom-width: 4px;
 }
 
 .group {
   background: var(--surface);
   border-radius: var(--radius);
   overflow: hidden;
+  border: 2px solid var(--line);
+  border-bottom-width: 4px;
 }
 
 .row {
@@ -286,6 +230,12 @@ h2 {
 }
 
 .btn.primary {
+  --b: var(--green);
+  --b-deep: var(--green-deep);
+  --b-ink: var(--on-accent);
+}
+
+.btn.blue {
   --b: var(--blue);
   --b-deep: var(--blue-deep);
   --b-ink: var(--on-accent);
@@ -912,7 +862,7 @@ h2 {
   display: flex;
   justify-content: center;
   background: var(--surface);
-  border-top: 1px solid var(--line);
+  border-top: 2px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -934,8 +884,8 @@ h2 {
   border: 0;
   background: none;
   color: var(--ink-3);
-  font-size: 0.7rem;
-  font-weight: 750;
+  font-size: 0.74rem;
+  font-weight: 800;
 }
 
 .tab .pill {
@@ -952,8 +902,12 @@ h2 {
 }
 
 .tab.active .pill {
-  background: var(--blue-soft);
-  color: var(--blue);
+  background: var(--green-soft);
+  color: var(--green-deep);
+}
+
+.tab.active {
+  color: var(--green-deep);
 }
 
 /* ---------- Feuille ---------- */
@@ -1419,7 +1373,7 @@ h2 {
 .flame-stage {
   position: relative;
   width: 160px;
-  height: 172px;
+  height: 190px;
   margin: 0 auto;
   display: grid;
   place-items: center;
@@ -1536,9 +1490,16 @@ h2 {
   pointer-events: none;
 }
 
-.kind-first .celebrate-body,
-.kind-milestone .celebrate-body {
-  margin-bottom: 120px;
+.celebrate-bubble {
+  margin: 4px auto 6px;
+  max-width: 300px;
+  text-align: left;
+}
+
+.celebrate-bubble::before {
+  left: 50%;
+  top: -10px;
+  transform: translateX(-50%) rotate(135deg);
 }
 
 .bubble {
@@ -1665,4 +1626,277 @@ h2 {
   margin-top: 14px;
   border: 2px solid var(--blue);
   color: inherit;
+}
+
+/* ---------- Braise, la mascotte ---------- */
+
+.braise {
+  position: relative;
+  flex: none;
+}
+
+.braise svg {
+  overflow: visible;
+}
+
+.braise-body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: braise-idle 2.4s ease-in-out infinite;
+}
+
+.braise-glow {
+  transform-box: fill-box;
+  transform-origin: 50% 60%;
+  animation: glow 2.4s ease-in-out infinite;
+}
+
+.braise-eyes {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: kilo-blink 4s infinite;
+}
+
+.braise-arm-l,
+.braise-arm-r {
+  transform-box: fill-box;
+}
+
+.braise-arm-l {
+  transform-origin: 100% 100%;
+}
+
+.braise-arm-r {
+  transform-origin: 0% 100%;
+}
+
+.mood-cheer .braise-arm-l {
+  animation: arm-l 0.7s ease-in-out infinite;
+}
+
+.mood-cheer .braise-arm-r {
+  animation: arm-r 0.7s ease-in-out infinite;
+}
+
+.mood-happy .braise-arm-r {
+  animation: arm-r 1.4s ease-in-out infinite;
+}
+
+.mood-cheer .braise-body {
+  animation: braise-jump 0.7s ease-in-out infinite;
+}
+
+.mood-sad .braise-body,
+.mood-sleepy .braise-body {
+  animation: braise-idle 4s ease-in-out infinite;
+}
+
+.braise-tear {
+  animation: tear 2s ease-in infinite;
+}
+
+.braise-z {
+  animation: zz 2.2s ease-in-out infinite;
+}
+
+@keyframes braise-idle {
+  0%, 100% { transform: scale(1, 1) translateY(0); }
+  50% { transform: scale(1.03, 0.97) translateY(1px); }
+}
+
+@keyframes braise-jump {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  30% { transform: translateY(-10px) scale(0.97, 1.05); }
+  60% { transform: translateY(0) scale(1.05, 0.95); }
+}
+
+@keyframes arm-l {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-35deg); }
+}
+
+@keyframes arm-r {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(35deg); }
+}
+
+@keyframes tear {
+  0% { opacity: 0; transform: translateY(0); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(14px); }
+}
+
+@keyframes zz {
+  0%, 100% { opacity: 0.2; transform: translate(0, 0); }
+  50% { opacity: 1; transform: translate(4px, -6px); }
+}
+
+.braise-bubble {
+  position: relative;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-bottom-width: 4px;
+  font-weight: 750;
+  line-height: 1.35;
+  animation: bubble-in 0.4s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+
+.braise-bubble::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 26px;
+  width: 16px;
+  height: 16px;
+  background: var(--surface);
+  border-left: 2px solid var(--line);
+  border-bottom: 2px solid var(--line);
+  transform: rotate(45deg);
+}
+
+/* ---------- Accueil ---------- */
+
+.home-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.home-top .who {
+  flex: 1;
+  font-weight: 900;
+  font-size: 1.2rem;
+}
+
+.hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 6px 0 14px;
+}
+
+.hero .braise {
+  cursor: pointer;
+}
+
+.hero .talk {
+  flex: 1;
+  min-width: 0;
+  padding-top: 8px;
+}
+
+.cta {
+  min-height: 60px;
+  font-size: 1.05rem;
+}
+
+.todo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+}
+
+.todo + .todo {
+  border-top: 2px solid var(--line);
+}
+
+.todo .badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.todo.done .badge {
+  background: var(--green);
+  color: #fff;
+}
+
+.todo .t {
+  display: block;
+  font-weight: 850;
+  font-size: 1.02rem;
+}
+
+.todo .s {
+  display: block;
+  font-size: 0.86rem;
+  color: var(--ink-2);
+}
+
+.todo .meter {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.todo .meter > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+}
+
+.ask-braise {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 14px;
+  color: inherit;
+  text-align: left;
+}
+
+/* Conseils de charge */
+.advice {
+  color: var(--ink);
+  background: #fff6e8;
+  border: 1px solid #ffd9a8;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.calc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.calc-cell {
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 6px 4px;
+  text-align: center;
+}
+.calc-cell.on {
+  border-color: var(--green);
+}
+.focus-bar {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin-top: 6px;
+  position: relative;
+}
+.focus-bar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 99px;
 }

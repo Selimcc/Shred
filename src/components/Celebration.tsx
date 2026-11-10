@@ -1,9 +1,8 @@
 // La fête de fin de journée : flamme animée, et Kilo qui apporte la flamme la première fois et à chaque palier.
-import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect } from 'react';
 import { celebrationFor, flameInfo, ladder, TIERS } from '../lib/flames';
 import { setState, useApp } from '../lib/store';
-import { Flame } from './Flame';
-import { Kilo } from './Kilo';
+import { Braise, Bubble } from './Braise';
 
 /** Pseudo-hasard stable : la même fête se rejoue à l'identique. */
 const rand = (i: number, salt: number) => {
@@ -73,26 +72,16 @@ export function Celebration({ today }: { today: string }) {
   const s = useApp();
   const c = celebrationFor(s, today);
   const f = flameInfo(s, today);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const kiloRef = useRef<HTMLDivElement>(null);
-  const [fly, setFly] = useState<CSSProperties>({});
   const withKilo = !!c && c.kind !== 'daily';
 
-  useLayoutEffect(() => {
-    if (!withKilo) return;
-    const hold = kiloRef.current?.querySelector('.kilo-hold')?.getBoundingClientRect();
-    const stage = stageRef.current?.getBoundingClientRect();
-    if (!hold || !stage) return;
-    setFly({
-      '--dx': `${stage.left + stage.width / 2 - (hold.left + hold.width / 2)}px`,
-      '--dy': `${stage.top + stage.height / 2 - (hold.top + hold.height / 2)}px`,
-    } as CSSProperties);
+  useEffect(() => {
+    if (!c) return;
     try {
       navigator.vibrate?.([30, 60, 90]);
     } catch {
       // Pas de vibration sur iPhone : sans importance.
     }
-  }, [withKilo]);
+  }, [c?.kind]);
 
   if (!c) return null;
 
@@ -108,11 +97,11 @@ export function Celebration({ today }: { today: string }) {
   if (c.kind === 'first') {
     title = 'Ta première flamme';
     text = `Journée validée : ta série démarre. Tiens ${f.goal} jours pour gagner ta première vraie flamme.`;
-    bubble = 'Salut, moi c’est Kilo ! Je t’apporte ta flamme. Prends-en soin.';
+    bubble = 'Salut, moi c’est Braise ! Je suis ta série : plus tu tiens, plus je grandis.';
   } else if (c.kind === 'milestone') {
     title = `${c.days} jours : ${t.name}`;
     text = `Tu as tenu ${c.days} jours d’affilée. Prochaine flamme à ${next} jours.`;
-    bubble = `${c.days} jours, respect ! Ta flamme change de couleur.`;
+    bubble = `${c.days} jours, respect ! Regarde, j’ai changé de couleur.`;
   } else {
     title = f.current === 1 ? 'Série relancée' : 'jours de série';
     text =
@@ -121,7 +110,7 @@ export function Celebration({ today }: { today: string }) {
         : `+50 XP. Plus que ${Math.max(0, next - f.current)} jour${next - f.current > 1 ? 's' : ''} avant ta prochaine flamme.`;
   }
 
-  const delay = withKilo ? 1.8 : 0.15;
+  const delay = 0.15;
   const close = () =>
     setState((d) => {
       d.ui.celebrated = today;
@@ -137,12 +126,13 @@ export function Celebration({ today }: { today: string }) {
     >
       {c.kind === 'milestone' && <Confetti />}
       <div className="celebrate-body">
-        <div className="flame-stage" ref={stageRef}>
+        <div className="flame-stage">
           <Embers colors={t.colors} />
           <div className="hero-flame">
-            <Flame tier={tier} size={132} />
+            <Braise mood="cheer" tier={tier} size={140} />
           </div>
         </div>
+        {withKilo && <Bubble className="celebrate-bubble">{bubble}</Bubble>}
         {c.kind === 'daily' && f.current > 1 ? (
           <CountFlip from={f.current - 1} to={f.current} delay={delay + 0.35} />
         ) : (
@@ -165,16 +155,6 @@ export function Celebration({ today }: { today: string }) {
         </button>
       </div>
 
-      {withKilo && (
-        <div className="kilo-scene" ref={kiloRef}>
-          <div className="bubble">{bubble}</div>
-          <Kilo size={118} className="kilo-enter">
-            <div className="handoff" style={fly}>
-              <Flame tier={tier} size={30} />
-            </div>
-          </Kilo>
-        </div>
-      )}
     </div>
   );
 }

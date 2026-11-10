@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { athleteSummary, WEIGHT_GOALS } from '../../shared/athlete';
 import { DossierCard } from '../components/Dossier';
+import { Braise } from '../components/Braise';
+import { flameInfo } from '../lib/flames';
 import { Icon } from '../components/Icon';
 import { errorText, toast } from '../components/ui';
 import { claudePrompt, openInClaude, programText } from '../lib/ai';
@@ -80,7 +82,7 @@ export function buildContext(s: AppState, today: string): string {
   return lines.join('\n');
 }
 
-export function Coach({ today }: { today: string }) {
+export function Coach({ today, onBack }: { today: string; onBack: () => void }) {
   const s = useApp();
   const [text, setText] = useState(() => getState().ui.coachDraft ?? '');
   useEffect(() => {
@@ -138,10 +140,14 @@ export function Coach({ today }: { today: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: viaApp ? undefined : 'calc(100dvh - var(--tabbar) - 60px)' }}>
-      <header className="topbar">
-        <div>
-          <div className="date">{viaApp ? 'Dans l’app Claude, sans frais d’API' : 'Il connaît ton programme et ta journée'}</div>
-          <h1>Coach</h1>
+      <button className="link small" style={{ marginBottom: 10 }} onClick={onBack}>
+        ← Accueil
+      </button>
+      <header className="topbar" style={{ justifyContent: 'flex-start' }}>
+        <Braise mood="think" tier={flameInfo(s, today).tier} size={58} />
+        <div style={{ flex: 1 }}>
+          <h1>Braise, ton coach</h1>
+          <div className="date">{viaApp ? 'Je t’ouvre Claude avec ton contexte, sans frais' : 'Je connais ton programme et ta journée'}</div>
         </div>
         {!viaApp && messages.length > 0 && (
           <button
@@ -236,7 +242,7 @@ export function Coach({ today }: { today: string }) {
             className="input"
             rows={1}
             style={{ resize: 'none', maxHeight: 120 }}
-            placeholder={viaApp ? 'Ta question pour Claude' : 'Écris au coach'}
+            placeholder={viaApp ? 'Ta question pour Braise' : 'Écris à Braise'}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {

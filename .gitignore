@@ -5,3 +5,4 @@ dist
 *.log
 .shred-secrets.json
 .secrets-*.json
+dist-demo

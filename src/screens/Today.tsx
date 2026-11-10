@@ -1,20 +1,17 @@
 import { useState } from 'react';
-import { SLOTS } from '../../shared/program';
+import { Braise, Bubble, type Mood } from '../components/Braise';
 import { Flame } from '../components/Flame';
 import { Icon } from '../components/Icon';
-import { Ring } from '../components/Ring';
 import { toast } from '../components/ui';
-import { logBody, parseDecimal, toggleHabit, togglePlannedMeal } from '../lib/actions';
-import { formatNumber, parseKey, WEEKDAY_LETTERS, weekdayOf } from '../lib/date';
-import { exerciseFrames } from '../lib/exercise-info';
+import { logBody, parseDecimal, toggleHabit } from '../lib/actions';
+import { formatNumber, WEEKDAY_LETTERS, weekdayOf } from '../lib/date';
 import { flameInfo } from '../lib/flames';
 import { lastWeekMonday, reportPending } from '../lib/report';
 import { planSummary } from '../../shared/plans';
 import { ReportSheet } from '../components/ReportSheet';
-import { gymDuration, runShortcut, STEP_GOAL, timeOf } from '../lib/health';
+import { gymDuration, runShortcut, timeOf } from '../lib/health';
 import {
   dayStatus,
-  levelFor,
   mealsCount,
   type Rule,
   ruleOf,
@@ -22,25 +19,60 @@ import {
   setProgress,
   streakInfo,
   totals,
-  totalXp,
   weekKeys,
 } from '../lib/logic';
 import { type AppState, readDay, useApp } from '../lib/store';
 import type { Tab } from '../App';
 
-const shortFmt = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
-const shortDate = (k: string) => {
-  const t = shortFmt.format(parseKey(k));
-  return t.charAt(0).toUpperCase() + t.slice(1);
-};
 
-const SLOT_ICON: Record<string, string> = { breakfast: 'sunrise', lunch: 'sun', snack: 'apple', dinner: 'moon' };
 
 function ruleText(rule: Rule): string {
   const parts: string[] = [];
   if (rule.workout) parts.push('la séance');
   if (rule.minMeals > 0) parts.push(`au moins ${rule.minMeals} repas`);
   return parts.join(' et ');
+}
+
+/** Ce que Braise dit, et le bouton principal : une seule chose à faire maintenant. */
+function nextStep(s: AppState, today: string): { mood: Mood; text: string; cta?: { label: string; tab: Tab } } {
+  const day = readDay(s, today);
+  const session = sessionFor(s, today);
+  const prog = setProgress(session, day);
+  const st = streakInfo(s, today);
+  const rule = ruleOf(s);
+  const meals = mealsCount(day);
+  const hour = new Date().getHours();
+  const name = s.settings.name ? ` ${s.settings.name}` : '';
+  const sessionLeft = rule.workout && !day.mainDone && session.type !== 'rest';
+  const mealsLeft = Math.max(0, rule.minMeals - meals);
+
+  if (st.todayValidated) {
+    return { mood: 'proud', text: `Journée validée${name} ! ${st.current} jour${st.current > 1 ? 's' : ''} de série. Je brille grâce à toi, reviens demain.`, cta: { label: 'Voir ma progression', tab: 'progress' } };
+  }
+  if (hour < 7 && !prog.done && !meals) {
+    return { mood: 'sleepy', text: `Il est tôt… Aujourd’hui : ${session.name}. Je t’attends quand tu es prêt.` };
+  }
+  if (hour >= 20 && st.banked > 0) {
+    const what = [sessionLeft ? 'ta séance' : '', mealsLeft ? `${mealsLeft} repas` : ''].filter(Boolean).join(' et ');
+    return {
+      mood: 'sad',
+      text: `Ta série de ${st.banked} jour${st.banked > 1 ? 's' : ''} est en danger ! Il te manque ${what || 'peu de chose'} avant minuit.`,
+      cta: sessionLeft ? { label: 'Faire ma séance', tab: 'workout' } : { label: 'Noter un repas', tab: 'food' },
+    };
+  }
+  if (sessionLeft) {
+    if (prog.done > 0) return { mood: 'cheer', text: `Tu es lancé : ${prog.done} séries sur ${prog.total}. On termine ?`, cta: { label: 'Continuer la séance', tab: 'workout' } };
+    const detail = session.lifting ? `${session.exercises.length} exercices, environ ${session.duration}` : session.focus;
+    return { mood: 'happy', text: `Salut${name} ! Aujourd’hui c’est ${session.name} : ${detail}.`, cta: { label: `Commencer ${session.name}`, tab: 'workout' } };
+  }
+  if (mealsLeft > 0) {
+    return {
+      mood: 'happy',
+      text: day.mainDone ? `Séance faite, bravo ! Note encore ${mealsLeft} repas pour valider ta journée.` : `Jour de repos. Note ${mealsLeft} repas et ta journée est validée.`,
+      cta: { label: 'Noter un repas', tab: 'food' },
+    };
+  }
+  return { mood: 'happy', text: 'Tout est presque bon pour aujourd’hui.', cta: { label: 'Voir ma séance', tab: 'workout' } };
 }
 
 export function Today({ today, go, openSettings }: { today: string; go: (t: Tab) => void; openSettings: () => void }) {
@@ -51,29 +83,18 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
   const flames = flameInfo(s, today);
   const [report, setReport] = useState<string | null>(null);
   const planLine = planSummary(s.program, today);
-  const lvl = levelFor(totalXp(s));
   const prog = setProgress(session, day);
   const t = totals(day);
   const meals = mealsCount(day);
-  const target = s.settings.targets;
-  const health = s.health[today];
   const mod = s.settings.modules;
   const rule = ruleOf(s);
+  const step = nextStep(s, today);
+  const habitsDone = s.habits.filter((h) => day.habits[h.id]).length;
 
   return (
     <>
-      <header className="hud">
-        <Ring value={lvl.xp - lvl.floor} max={lvl.next - lvl.floor} color="var(--gold)" size={50} stroke={5} label="Progression du niveau">
-          <span className="num" style={{ fontWeight: 900, fontSize: '1.05rem' }}>
-            {lvl.level}
-          </span>
-        </Ring>
-        <div className="who">
-          <div className="small muted">{shortDate(today)}</div>
-          <div style={{ fontWeight: 850, fontStretch: '115%', fontSize: '1.15rem' }}>
-            {s.settings.name ? `Salut ${s.settings.name}` : 'Salut'}
-          </div>
-        </div>
+      <header className="home-top">
+        <span className="who">{s.settings.name ? `Salut ${s.settings.name}` : 'Salut'}</span>
         <span className="stat-pill flame" title={`Jours de série · ${flames.tierInfo.name}`} aria-label={`${st.current} jours de série`}>
           <Flame tier={flames.tier} size={18} animated={st.todayValidated} />
           {st.current}
@@ -87,138 +108,122 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
         </button>
       </header>
 
+      <section className="hero">
+        <button
+          style={{ border: 0, background: 'none', padding: 0 }}
+          onClick={() => go('coach')}
+          aria-label="Parler à Braise, ton coach"
+        >
+          <Braise mood={step.mood} tier={flames.tier} size={104} />
+        </button>
+        <div className="talk">
+          <Bubble key={step.text}>{step.text}</Bubble>
+        </div>
+      </section>
+      {step.cta && (
+        <button className="btn primary block cta" onClick={() => go(step.cta!.tab)}>
+          {step.cta.label}
+        </button>
+      )}
+
       <Week state={s} today={today} />
+      {planLine && (
+        <p className="small muted" style={{ margin: '10px 2px 0' }}>
+          {planLine}
+        </p>
+      )}
 
       {reportPending(s, today) && (
         <button className="card report-banner" onClick={() => setReport(lastWeekMonday(today))}>
           <Icon name="chart" size={22} />
           <span style={{ flex: 1, textAlign: 'left' }}>
             <span style={{ display: 'block', fontWeight: 850 }}>Ton bilan de la semaine est prêt</span>
-            <span className="small muted">Séances, nutrition, poids, et ce qu’on ajuste.</span>
+            <span className="small muted">Ce qui a marché, et ce qu’on ajuste.</span>
           </span>
           <Icon name="chevron" size={18} />
         </button>
       )}
-      {planLine && <p className="small muted" style={{ margin: '12px 2px 0' }}>{planLine}</p>}
       {report && <ReportSheet monday={report} onClose={() => setReport(null)} openCoach={() => go('coach')} />}
 
       <section className="section">
-        <Mission state={s} today={today} go={go} />
-      </section>
-
-      <section className="section">
-        <div className="rings" style={{ gridTemplateColumns: `repeat(${1 + (mod.nutrition ? 2 : 0) + (mod.health ? 1 : 0)}, 1fr)` }}>
-          <button className="ring-card" onClick={() => go('workout')}>
-            <Ring value={day.mainDone ? 1 : prog.done} max={day.mainDone ? 1 : Math.max(1, prog.total)} color="var(--blue)" label="Séance" size={58} stroke={7}>
-              <span className="num" style={{ fontWeight: 850 }}>
-                {day.mainDone ? <Icon name="check" size={20} /> : `${Math.round((prog.done / Math.max(1, prog.total)) * 100)}%`}
+        <div className="section-head">
+          <h2 style={{ whiteSpace: "nowrap" }}>Ta journée</h2>
+          <span className="small muted">{st.todayValidated ? 'Validée' : `Pour valider : ${ruleText(rule)}`}</span>
+        </div>
+        <div className="group">
+          <button className={`todo ${day.mainDone ? 'done' : ''}`} onClick={() => go('workout')}>
+            <span className="badge">
+              <Icon name={day.mainDone ? 'check' : session.type === 'rest' ? 'moon' : 'dumbbell'} size={22} />
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span className="t">{session.name}</span>
+              <span className="s">
+                {day.mainDone ? 'Fait' : session.lifting ? `${prog.done}/${prog.total} séries · ${session.duration}` : session.focus}
               </span>
-            </Ring>
-            <span className="label">Séance</span>
+              {!day.mainDone && prog.total > 0 && (
+                <span className="meter">
+                  <i style={{ width: `${Math.round((prog.done / prog.total) * 100)}%` }} />
+                </span>
+              )}
+            </span>
+            <Icon name="chevron" size={18} />
           </button>
           {mod.nutrition && (
-            <button className="ring-card" onClick={() => go('food')}>
-              <Ring value={meals} max={4} color="var(--gold)" label="Repas notés" size={58} stroke={7}>
-                <span className="num" style={{ fontWeight: 850 }}>
-                  {meals}/4
+            <button className={`todo ${meals >= Math.max(1, rule.minMeals) ? 'done' : ''}`} onClick={() => go('food')}>
+              <span className="badge">
+                <Icon name={meals >= Math.max(1, rule.minMeals) ? 'check' : 'utensils'} size={22} />
+              </span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span className="t">
+                  Repas {meals}/{Math.max(rule.minMeals, 3)}
                 </span>
-              </Ring>
-              <span className="label">Repas</span>
+                <span className="s">
+                  {formatNumber(t.kcal)} / {formatNumber(s.settings.targets.kcal)} kcal · {formatNumber(t.protein)} / {s.settings.targets.protein} g de protéines
+                </span>
+                <span className="meter">
+                  <i style={{ width: `${Math.min(100, Math.round((t.kcal / s.settings.targets.kcal) * 100))}%`, background: 'var(--flame)' }} />
+                </span>
+              </span>
+              <Icon name="chevron" size={18} />
             </button>
           )}
-          {mod.nutrition && (
-            <button className="ring-card" onClick={() => go('food')}>
-              <Ring value={t.protein} max={target.protein} color="var(--green)" label="Protéines" size={58} stroke={7}>
-                <span className="num" style={{ fontWeight: 850, fontSize: '0.82rem' }}>
-                  {formatNumber(t.protein)}g
+          {mod.habits && s.habits.length > 0 && (
+            <div className={`todo ${habitsDone === s.habits.length ? 'done' : ''}`} style={{ flexWrap: 'wrap' }}>
+              <span className="badge">
+                <Icon name={habitsDone === s.habits.length ? 'check' : 'list'} size={22} />
+              </span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span className="t">
+                  Habitudes {habitsDone}/{s.habits.length}
                 </span>
-              </Ring>
-              <span className="label">Protéines</span>
-            </button>
-          )}
-          {mod.health && (
-            <button className="ring-card" onClick={() => (health?.steps === undefined ? openSettings() : go('progress'))}>
-              <Ring value={health?.steps ?? 0} max={STEP_GOAL} color="var(--flame)" label="Pas" size={58} stroke={7}>
-                <span className="num" style={{ fontWeight: 850, fontSize: '0.82rem' }}>
-                  {health?.steps === undefined ? '?' : `${formatNumber(health.steps / 1000, 1)}k`}
+                <span className="chips" style={{ marginTop: 8 }}>
+                  {s.habits.map((h) => {
+                    const on = !!day.habits[h.id];
+                    return (
+                      <button key={h.id} className={`chip ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => toggleHabit(today, h.id)}>
+                        <Icon name={on ? 'check' : h.icon} size={16} />
+                        {h.name}
+                      </button>
+                    );
+                  })}
                 </span>
-              </Ring>
-              <span className="label">Pas</span>
-            </button>
+              </span>
+            </div>
           )}
         </div>
         {(mod.health || mod.gym) && <Activity today={today} openSettings={openSettings} />}
-        <p className="small" style={{ margin: '12px 2px 0', color: st.todayValidated ? 'var(--green)' : 'var(--ink-2)', fontWeight: st.todayValidated ? 700 : 400 }}>
-          {st.todayValidated ? `Journée validée. Série : ${st.current} jour${st.current > 1 ? 's' : ''}.` : `Pour valider ta journée : ${ruleText(rule)}.`}
-        </p>
       </section>
 
-      {mod.nutrition && (
-        <section className="section">
-          <div className="section-head">
-            <h2>Repas du jour</h2>
-            <button className="link small" onClick={() => go('food')}>
-              <Icon name="camera" size={16} /> Photo
-            </button>
-          </div>
-          <div className="tiles">
-            {SLOTS.filter((sl) => sl.id !== 'extra').map((slot) => {
-              const planned = s.mealPlan.find((m) => m.slot === slot.id);
-              const entries = day.meals.filter((m) => m.slot === slot.id);
-              const plannedOn = !!planned && entries.some((m) => m.planId === planned.id);
-              const other = entries.find((m) => !planned || m.planId !== planned.id);
-              const on = entries.length > 0;
-              const kcal = on ? entries.reduce((n, m) => n + m.kcal, 0) : (planned?.kcal ?? 0);
-              const label = other && !plannedOn ? other.label : (planned?.label ?? 'Rien de prévu');
-              return (
-                <button
-                  key={slot.id}
-                  className={`tile ${on ? 'on' : ''}`}
-                  aria-pressed={on}
-                  aria-label={`${slot.name} : ${label}`}
-                  onClick={() => (!planned || (other && !plannedOn) ? go('food') : togglePlannedMeal(today, planned))}
-                >
-                  <span className="ico">
-                    <Icon name={SLOT_ICON[slot.id]} size={24} />
-                  </span>
-                  <span className="t">{slot.name}</span>
-                  <span className="s">{label}</span>
-                  {kcal > 0 && (
-                    <span className="s num" style={{ fontWeight: 700 }}>
-                      {formatNumber(kcal)} kcal
-                    </span>
-                  )}
-                  <span className="mark">
-                    <Icon name="check" size={16} />
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {mod.weight && s.body.weight[today] === undefined && <WeighIn today={today} value={s.body.weight[today]} />}
 
-      {mod.habits && s.habits.length > 0 && (
-        <section className="section">
-          <div className="section-head">
-            <h2>Habitudes</h2>
-          </div>
-          <div className="chips">
-            {s.habits.map((h) => {
-              const on = !!day.habits[h.id];
-              const name = h.id === 'steps' && mod.health && health?.steps !== undefined && !on ? `${formatNumber(health.steps)} / 8 000 pas` : h.name;
-              return (
-                <button key={h.id} className={`chip ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => toggleHabit(today, h.id)}>
-                  <Icon name={on ? 'check' : h.icon} size={17} />
-                  {name}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {mod.weight && <WeighIn today={today} value={s.body.weight[today]} />}
+      <button className="card ask-braise" onClick={() => go('coach')}>
+        <Braise mood="think" tier={flames.tier} size={44} />
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontWeight: 850 }}>Une question ?</span>
+          <span className="small muted">Demande à Braise : séance, repas, progression.</span>
+        </span>
+        <Icon name="chevron" size={18} />
+      </button>
     </>
   );
 }
@@ -245,42 +250,6 @@ function Week({ state, today }: { state: AppState; today: string }) {
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function Mission({ state, today, go }: { state: AppState; today: string; go: (t: Tab) => void }) {
-  const day = readDay(state, today);
-  const session = sessionFor(state, today);
-  const prog = setProgress(session, day);
-  const shown = session.exercises.slice(0, 4);
-  const extra = session.exercises.length - shown.length;
-  const label = day.mainDone
-    ? 'Revoir la séance'
-    : prog.done > 0
-      ? `Continuer, ${prog.done}/${prog.total} séries`
-      : session.lifting
-        ? 'Commencer la séance'
-        : 'C’est parti';
-  return (
-    <div className={`mission ${day.mainDone ? 'done' : ''}`}>
-      <div className="kicker">{day.mainDone ? 'Mission accomplie' : 'Mission du jour'}</div>
-      <div className="display name">{session.name}</div>
-      <div className="focus small">
-        {session.focus}
-        {session.lifting ? `, ${session.exercises.length} exercices, ${session.duration}` : ''}
-      </div>
-      <div className="thumbs" aria-hidden>
-        {shown.map((ex) => {
-          const f = exerciseFrames(ex.key);
-          return f ? <img key={ex.key} src={f[0]} alt="" loading="lazy" /> : <span key={ex.key}>{ex.name.slice(0, 1)}</span>;
-        })}
-        {extra > 0 && <span>+{extra}</span>}
-      </div>
-      <button className="btn block" onClick={() => go('workout')}>
-        {day.mainDone && <Icon name="check" size={20} />}
-        {label}
-      </button>
     </div>
   );
 }
