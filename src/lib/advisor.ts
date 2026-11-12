@@ -129,6 +129,15 @@ export function adviseLoad(s: AppState, ex: Exercise, date: string): LoadAdvice 
     }
   }
 
+  // Forme du jour : on allège les jours sans, on pousse un peu les bons jours.
+  const form = s.days[date]?.form;
+  if (form === 'low' && trend !== 'stall') {
+    weight = floorTo(weight * 0.93, step);
+    text = `Forme basse : ${fmt(weight)} aujourd’hui (−7 %), mêmes reps, 2 reps en réserve. On remonte la prochaine fois.`;
+  } else if (form === 'high' && trend !== 'stall' && trend !== 'down') {
+    text += ' En forme : sur la dernière série, va jusqu’à 1 rep de l’échec.';
+  }
+
   const table = [3, 5, 6, 8, 10, 12, 15].map((r) => ({ reps: r, weight: floorTo(loadFor(oneRm, r), step) }));
   return { oneRm, weight, reps: `${lo === hi ? lo : `${lo}–${hi}`}`, sets, trend, text, table };
 }

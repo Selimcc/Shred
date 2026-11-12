@@ -90,7 +90,7 @@ k.updateSet(today, 'bench', 0, { r: 8 }, 4);
 logs = k.getState().days[today].sets.bench;
 check('les reps aussi', logs.map((l) => l.r).join(',') === '8,8,8,8');
 const ex = k.sessionFor(k.getState(), today).exercises[0];
-k.updateSet(today, ex.key, 0, { w: 40 }, ex.sets);
+k.updateSet(today, ex.key, 0, { w: 40 }, Math.max(2, ex.sets));
 logs = k.getState().days[today].sets[ex.key];
 logs[1].w = undefined;
 k.replaceState({ ...k.getState() });

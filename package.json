@@ -1,7 +1,7 @@
 {
   "name": "shred",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,7 @@
     "build:demo": "vite build --mode demo",
     "deploy": "npm run build && wrangler deploy",
     "vapid": "node scripts/gen-vapid.mjs",
-    "test": "node scripts/test-webpush.mjs && node scripts/test-reminders.mjs && node scripts/test-health.mjs && node scripts/test-auth.mjs && node scripts/test-knowledge.mjs && node scripts/test-flames.mjs && node scripts/test-coaching.mjs && node scripts/test-advisor.mjs",
+    "test": "node scripts/test-webpush.mjs && node scripts/test-reminders.mjs && node scripts/test-health.mjs && node scripts/test-auth.mjs && node scripts/test-knowledge.mjs && node scripts/test-flames.mjs && node scripts/test-coaching.mjs && node scripts/test-advisor.mjs && node scripts/test-dynamic.mjs",
     "setup": "node scripts/setup.mjs",
     "admin": "node scripts/admin.mjs"
   },

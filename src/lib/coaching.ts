@@ -2,8 +2,8 @@
 import { type Athlete, type Gym, nutritionPlan, type RaceDistance, type WeightGoal } from '../../shared/athlete';
 import { catalogEntry } from '../../shared/catalog';
 import { generateMealPlan } from '../../shared/meals';
+import { generateProgram, runnerStrength } from '../../shared/generator';
 import { adaptToGym, hyroxPlan, runningPlan } from '../../shared/plans';
-import { TEMPLATES } from '../../shared/templates';
 import type { Program } from '../../shared/types';
 import { dayKey } from './date';
 import type { Advice } from './report';
@@ -30,23 +30,54 @@ export function applyTargets() {
   return plan;
 }
 
-/** Programme adapté au profil : préparation de course, Hyrox, ou un modèle de musculation selon les jours dispo. */
-export function programFor(a: Athlete, gym: Gym, today = dayKey()): { program: Program; swaps: ReturnType<typeof adaptToGym>['swaps'] } {
-  const ref = a.race?.refSec ? { sec: a.race.refSec, km: a.race.refKm ?? 10 } : undefined;
-  let program: Program;
-  if (a.sport === 'running' && a.race?.date && a.race.distance !== 'hyrox') {
-    program = runningPlan({ distance: a.race.distance as RaceDistance, date: a.race.date, athlete: a, ref, today });
-  } else if (a.sport === 'hyrox' && a.race?.date) {
-    program = hyroxPlan({ date: a.race.date, athlete: a, ref, today });
-  } else {
-    const id = a.days <= 3 ? 'full-body' : a.days === 4 ? 'upper-lower' : a.days === 5 ? 'ppl-ul' : 'ppl6';
-    program = structuredClone(TEMPLATES.find((t) => t.id === id)!.program);
-  }
-  return adaptToGym(program, gym, nameOf);
+/** Exercices déjà pratiqués (au moins une série notée), pour garder la continuité des charges. */
+export function knownExercises(s: AppState): string[] {
+  const seen = new Set<string>();
+  for (const d of Object.values(s.days)) for (const [k, logs] of Object.entries(d.sets)) if (logs.some((l) => l.done)) seen.add(k);
+  return [...seen];
 }
 
+/**
+ * Programme adapté au profil : préparation de course ou Hyrox (avec un renfo selon le physique visé),
+ * sinon un split construit sur mesure (physique, priorités, jours, temps, matériel).
+ */
+export function programFor(a: Athlete, gym: Gym, today = dayKey(), s: AppState = getState()): { program: Program; swaps: ReturnType<typeof adaptToGym>['swaps']; notes: string[] } {
+  const ref = a.race?.refSec ? { sec: a.race.refSec, km: a.race.refKm ?? 10 } : undefined;
+  const input = { athlete: a, gym, known: knownExercises(s), custom: s.customExercises };
+  let program: Program;
+  let notes: string[] = [];
+  if ((a.sport === 'running' && a.race?.date && a.race.distance !== 'hyrox') || (a.sport === 'hyrox' && a.race?.date)) {
+    program =
+      a.sport === 'running'
+        ? runningPlan({ distance: a.race!.distance as RaceDistance, date: a.race!.date, athlete: a, ref, today })
+        : hyroxPlan({ date: a.race!.date, athlete: a, ref, today });
+    const renfo = runnerStrength(input);
+    program.sessions = program.sessions.map((x) => (x.id === renfo.id ? renfo : x));
+    program.meta = { physique: a.physique ?? 'athletic', priorities: a.priorities ?? [], generatedAt: today };
+  } else {
+    const r = generateProgram(input);
+    program = r.program;
+    notes = r.notes;
+  }
+  return { ...adaptToGym(program, gym, nameOf), notes };
+}
+
+/** Applique un programme en gardant l'ancien de côté (5 derniers), pour pouvoir revenir en arrière. */
 export function applyProgram(program: Program) {
-  setState((d) => void (d.program = program));
+  setState((d) => {
+    d.programHistory = [{ program: d.program, replacedAt: dayKey() }, ...(d.programHistory ?? [])].slice(0, 5);
+    d.program = program;
+  });
+}
+
+export function restorePreviousProgram(): boolean {
+  const prev = getState().programHistory?.[0];
+  if (!prev) return false;
+  setState((d) => {
+    d.program = prev.program;
+    d.programHistory = d.programHistory!.slice(1);
+  });
+  return true;
 }
 
 export function adaptCurrentProgram() {
