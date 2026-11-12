@@ -445,6 +445,9 @@ const EQUIP_NAME: Partial<Record<Equipment, string>> = {
   kettlebell: 'kettlebell', skierg: 'SkiErg', sled: 'traîneau', wallball: 'médecine-ball', sandbag: 'sandbag',
 };
 
+/** Remplaçants conseillés d'un exercice, dans l'ordre. */
+export const swapsFor = (key: string): string[] => SWAPS[key] ?? [];
+
 export function usable(key: string, gym: Gym): boolean {
   const need = NEEDS[key];
   return !need || need.some((e) => has(gym, e));

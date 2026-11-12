@@ -59,6 +59,8 @@ export interface Program {
   phases?: string[];
   /** La course visée. */
   event?: { name: string; date: string };
+  /** Programme construit par le générateur : avec quels choix. */
+  meta?: { physique: string; priorities: string[]; generatedAt: string };
 }
 
 /** Exercice prêt à l'emploi : entrée de la bibliothèque + réglages de la séance. */
@@ -74,6 +76,10 @@ export interface Exercise {
   note?: string;
   step?: number;
   noLoad?: boolean;
+  /** Clé de l'exercice prévu dans le programme, quand il est remplacé aujourd'hui. */
+  slotKey?: string;
+  /** Pourquoi il a changé : remplacé à la main, machine en panne, ou ajouté pour la séance. */
+  change?: 'swap' | 'broken' | 'extra';
 }
 
 export interface Session {

@@ -14,7 +14,7 @@ import { publishProfile } from '../lib/profile';
 import { enablePush, pushSupport } from '../lib/push';
 import { signedIn } from '../lib/session';
 import { type AiMode, setState, useApp } from '../lib/store';
-import { BodyForm, type Body, DietForm, GoalForm, GymForm, SportForm } from './AthleteForms';
+import { BodyForm, type Body, DietForm, GoalForm, GymForm, PhysiqueForm, SportForm } from './AthleteForms';
 
 const STEPS = ['Toi', 'Objectif', 'Sport', 'Salle', 'Assiette', 'Ton plan', 'Coach'];
 
@@ -123,6 +123,8 @@ export function Onboarding() {
             onStreakGoal={setStreakGoal}
           />
           {!plan && <p className="small muted">Indique âge, taille et poids à l’étape précédente pour avoir tes calories.</p>}
+          <h1 style={{ marginTop: 18 }}>Le physique que tu vises</h1>
+          <PhysiqueForm athlete={athlete} onAthlete={setAthlete} />
         </section>
       )}
 

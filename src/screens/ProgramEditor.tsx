@@ -24,7 +24,11 @@ import { useApp } from '../lib/store';
 import { sportLabel } from '../../shared/athlete';
 import { findSession, planWeek } from '../../shared/program';
 import { planSummary } from '../../shared/plans';
-import { adaptCurrentProgram, applyProgram, programFor } from '../lib/coaching';
+import { adaptCurrentProgram, restorePreviousProgram } from '../lib/coaching';
+import { PHYSIQUES, regionName } from '../../shared/generator';
+import { Braise } from '../components/Braise';
+import { ProgramBuilder } from './ProgramBuilder';
+import { applyTweak, dismissTweak, programTweaks } from '../lib/tweaks';
 import { addDays, dayKey, formatShort } from '../lib/date';
 
 const TYPE_NAMES: Record<SessionType, string> = { lifting: 'Muscu', cardio: 'Cardio', rest: 'Repos' };
@@ -37,8 +41,12 @@ export function ProgramEditor() {
   const [open, setOpen] = useState<string | null>(null);
   const [picker, setPicker] = useState<string | null>(null);
   const [templates, setTemplates] = useState(false);
+  const [builder, setBuilder] = useState(false);
+  const tweaks = programTweaks(s, dayKey());
   const p = s.program;
   const own = p.sessions.filter((x) => !x.generated);
+
+  if (builder) return <ProgramBuilder onDone={() => setBuilder(false)} />;
 
   if (picker) {
     return <ExercisePicker onBack={() => setPicker(null)} onPick={(key) => { addExercise(picker, key); setPicker(null); toast('Exercice ajouté'); }} />;
@@ -53,25 +61,21 @@ export function ProgramEditor() {
 
       {p.event && p.weeks && <PlanWeeks />}
 
-      <section className="stack">
-        <div className="section-head" style={{ marginBottom: 0 }}>
-          <h2>Selon mon profil</h2>
+      <section className="card stack builder-card" style={{ gap: 10 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <Braise mood="happy" size={52} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 850 }}>{s.settings.athlete.physique ? PHYSIQUES[s.settings.athlete.physique].label : 'Programme sur mesure'}</div>
+            <div className="small muted">
+              {sportLabel(s.settings.athlete)}, {s.settings.athlete.days} séances de {s.settings.athlete.minutes} min
+              {s.settings.athlete.priorities?.length ? `. Priorités : ${s.settings.athlete.priorities.map((r) => regionName(r).toLowerCase()).join(', ')}` : ''}
+            </div>
+          </div>
         </div>
-        <p className="small muted" style={{ margin: 0 }}>
-          {sportLabel(s.settings.athlete)}, {s.settings.athlete.days} séances par semaine, matériel de ta salle. Course et Hyrox : un plan daté jusqu’au jour J.
-        </p>
+        <button className="btn primary block" onClick={() => setBuilder(true)}>
+          <Icon name="sparkle" size={18} /> Construire mon programme
+        </button>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button
-            className="btn small primary"
-            onClick={async () => {
-              const { program, swaps } = programFor(s.settings.athlete, s.settings.gym);
-              if (!(await ask(`Remplacer ton programme par « ${program.name} » ?${swaps.length ? ` ${swaps.length} exercice(s) adapté(s) à ta salle.` : ''} Ton historique est conservé.`, 'Remplacer', true))) return;
-              applyProgram(program);
-              toast(`Programme « ${program.name} » chargé`);
-            }}
-          >
-            Générer mon programme
-          </button>
           <button
             className="btn small"
             onClick={() => {
@@ -81,11 +85,42 @@ export function ProgramEditor() {
           >
             Adapter à ma salle
           </button>
+          {s.programHistory?.[0] && (
+            <button
+              className="btn small"
+              onClick={async () => {
+                const prev = s.programHistory![0];
+                if (await ask(`Revenir à « ${prev.program.name} » (remplacé le ${formatShort(prev.replacedAt)}) ?`, 'Revenir')) {
+                  restorePreviousProgram();
+                  toast(`Programme « ${prev.program.name} » rétabli`);
+                }
+              }}
+            >
+              <Icon name="undo" size={15} /> Programme précédent
+            </button>
+          )}
         </div>
-        <p className="small faint" style={{ margin: 0 }}>
-          Sport, course et disponibilités : Réglages, Profil sportif.
-        </p>
       </section>
+
+      {tweaks.length > 0 && (
+        <section className="stack" style={{ gap: 10 }}>
+          <h2>Propositions de Braise</h2>
+          {tweaks.map((t) => (
+            <div key={t.id} className="card tweak">
+              <div style={{ fontWeight: 800 }}>{t.title}</div>
+              <div className="small muted">{t.text}</div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn small primary" onClick={() => toast(applyTweak(t))}>
+                  {t.cta}
+                </button>
+                <button className="btn small" onClick={() => dismissTweak(t.id, dayKey())}>
+                  Plus tard
+                </button>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       <section>
         <div className="section-head">
@@ -343,7 +378,7 @@ function SessionCard({
 const GROUP_ORDER: MuscleGroup[] = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'neck', 'cardio', 'other'];
 
 /** Bibliothèque d'exercices avec recherche, filtre par muscle et création d'exercice. */
-function ExercisePicker({ onBack, onPick }: { onBack: () => void; onPick: (key: string) => void }) {
+export function ExercisePicker({ onBack, onPick }: { onBack: () => void; onPick: (key: string) => void }) {
   const s = useApp();
   const [q, setQ] = useState('');
   const [group, setGroup] = useState<MuscleGroup | 'all'>('all');

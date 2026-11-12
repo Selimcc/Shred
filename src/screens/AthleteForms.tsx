@@ -17,6 +17,7 @@ import {
   WEIGHT_GOALS,
   type WeightGoal,
 } from '../../shared/athlete';
+import { PHYSIQUES, type Physique, type Region, REGIONS } from '../../shared/generator';
 import { fmtDuration, fmtPace, paces } from '../../shared/plans';
 import { ChoiceCard, Field, NumberSetting, Toggle } from '../components/form';
 import { addDays, dayKey, formatNumber } from '../lib/date';
@@ -160,7 +161,8 @@ const SPORTS: { id: Sport; title: string; text: string }[] = [
   { id: 'strength', title: 'Musculation', text: 'Prendre du muscle et de la force.' },
   { id: 'running', title: 'Course à pied', text: '10 km, semi-marathon ou marathon, avec un plan daté jusqu’à la course.' },
   { id: 'hyrox', title: 'Hyrox', text: '8 × 1 km de course et 8 stations : un plan hybride force et cardio.' },
-  { id: 'mixed', title: 'Muscu et cardio', text: 'Garder la forme sans objectif de course.' },
+  { id: 'mixed', title: 'Muscu et cardio', text: 'Physique et cardio dans la même semaine, sans objectif de course.' },
+  { id: 'combat', title: 'Sport de combat', text: 'MMA, boxe, grappling : force, puissance et cardio de combat, à côté de tes entraînements au club.' },
 ];
 
 function parseTime(text: string): number | undefined {
@@ -362,5 +364,63 @@ export function DietForm({ diet, onDiet }: { diet: DietPrefs; onDiet: (d: DietPr
         <input className="input" value={diet.dislikes} onChange={(e) => onDiet({ ...diet, dislikes: e.target.value.slice(0, 200) })} />
       </Field>
     </div>
+  );
+}
+
+/** Le physique visé et les zones à prioriser : c'est ce qui oriente le split et le volume. */
+export function PhysiqueForm({ athlete, onAthlete, suggested = [] }: { athlete: Athlete; onAthlete: (a: Athlete) => void; suggested?: Region[] }) {
+  const current = athlete.physique ?? 'aesthetic';
+  const prios = athlete.priorities ?? [];
+  const toggle = (r: Region) => {
+    const next = prios.includes(r) ? prios.filter((x) => x !== r) : [...prios, r].slice(-3);
+    onAthlete({ ...athlete, priorities: next });
+  };
+  return (
+    <div className="stack">
+      <div className="physique-grid">
+        {(Object.keys(PHYSIQUES) as Physique[]).map((id) => (
+          <button key={id} type="button" className={`physique ${current === id ? 'on' : ''}`} onClick={() => onAthlete({ ...athlete, physique: id })}>
+            <PhysiqueGlyph id={id} />
+            <span className="physique-title">{PHYSIQUES[id].label}</span>
+            <span className="physique-text">{PHYSIQUES[id].text}</span>
+          </button>
+        ))}
+      </div>
+      <h2 style={{ marginTop: 6 }}>Tes priorités</h2>
+      <p className="small muted" style={{ margin: 0 }}>
+        Jusqu’à 3 zones : elles passent en début de séance et reçoivent plus de séries.
+        {suggested.length > 0 && ' Les zones marquées d’un point viennent de tes données (force et volume des dernières semaines).'}
+      </p>
+      <div className="chips">
+        {REGIONS.map((r) => (
+          <button key={r.id} type="button" className={chip(prios.includes(r.id))} onClick={() => toggle(r.id)}>
+            {r.name}
+            {suggested.includes(r.id) && <span className="dot-hint" aria-label=" (suggéré)" />}
+          </button>
+        ))}
+      </div>
+      {suggested.length > 0 && suggested.some((r) => !prios.includes(r)) && (
+        <button type="button" className="link small" style={{ alignSelf: 'flex-start' }} onClick={() => onAthlete({ ...athlete, priorities: [...new Set([...suggested, ...prios])].slice(0, 3) })}>
+          Prendre les priorités suggérées
+        </button>
+      )}
+    </div>
+  );
+}
+
+const GLYPHS: Record<Physique, string> = {
+  aesthetic: 'M14 6h12l4 6-3 22H13l-3-22 4-6ZM17 16h6M17 21h6M17 26h6M20 14v16',
+  'v-taper': 'M6 7h28l-9 27h-10L6 7ZM20 7v27',
+  mass: 'M9 8h22c3 0 4 3 3 7l-3 19H9L6 15c-1-4 0-7 3-7ZM14 16c3 2 9 2 12 0',
+  strength: 'M4 20h32M8 13v14M12 11v18M28 11v18M32 13v14',
+  athletic: 'M22 4 10 22h9l-2 14 13-19h-9l1-13Z',
+  lower: 'M12 5h16l-1 10-3 20h-3l-1-16-1 16h-3l-3-20-1-10Z',
+};
+
+function PhysiqueGlyph({ id }: { id: Physique }) {
+  return (
+    <svg className={`physique-icon p-${id}`} viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
+      <path d={GLYPHS[id]} fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

@@ -1,11 +1,12 @@
 // Qui est la personne, ce qu'elle vise, où elle s'entraîne : tout ce qui sert à adapter
 // le programme, les calories, les repas et le bilan. Calculs purs, testables.
+import type { Physique, Region } from './generator';
 import type { Macros } from './types';
 
 export type Sex = 'male' | 'female';
 export type Activity = 'sedentary' | 'light' | 'moderate' | 'active';
 export type Experience = 'beginner' | 'intermediate' | 'advanced';
-export type Sport = 'strength' | 'running' | 'hyrox' | 'mixed';
+export type Sport = 'strength' | 'running' | 'hyrox' | 'mixed' | 'combat';
 export type RaceDistance = '10k' | 'half' | 'marathon';
 
 export interface DietPrefs {
@@ -36,6 +37,10 @@ export interface Athlete {
   minutes: number;
   race?: { distance: RaceDistance | 'hyrox'; date: string; /** Temps de référence récent, en secondes, sur refKm. */ refSec?: number; refKm?: number };
   diet: DietPrefs;
+  /** Le physique visé : oriente le split et le volume par muscle. */
+  physique?: Physique;
+  /** Zones à faire passer en priorité (3 au plus). */
+  priorities?: Region[];
 }
 
 export const DEFAULT_ATHLETE: Athlete = {
@@ -45,6 +50,15 @@ export const DEFAULT_ATHLETE: Athlete = {
   days: 4,
   minutes: 60,
   diet: { vegetarian: false, noPork: false, lactoseFree: false, cook: 'normal', budget: 'normal', meals: 4, dislikes: '' },
+};
+
+const PHYSIQUE_LABELS: Record<Physique, string> = {
+  aesthetic: 'esthétique et sec',
+  'v-taper': 'dos en V, épaules larges',
+  mass: 'masse',
+  strength: 'force',
+  athletic: 'athlète hybride',
+  lower: 'bas du corps et fessiers',
 };
 
 /* ---------- Salle et matériel ---------- */
@@ -140,7 +154,7 @@ export function bmr(weight: number, height: number, age: number, sex?: Sex): num
 
 /** Les séances ajoutent à l'activité quotidienne : ~5 % par séance hebdomadaire au-delà de 2, plafonné. */
 export function tdee(weight: number, height: number, age: number, a: Pick<Athlete, 'sex' | 'activity' | 'days' | 'sport'>): number {
-  const training = Math.min(0.2, Math.max(0, a.days - 2) * (a.sport === 'running' || a.sport === 'hyrox' ? 0.05 : 0.035));
+  const training = Math.min(0.2, Math.max(0, a.days - 2) * (a.sport === 'running' || a.sport === 'hyrox' || a.sport === 'combat' ? 0.05 : 0.035));
   return bmr(weight, height, age, a.sex) * (ACTIVITY[a.activity].factor + training);
 }
 
@@ -212,6 +226,7 @@ export function sportLabel(a: Athlete): string {
   if (a.sport === 'running') return a.race?.distance === 'marathon' ? 'Marathon' : a.race?.distance === '10k' ? '10 km' : 'Semi-marathon';
   if (a.sport === 'hyrox') return 'Hyrox';
   if (a.sport === 'mixed') return 'Muscu et cardio';
+  if (a.sport === 'combat') return 'Sport de combat';
   return 'Musculation';
 }
 
@@ -221,6 +236,7 @@ export function athleteSummary(a: Athlete, gym: Gym): string {
     `Sport : ${sportLabel(a)}${a.race?.date ? `, objectif le ${a.race.date}` : ''}`,
     `${a.days} séances par semaine de ${a.minutes} min, niveau ${a.experience === 'beginner' ? 'débutant' : a.experience === 'advanced' ? 'avancé' : 'intermédiaire'}`,
     a.bodyFat ? `Masse grasse estimée ${a.bodyFat} %${a.targetBodyFat ? `, visée ${a.targetBodyFat} %` : ''}` : '',
+    a.physique ? `Physique visé : ${PHYSIQUE_LABELS[a.physique]}${a.priorities?.length ? `, priorités : ${a.priorities.join(', ')}` : ''}` : '',
     `Salle : ${GYMS.find((g) => g.id === gym.chain)?.name ?? 'autre'}${gym.club ? ` (${gym.club})` : ''}, matériel : ${EQUIPMENT.filter((e) => gym.equipment[e.id]).map((e) => e.name.toLowerCase()).join(', ')}`,
     [a.diet.vegetarian && 'végétarien', a.diet.noPork && 'sans porc', a.diet.lactoseFree && 'sans lactose'].filter(Boolean).join(', '),
     a.diet.dislikes.trim() ? `N’aime pas : ${a.diet.dislikes.trim()}` : '',
