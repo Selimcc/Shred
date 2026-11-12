@@ -9,7 +9,11 @@ import { exerciseFrames, exerciseInfo, videoUrl } from '../lib/exercise-info';
 import { adviseLoad, loadFor } from '../lib/advisor';
 import { e1rm } from '../lib/strength';
 import { fmtKg, formatSets, lastPerformance, nextTarget, sessionFor, setProgress } from '../lib/logic';
-import { readDay, type SetLog, useApp } from '../lib/store';
+import { type Form, readDay, type SetLog, useApp } from '../lib/store';
+import { addExtra, alternatives, BROKEN_DAYS, isBroken, markRepaired, removeExtra, setExpress, setForm, skipExercise, swapExercise, SWAP_REASONS, type SwapReason, undoSwap } from '../lib/dynamic';
+import { applyTweak, dismissTweak, programTweaks } from '../lib/tweaks';
+import { catalogEntry } from '../../shared/catalog';
+import { ExercisePicker } from './ProgramEditor';
 
 const fmtRest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60}` : ''}` : `${sec} s`);
 
@@ -21,6 +25,10 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
   const [picker, setPicker] = useState(false);
   const [demo, setDemo] = useState<Exercise | null>(null);
   const [timer, setTimer] = useState<{ end: number; total: number } | null>(null);
+  const [swap, setSwap] = useState<Exercise | null>(null);
+  const [adding, setAdding] = useState(false);
+  const tweaks = programTweaks(s, today);
+  const broken = Object.entries(s.settings.broken ?? {}).filter(([key]) => isBroken(s, key, today));
   const planned = scheduleFor(s.program, today)[weekdayOf(today)];
 
   const onSet = (ex: Exercise, i: number) => {
@@ -74,6 +82,76 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
         )}
       </header>
 
+      {session.lifting && !day.mainDone && (
+        <div className="day-controls">
+          <div className="seg" role="group" aria-label="Forme du jour">
+            {(
+              [
+                ['low', 'Fatigué'],
+                [undefined, 'Normal'],
+                ['high', 'En forme'],
+              ] as [Form | undefined, string][]
+            ).map(([f, label]) => (
+              <button key={label} type="button" className={(day.form ?? undefined) === f ? 'on' : ''} onClick={() => setForm(today, f)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="seg" role="group" aria-label="Temps disponible">
+            {([undefined, 45, 30] as (number | undefined)[]).map((m) => (
+              <button key={m ?? 'full'} type="button" className={day.express === m ? 'on' : ''} onClick={() => setExpress(today, m)}>
+                {m ? `${m} min` : 'Complet'}
+              </button>
+            ))}
+          </div>
+          {(day.form || day.express) && (
+            <p className="small muted" style={{ margin: 0 }}>
+              {day.form === 'low' && 'Fatigué : une série de moins sur les exercices secondaires, charges allégées. '}
+              {day.form === 'high' && 'En forme : charges normales, pousse la dernière série. '}
+              {day.express && `Express ${day.express} min : repos raccourcis, l’essentiel d’abord (environ ${session.duration}).`}
+            </p>
+          )}
+        </div>
+      )}
+
+      {broken.length > 0 && (
+        <div className="card notice stack" style={{ gap: 8 }}>
+          {broken.map(([key, b]) => (
+            <div key={key} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <Icon name="wrench" size={18} />
+              <div className="grow small">
+                <b>{catalogEntry(key, s.customExercises)?.name ?? key}</b> en panne : remplacé automatiquement jusqu’au {formatShort(b.until)}.
+              </div>
+              <button className="link small" onClick={() => markRepaired(key)}>
+                Réparée
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tweaks.length > 0 && !day.mainDone && prog.done === 0 && (
+        <section className="stack tweaks" style={{ gap: 10, marginBottom: 14 }}>
+          {tweaks.slice(0, 1).map((t) => (
+            <div key={t.id} className="card tweak">
+              <div className="tweak-head">
+                <Icon name="sparkle" size={16} /> Braise te propose
+              </div>
+              <div style={{ fontWeight: 800 }}>{t.title}</div>
+              <div className="small muted">{t.text}</div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn small primary" onClick={() => toast(applyTweak(t))}>
+                  {t.cta}
+                </button>
+                <button className="btn small" onClick={() => dismissTweak(t.id, today)}>
+                  Plus tard
+                </button>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
       {session.exercises.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '28px 18px' }}>
           <p style={{ marginTop: 0, fontWeight: 700 }}>Cette séance est vide.</p>
@@ -86,9 +164,28 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
 
       <div className="stack">
         {session.exercises.map((ex) => (
-          <ExerciseCard key={ex.key} ex={ex} date={today} logs={day.sets[ex.key] ?? []} onSet={onSet} onDemo={() => setDemo(ex)} />
+          <ExerciseCard key={ex.key} ex={ex} date={today} logs={day.sets[ex.key] ?? []} onSet={onSet} onDemo={() => setDemo(ex)} onSwap={() => setSwap(ex)} />
         ))}
       </div>
+      {session.type !== 'rest' && !day.mainDone && (
+        <button className="btn block dashed" style={{ marginTop: 12 }} onClick={() => setAdding(true)}>
+          <Icon name="plus" size={18} /> Ajouter un exercice
+        </button>
+      )}
+      {(day.skipped?.length ?? 0) > 0 && (
+        <p className="small muted" style={{ margin: '10px 2px 0' }}>
+          Sauté aujourd’hui :{' '}
+          {day.skipped!.map((k, i) => (
+            <span key={k}>
+              {i > 0 && ', '}
+              {catalogEntry(k, s.customExercises)?.name ?? k}{' '}
+              <button className="link small" onClick={() => skipExercise(today, k, false)}>
+                remettre
+              </button>
+            </span>
+          ))}
+        </p>
+      )}
 
       <div style={{ marginTop: 22 }}>
         {day.mainDone ? (
@@ -121,6 +218,21 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
       )}
 
       {demo && <DemoSheet ex={demo} onClose={() => setDemo(null)} />}
+
+      {swap && <SwapSheet ex={swap} date={today} sessionId={session.id} taken={session.exercises.map((x) => x.key)} onClose={() => setSwap(null)} />}
+
+      {adding && (
+        <Sheet title="Ajouter à la séance" onClose={() => setAdding(false)}>
+          <ExercisePicker
+            onBack={() => setAdding(false)}
+            onPick={(key) => {
+              addExtra(today, key);
+              setAdding(false);
+              toast('Ajouté à la séance du jour');
+            }}
+          />
+        </Sheet>
+      )}
 
       {picker && (
         <Sheet title="Séance du jour" onClose={() => setPicker(false)}>
@@ -161,12 +273,14 @@ function ExerciseCard({
   logs,
   onSet,
   onDemo,
+  onSwap,
 }: {
   ex: Exercise;
   date: string;
   logs: SetLog[];
   onSet: (ex: Exercise, i: number) => void;
   onDemo: () => void;
+  onSwap: () => void;
 }) {
   const s = useApp();
   const last = lastPerformance(s, ex.key, date);
@@ -190,6 +304,30 @@ function ExerciseCard({
           </span>
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
+          {ex.change && (
+            <div className="change-badge">
+              {ex.change === 'extra' ? (
+                <>
+                  Ajouté aujourd’hui{' '}
+                  <button className="link" onClick={() => removeExtra(date, ex.key)}>
+                    retirer
+                  </button>
+                </>
+              ) : (
+                <>
+                  {ex.change === 'broken' ? 'Machine en panne : ' : ''}remplace {catalogEntry(ex.slotKey!, s.customExercises)?.name.toLowerCase() ?? ex.slotKey}
+                  {ex.change === 'swap' && (
+                    <>
+                      {' '}
+                      <button className="link" onClick={() => undoSwap(date, ex.slotKey!)}>
+                        annuler
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
           <div style={{ fontWeight: 800, lineHeight: 1.25 }}>{ex.name}</div>
           {!isTask && (
             <div className="chips" style={{ gap: 6, marginTop: 8 }}>
@@ -216,6 +354,11 @@ function ExerciseCard({
             </span>
           )}
         </div>
+        {!isTask && ex.change !== 'extra' && (
+          <button className="icon-btn swap-btn" onClick={onSwap} aria-label={`Remplacer ${ex.name}`} title="Remplacer ou sauter">
+            <Icon name="swap" size={18} />
+          </button>
+        )}
       </div>
 
       {last && !isTask && (
@@ -227,6 +370,11 @@ function ExerciseCard({
       {advice && !complete && (
         <p className="small advice" style={{ margin: '6px 0 0' }}>
           <Icon name="bolt" size={13} /> {advice.text}
+        </p>
+      )}
+      {!last && ex.change && loaded && !complete && (
+        <p className="small advice" style={{ margin: '8px 0 0' }}>
+          <Icon name="bolt" size={13} /> Nouvel exercice pour toi : commence léger, garde 2 à 3 reps en réserve sur la 1re série, puis ajuste. La prochaine fois, Braise aura tes chiffres.
         </p>
       )}
 
@@ -264,6 +412,87 @@ function ExerciseCard({
         })}
       </div>
     </article>
+  );
+}
+
+function SwapSheet({ ex, date, sessionId, taken, onClose }: { ex: Exercise; date: string; sessionId: string; taken: string[]; onClose: () => void }) {
+  const s = useApp();
+  const slotKey = ex.slotKey ?? ex.key;
+  const [reason, setReason] = useState<SwapReason>('busy');
+  const [always, setAlways] = useState(false);
+  const alts = alternatives(s, slotKey, date, taken.filter((k) => k !== ex.key)).filter((a) => a.key !== ex.key).slice(0, 8);
+  const original = catalogEntry(slotKey, s.customExercises);
+  return (
+    <Sheet title={`Remplacer : ${original?.name ?? ex.name}`} onClose={onClose}>
+      <div className="stack" style={{ gap: 14 }}>
+        <div className="chips" role="group" aria-label="Pourquoi">
+          {SWAP_REASONS.map((r) => (
+            <button key={r.id} type="button" className={`chip ${reason === r.id ? 'on' : ''}`} onClick={() => setReason(r.id)}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <p className="small muted" style={{ margin: 0 }}>
+          {reason === 'broken' && `Braise le remplacera automatiquement pendant ${BROKEN_DAYS} jours, puis te reproposera la machine.`}
+          {reason === 'busy' && 'Juste pour aujourd’hui : ton programme ne change pas.'}
+          {reason === 'pain' && 'Choisis un mouvement qui ne fait pas mal, charge modérée. Si la douleur dure, montre-la à un pro.'}
+          {reason === 'vary' && 'Varier de temps en temps relance la progression. Coche « garder » pour l’adopter.'}
+        </p>
+        <div className="group">
+          {alts.map((a) => {
+            const last = lastPerformance(s, a.key, date);
+            return (
+              <button
+                key={a.key}
+                className="row"
+                style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }}
+                onClick={() => {
+                  swapExercise(date, slotKey, a.key, { reason, always, sessionId });
+                  toast(always ? `${a.name} remplace ${original?.name.toLowerCase()} dans ton programme` : `${a.name} pour aujourd’hui`);
+                  onClose();
+                }}
+              >
+                <div className="grow">
+                  <div className="title">{a.name}</div>
+                  <div className="small muted">
+                    {a.why} · {a.muscles.slice(0, 3).join(', ')}
+                    {last && !ex.noLoad ? ` · dernière fois ${formatSets(last.sets)}` : ''}
+                  </div>
+                </div>
+                <Icon name="chevron" />
+              </button>
+            );
+          })}
+          {!alts.length && <p className="small muted" style={{ padding: 12, margin: 0 }}>Aucun remplaçant avec le matériel de ta salle. Ajoute un exercice libre plus bas.</p>}
+        </div>
+        <label className="check-line">
+          <input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} /> Garder ce changement dans mon programme
+        </label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            className="btn small"
+            onClick={() => {
+              skipExercise(date, slotKey);
+              toast(`${original?.name ?? ex.name} sauté aujourd’hui`);
+              onClose();
+            }}
+          >
+            <Icon name="skip" size={15} /> Sauter aujourd’hui
+          </button>
+          {ex.change === 'swap' && (
+            <button
+              className="btn small"
+              onClick={() => {
+                undoSwap(date, slotKey);
+                onClose();
+              }}
+            >
+              <Icon name="undo" size={15} /> Revenir à {original?.name.toLowerCase()}
+            </button>
+          )}
+        </div>
+      </div>
+    </Sheet>
   );
 }
 

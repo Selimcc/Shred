@@ -12,7 +12,7 @@ import {
 import { type Athlete, DEFAULT_ATHLETE, DEFAULT_GYM, type Gym, type WeightGoal } from '../../shared/athlete';
 import type { MealPrep } from '../../shared/meals';
 import { DEFAULT_PROGRAM } from '../../shared/templates';
-import type { CatalogEntry, HabitDef, PlannedMeal, Program } from '../../shared/types';
+import type { CatalogEntry, ExerciseSlot, HabitDef, PlannedMeal, Program } from '../../shared/types';
 import { addDays, dayKey } from './date';
 import { demoState } from './demo-seed';
 
@@ -42,9 +42,21 @@ export interface MealEntry extends Macros {
   at: number;
 }
 
+/** Forme du jour : ajuste les séries et les charges conseillées. */
+export type Form = 'low' | 'ok' | 'high';
+
 export interface DayLog {
   /** Séance choisie à la place de celle du planning. */
   session?: SessionId;
+  /** Exercices remplacés aujourd'hui : clé prévue → clé faite. */
+  swaps?: Record<string, string>;
+  /** Exercices sautés aujourd'hui (clé prévue). */
+  skipped?: string[];
+  /** Exercices ajoutés pour la séance du jour. */
+  extra?: ExerciseSlot[];
+  form?: Form;
+  /** Séance express : minutes disponibles. */
+  express?: number;
   sets: Record<string, SetLog[]>;
   mainDone: boolean;
   mainDoneAt?: number;
@@ -100,6 +112,8 @@ export interface Settings {
   gym: Gym;
   /** Envoyer le bilan de la semaine par mail (si le serveur sait envoyer). */
   reportEmail: boolean;
+  /** Machines signalées en panne : l'exercice est remplacé automatiquement jusqu'à la date. */
+  broken?: Record<string, { since: string; until: string }>;
 }
 
 export interface PublicProfileSettings {
@@ -165,9 +179,13 @@ export interface AppState {
     /** Lundi de la dernière semaine dont le bilan a été vu, et envoyé par mail. */
     reportSeen?: string;
     reportMailed?: string;
+    /** Propositions d'ajustement écartées, avec la date. */
+    dismissedTweaks?: Record<string, string>;
   };
   /** Liste de courses et préparation du meal plan en cours. */
   prep?: MealPrep;
+  /** Programmes remplacés (le plus récent d'abord), pour revenir en arrière. */
+  programHistory?: { program: Program; replacedAt: string }[];
 }
 
 const KEY = 'shred:v1';

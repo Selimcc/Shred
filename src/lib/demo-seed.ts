@@ -63,6 +63,7 @@ export function demoState(base: AppState): AppState {
       onboarded: true,
       ai: 'api',
       coachNotes: 'Objectif : sèche en gardant mes charges. Meal prep le dimanche, budget serré.',
+      athlete: { ...base.settings.athlete, physique: 'aesthetic', priorities: ['delts', 'back'], days: 5, minutes: 75 },
     },
     days,
     body: { weight, waist },

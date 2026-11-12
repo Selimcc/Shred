@@ -1,3 +1,4 @@
+import { adaptSession } from './dynamic';
 import { type Exercise, findSession, type Macros, resolveSession, scheduleFor, type Session } from '../../shared/program';
 import { addDays, mondayOf, weekdayOf } from './date';
 import { type AppState, type DayLog, readDay, type SetLog } from './store';
@@ -7,8 +8,10 @@ export function sessionIdFor(s: AppState, key: string): string {
   return s.days[key]?.session ?? scheduleFor(s.program, key)[weekdayOf(key)];
 }
 
+/** La séance du jour, avec les changements du jour (remplacements, pannes, forme, temps dispo). */
 export function sessionFor(s: AppState, key: string): Session {
-  return resolveSession(findSession(s.program, sessionIdFor(s, key)), s.customExercises);
+  const def = findSession(s.program, sessionIdFor(s, key));
+  return adaptSession(def, resolveSession(def, s.customExercises), s, key);
 }
 
 /** Règle de validation d'une journée, d'après les réglages et les modules actifs. */
