@@ -3564,6 +3564,92 @@ span.roll.roll {
   }
 }
 
+/* ---------- Réglages ---------- */
+
+.settings-menu {
+  gap: 18px;
+}
+.settings-me {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  padding: 16px;
+  border: 0;
+}
+.settings-me-name {
+  display: block;
+  font-weight: 800;
+  font-size: 1.15rem;
+}
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 0.95rem;
+  overflow: hidden;
+}
+.avatar.big {
+  width: 52px;
+  height: 52px;
+  font-size: 1.3rem;
+}
+.avatar.small {
+  width: 26px;
+  height: 26px;
+  font-size: 0.72rem;
+}
+.settings-group {
+  margin: 0 4px 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+.settings-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.settings-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 4px 8px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-weight: 650;
+  padding: 4px 0;
+}
+.settings-more[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+
 /* ---------- Petits écrans (iPhone SE, Android compacts) ---------- */
 
 /* Zone tactile des liens texte : 44 px de haut sans changer la mise en page. */

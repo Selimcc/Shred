@@ -1,2 +1,13 @@
+# Pas d'indexation par les moteurs de recherche.
 User-agent: *
+Disallow: /
+
+# Les aperçus de lien (WhatsApp, iMessage, Messenger, X, LinkedIn, Slack) peuvent lire la page d'accueil et sa miniature.
+User-agent: facebookexternalhit
+User-agent: Twitterbot
+User-agent: LinkedInBot
+User-agent: Slackbot-LinkExpanding
+User-agent: WhatsApp
+Allow: /$
+Allow: /og.png
 Disallow: /
