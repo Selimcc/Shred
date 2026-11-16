@@ -228,8 +228,8 @@ function inviteMessage(code: string, expires: string) {
     'Salut ! Je te fais tester Shred, mon app de muscu (séances, repas, série du jour).',
     `Crée ton compte ici : ${link}`,
     `Code d’invitation : ${code} (valable jusqu’au ${until(expires)})`,
-    'iPhone : ouvre le lien dans Safari, puis Partager, « Sur l’écran d’accueil », et lance l’app depuis l’icône.',
-    'Android : ouvre-le dans Chrome, menu ⋮, « Installer l’application ».',
+    'iPhone : ouvre le lien dans Safari, touche ⋯ (ou Partager), puis Partager, « Sur l’écran d’accueil » et Ajouter. Ouvre Shred depuis l’icône : ton code est déjà rempli.',
+    'Android : ouvre-le dans Chrome et touche « Installer l’app » (ou menu ⋮, « Installer l’application »).',
   ].join('\n');
 }
 

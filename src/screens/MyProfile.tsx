@@ -1,6 +1,6 @@
 // Mon profil : un seul endroit pour qui tu es (photo, prénom, corps), ton sport, ton alimentation et ce que
 // le coach doit savoir. En haut, ce que les autres voient de toi : niveau, série, étincelles, fiche de force.
-import { type ChangeEvent, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, useRef, useState } from 'react';
 import { type Athlete, ACTIVITIES, sportLabel } from '../../shared/athlete';
 import { AvatarCrop } from '../components/AvatarCrop';
 import { Field } from '../components/form';
@@ -9,7 +9,8 @@ import { Radar } from '../components/Radar';
 import { RollingNumber } from '../components/RollingNumber';
 import { ask, errorText, toast } from '../components/ui';
 import { DEMO } from '../lib/api';
-import { club, type Member } from '../lib/club';
+import { club } from '../lib/club';
+import { setMe, useMe } from '../lib/me';
 import { applyProgram, applyTargets, lastWeight, programFor } from '../lib/coaching';
 import { dayKey, formatNumber } from '../lib/date';
 import { flameInfo } from '../lib/flames';
@@ -51,17 +52,10 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
   const today = dayKey();
   const weight = lastWeight(s);
   const [open, setOpen] = useState<Part | null>(null);
-  const [me, setMe] = useState<Member | null>(null);
+  const me = useMe();
   const file = useRef<HTMLInputElement>(null);
   const canPhoto = DEMO || signedIn();
 
-  useEffect(() => {
-    if (!canPhoto) return;
-    club.members().then(
-      (r) => setMe(r.members.find((m) => m.me) ?? null),
-      () => undefined,
-    );
-  }, []);
 
   const saveAthlete = (x: Athlete) => setState((d) => void (d.settings.athlete = x));
   const toggle = (id: Part) => setOpen((o) => (o === id ? null : id));
@@ -87,7 +81,11 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
   const upload = async (dataUrl: string) => {
     try {
       const r = await club.avatar(dataUrl);
-      setMe((m) => (m ? { ...m, avatar: r.avatar } : m));
+      if (me) setMe({ ...me, avatar: r.avatar });
+      else {
+        const mine = (await club.members()).members.find((x) => x.me);
+        if (mine) setMe({ id: mine.id, avatar: r.avatar });
+      }
       setCrop(null);
       toast('Photo de profil mise à jour');
     } catch (err) {

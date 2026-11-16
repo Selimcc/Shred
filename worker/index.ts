@@ -17,7 +17,7 @@ export { RestTimer } from './timers';
 export { Club } from './club';
 export { Usage } from './usage';
 
-const VERSION = '0.14.0';
+const VERSION = '0.14.1';
 
 function cors(res: Response): Response {
   const h = new Headers(res.headers);
@@ -248,6 +248,15 @@ export default {
     // Les fichiers de l'app ne touchent ni KV ni les objets : seules les requêtes de l'API sont comptées.
     const env = url.pathname.startsWith('/api/') ? metered(rawEnv) : rawEnv;
     if (env !== rawEnv) ctx?.waitUntil(flushUsage(env).then(() => alertIfNeeded(env)));
+    // Lien d'invitation : l'app installée depuis ce lien s'ouvre avec le code déjà rempli.
+    const invite = url.searchParams.get('invite');
+    if (url.pathname === '/manifest.webmanifest' && invite && /^[A-Za-z0-9-]{4,40}$/.test(invite)) {
+      const res = await rawEnv.ASSETS.fetch(new Request(new URL('/manifest.webmanifest', url), req));
+      const manifest = (await res.json()) as Record<string, unknown>;
+      return new Response(JSON.stringify({ ...manifest, start_url: `/?invite=${encodeURIComponent(invite)}` }), {
+        headers: { 'content-type': 'application/manifest+json', 'cache-control': 'no-store' },
+      });
+    }
     if (!url.pathname.startsWith('/api/')) {
       // App privée : on demande aux moteurs de recherche de ne pas l'indexer.
       const res = await env.ASSETS.fetch(req);

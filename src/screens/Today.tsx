@@ -30,6 +30,9 @@ import {
 } from '../lib/logic';
 import { type AppState, readDay, useApp } from '../lib/store';
 import type { Tab } from '../App';
+import { InstallGuide } from '../components/InstallGuide';
+import { DEMO } from '../lib/api';
+import { installDismissed } from '../lib/install';
 
 
 
@@ -90,6 +93,7 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
   const st = streakInfo(s, today);
   const flames = flameInfo(s, today);
   const [report, setReport] = useState<string | null>(null);
+  const [showInstall, setShowInstall] = useState(() => !DEMO && !installDismissed());
   const planLine = planSummary(s.program, today);
   const prog = setProgress(session, day);
   const t = totals(day);
@@ -131,6 +135,12 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
           <Icon name="gear" size={20} />
         </button>
       </header>
+
+      {showInstall && (
+        <div style={{ marginBottom: 16 }}>
+          <InstallGuide compact onLater={() => setShowInstall(false)} />
+        </div>
+      )}
 
       <section className="today-hero" style={{ '--tier': tier } as CSSProperties}>
         <button className="hero-coach" onClick={() => go('coach')} aria-label="Parler à Pulse, ton coach">

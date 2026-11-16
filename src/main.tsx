@@ -5,6 +5,9 @@ import { DEMO } from './lib/api';
 import { isNative } from './lib/native';
 import { startSync } from './lib/sync';
 import './styles.css';
+import { carryInvite } from './lib/install';
+
+carryInvite();
 
 startSync();
 

@@ -34,6 +34,7 @@ import { Field } from '../components/form';
 import { dayKey, formatShort } from '../lib/date';
 import { prepareImage } from '../lib/image';
 import { AvatarCrop } from '../components/AvatarCrop';
+import { setMe } from '../lib/me';
 import { signedIn } from '../lib/session';
 import { getState, setState, useApp } from '../lib/store';
 import { moment } from '../lib/moments';
@@ -119,7 +120,10 @@ export function Club({ openSettings, compose, onComposed, openPost }: { openSett
       setNotices({ list: n.notices, unread: n.unread });
       // Les étincelles reçues deviennent de l'XP.
       const mine = m.members.find((x) => x.me);
-      if (mine) rememberMe(mine.id);
+      if (mine) {
+        rememberMe(mine.id);
+        setMe({ id: mine.id, avatar: mine.avatar });
+      }
       const before = getState().club?.sparks;
       if (mine && mine.sparks !== (before ?? 0)) {
         setState((d) => void (d.club = { ...d.club, sparks: mine.sparks }));
@@ -871,6 +875,7 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
     try {
       const r = await club.avatar(dataUrl);
       update({ ...m, avatar: r.avatar });
+      setMe({ id: m.id, avatar: r.avatar });
       setCrop(null);
       toast('Photo de profil mise à jour');
     } catch (err) {

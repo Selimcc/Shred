@@ -38,6 +38,8 @@ import { ProgramEditor } from './ProgramEditor';
 import { StravaPage } from './Connections';
 import { isNative } from '../lib/native';
 import { MyProfilePage } from './MyProfile';
+import { MemberAvatar } from './Club';
+import { useMe } from '../lib/me';
 import { UsagePage } from './Usage';
 
 export type SettingsPage =
@@ -141,6 +143,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
     else setPage('menu');
   };
 
+  const me = useMe();
   const mod = s.settings.modules;
   const [more, setMore] = useState(false);
   const strava = s.strava;
@@ -215,9 +218,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
       {page === 'menu' && (
         <div className="stack settings-menu">
           <button className="card settings-me" onClick={() => setPage('profile')}>
-            <span className="avatar big" aria-hidden="true">
-              {(s.settings.name || '?').slice(0, 1).toUpperCase()}
-            </span>
+            <MemberAvatar m={{ id: me?.id ?? 'me', name: s.settings.name || '?', avatar: me?.avatar ?? null }} size={52} />
             <span className="grow" style={{ minWidth: 0 }}>
               <span className="settings-me-name">{s.settings.name || 'Ton prénom'}</span>
               <span className="small muted ellipsis" style={{ display: 'block' }}>

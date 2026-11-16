@@ -6,6 +6,8 @@ import { Pulse } from '../components/Pulse';
 import { ask, errorText, toast } from '../components/ui';
 import { continueWithoutAccount, hasData, login, logout, MIN_PASSWORD, register, resetPassword } from '../lib/account';
 import type { Account } from '../lib/session';
+import { InstallGuide } from '../components/InstallGuide';
+import { installDismissed } from '../lib/install';
 
 type Mode = 'start' | 'login' | 'register' | 'reset';
 
@@ -32,6 +34,7 @@ export function Welcome({ expired }: { expired?: Account }) {
   const [code, setCode] = useState(invite);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [later, setLater] = useState(installDismissed);
 
   const go = (m: Mode) => {
     setMode(m);
@@ -74,6 +77,8 @@ export function Welcome({ expired }: { expired?: Account }) {
         <h1 className="display">Shred</h1>
         <p className="muted">Ta séance, tes repas et ta série du jour. Une app privée, sur invitation.</p>
       </header>
+
+      {!later && !expired && <InstallGuide invite={invite || undefined} onLater={() => setLater(true)} />}
 
       {mode === 'start' && (
         <div className="stack">

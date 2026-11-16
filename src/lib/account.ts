@@ -1,4 +1,5 @@
 // Inscription, connexion, déconnexion et gestion du compte.
+import { setMe } from './me';
 import { api } from './api';
 import { hasData, reconcile, resetBackupMeta, uploadBackup } from './backup';
 import { deriveKeys, normEmail } from './crypto';
@@ -27,6 +28,7 @@ async function wipeLocal() {
   resetAll();
   resetBackupMeta();
   forgetPublishedProfile();
+  setMe(null);
   await clearPhotos().catch(() => undefined);
 }
 

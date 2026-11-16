@@ -70,7 +70,7 @@ const env = {
   ADMIN_CODE: 'code-admin-local-123',
   MOCK_AI: '1',
   KV,
-  ASSETS: { fetch: async () => new Response('app') },
+  ASSETS: { fetch: async (r) => (new URL(r.url).pathname === '/manifest.webmanifest' ? Response.json({ name: 'Shred', start_url: '/' }) : new Response('app')) },
   USAGE: { idFromName: () => 'usage', get: () => ({ fetch: (url, init) => (doCalls++, usage.fetch(new Request(url, init))) }) },
 };
 const waits = [];
@@ -150,6 +150,14 @@ r = await call('/api/backup', { token, method: 'PUT', body: box });
 check('mode économie : la première sauvegarde passe', r.status === 200, JSON.stringify(r.data));
 r = await call('/api/backup', { token, method: 'PUT', body: box });
 check('mode économie : une seconde dans la demi-heure attend', r.status === 429 && /économie/.test(r.data.error), r.data.error);
+
+/* ---------- Installation depuis un lien d'invitation ---------- */
+
+const man = await worker.fetch(new Request('https://shred.test/manifest.webmanifest?invite=K7QX2-M9PLD'), env, ctx);
+const manifest = await man.json();
+check('lien d’invitation : l’app installée s’ouvre avec le code', manifest.start_url === '/?invite=K7QX2-M9PLD' && manifest.name === 'Shred');
+const bad = await worker.fetch(new Request('https://shred.test/manifest.webmanifest?invite=%3Cscript%3E'), env, ctx);
+check('code d’invitation bizarre : manifeste normal', (await bad.json()).start_url === '/');
 
 console.log(failures ? `\n${failures} échec(s)` : '\nTout est bon.');
 process.exit(failures ? 1 : 0);
