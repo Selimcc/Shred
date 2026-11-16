@@ -38,6 +38,10 @@ export function demoState(base: AppState): AppState {
       }
     } else if (ok) {
       sets[session.exercises[0].key] = Array.from({ length: session.exercises[0].sets }, () => ({ done: true }));
+      // Un footing ou une sortie vélo les jours sans muscu : de quoi remplir les stats d'endurance.
+      const grow = 1 + i / 60;
+      if (i % 2 === 0) sets['run-easy'] = [{ done: true, km: Math.round(7.2 * grow * 10) / 10, min: Math.round(42 * grow) }];
+      else sets['bike-endurance'] = [{ done: true, km: Math.round(31 * grow), min: Math.round(70 * grow) }];
     }
     const meals = PLANNED_MEALS.filter((m) => m.slot !== 'extra' && m.id !== 'fish-dinner')
       .slice(0, ok ? 4 : 1)
