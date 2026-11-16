@@ -16,8 +16,9 @@ import { counters, currentMode, FREE, flushUsage, lastKnownMode, metered, summar
 export { RestTimer } from './timers';
 export { Club } from './club';
 export { Usage } from './usage';
+import { placeRoutes } from './places';
 
-const VERSION = '0.14.1';
+const VERSION = '0.15.0';
 
 function cors(res: Response): Response {
   const h = new Headers(res.headers);
@@ -105,6 +106,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
     const days = await usageReport(env, 14);
     return json({ limits: FREE, mode: await currentMode(env), days: days.map((d) => summary(d)), tracked: Boolean(env.USAGE) });
   }
+
+  const place = await placeRoutes(req, env, pathname);
+  if (place) return place;
 
   const acct =
     (await accountRoutes(req, env, user, pathname)) ??

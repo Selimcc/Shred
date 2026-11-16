@@ -9,8 +9,10 @@ import {
   type EventDistance,
   EVENT_NAMES,
   type Experience,
+  chainFromName,
   type Gym,
-  type GymChain,
+  GYM_KINDS,
+  type GymPlace,
   gymDefaults,
   GYMS,
   type Plan,
@@ -23,7 +25,10 @@ import {
 import { PHYSIQUES, type Physique, type Region, REGIONS } from '../../shared/generator';
 import { cssFrom400, fmtSwim, zonesFor } from '../../shared/endurance';
 import { fmtDuration, fmtPace, isRoadRace, paces } from '../../shared/plans';
+import { useState } from 'react';
 import { ChoiceCard, Field, NumberSetting, Toggle } from '../components/form';
+import { GymFinder } from '../components/GymFinder';
+import { Icon } from '../components/Icon';
 import { addDays, dayKey, formatNumber } from '../lib/date';
 import { STREAK_GOALS } from '../lib/flames';
 
@@ -397,26 +402,71 @@ export function SportForm({ athlete, onAthlete }: { athlete: Athlete; onAthlete:
 }
 
 export function GymForm({ gym, onGym }: { gym: Gym; onGym: (g: Gym) => void }) {
+  const [finding, setFinding] = useState(!gym.place && !gym.club);
+  const [manual, setManual] = useState(false);
+  const pick = (p: GymPlace & { brand?: string }) => {
+    const chain = chainFromName(`${p.brand ?? ''} ${p.name}`);
+    const base = chain ? gymDefaults(chain) : gym.chain === 'home' ? gymDefaults('other') : gym;
+    onGym({ ...base, club: p.name, place: { id: p.id, name: p.name, lat: p.lat, lon: p.lon, ...(p.address ? { address: p.address } : {}) } });
+    setFinding(false);
+    setManual(false);
+  };
   return (
     <div className="stack">
-      <div className="chips">
-        {GYMS.map((g) => (
-          <button
-            key={g.id}
-            type="button"
-            className={chip(gym.chain === g.id)}
-            onClick={() => onGym({ ...gymDefaults(g.id as GymChain), club: gym.club })}
-          >
-            {g.name}
+      {!finding && (gym.place || gym.club) ? (
+        <div className="gym-picked">
+          <span className="settings-icon">
+            <Icon name="pin" size={18} />
+          </span>
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="title ellipsis">{gym.place?.name ?? gym.club}</div>
+            <div className="small muted ellipsis">{gym.place?.address ?? (gym.place ? 'Position enregistrée' : 'Nom seulement, sans position')}</div>
+          </div>
+          <button type="button" className="btn small" onClick={() => setFinding(true)}>
+            Changer
           </button>
-        ))}
-      </div>
-      <Field label="Ton club (facultatif)" hint="Pour t’y retrouver, et pour les automatisations d’arrivée à la salle.">
-        <input className="input" placeholder="Ex. Basic-Fit Sartrouville" value={gym.club ?? ''} onChange={(e) => onGym({ ...gym, club: e.target.value.slice(0, 60) })} />
+        </div>
+      ) : (
+        <>
+          <GymFinder onPick={pick} />
+          {(manual || gym.club) && (
+            <Field label="Nom de ta salle" hint="Pour une salle absente de la carte. Sans position, pas de proposition de séance en arrivant.">
+              <input
+                className="input"
+                placeholder="Ex. Iron Gym Sousse"
+                value={gym.club ?? ''}
+                onChange={(e) => onGym({ ...gym, club: e.target.value.slice(0, 60), place: undefined })}
+              />
+            </Field>
+          )}
+          {!manual && !gym.club && (
+            <button type="button" className="link small" style={{ alignSelf: 'flex-start' }} onClick={() => setManual(true)}>
+              Ma salle n’est pas sur la carte : écrire son nom
+            </button>
+          )}
+          {(gym.place || gym.club) && (
+            <button type="button" className="btn block" onClick={() => setFinding(false)}>
+              Garder {gym.place?.name ?? gym.club}
+            </button>
+          )}
+        </>
+      )}
+
+      <Field label="Type de salle">
+        <div className="chips">
+          {GYM_KINDS.map((id) => {
+            const g = GYMS.find((x) => x.id === id)!;
+            const on = gym.chain === id || (id === 'other' && ['fitness-park', 'basic-fit', 'on-air'].includes(gym.chain));
+            return (
+              <button key={id} type="button" className={chip(on)} onClick={() => onGym({ ...gymDefaults(id), club: gym.club, place: gym.place })}>
+                {g.name}
+              </button>
+            );
+          })}
+        </div>
       </Field>
       <p className="small muted" style={{ margin: 0 }}>
-        Coche ce que ton club a vraiment : l’équipement change d’un club à l’autre, même dans une même chaîne. Les exercices impossibles sont remplacés
-        automatiquement.
+        Coche ce que ta salle a vraiment : le matériel change d’une salle à l’autre. Les exercices impossibles sont remplacés automatiquement.
       </p>
       <div className="group">
         {EQUIPMENT.map((e) => (

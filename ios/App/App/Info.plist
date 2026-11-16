@@ -10,6 +10,8 @@
 	<string>Shred lit tes pas, ta distance, ton énergie, tes minutes d’exercice, ton sommeil, ton cœur au repos, ta VFC et les séances de ta montre pour suivre ta forme et valider tes séances.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Shred n’écrit rien dans Santé sans que tu le demandes.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Shred cherche les salles de sport autour de toi et te propose ta séance quand tu arrives à ta salle.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Pour scanner un code-barres, photographier un repas ou ta séance.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

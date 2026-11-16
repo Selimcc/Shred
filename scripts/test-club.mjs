@@ -206,6 +206,16 @@ const page2 = await call(`/api/club/feed?before=${encodeURIComponent(r.data.next
 check('fil paginé, sans doublon', r.data.posts.length === 20 && r.data.next && page2.data.posts.length === 6 && !page2.data.posts.some((p) => r.data.posts.some((q) => q.id === p.id)), `${r.data.posts.length} + ${page2.data.posts.length}`);
 check('le plus récent en premier', r.data.posts[0].text === 'Séance 24');
 
+/* ---------- Musique ---------- */
+
+const track = { id: '123', title: 'Titre', artist: 'Artiste', artwork: 'https://is1-ssl.mzstatic.com/a/300x300bb.jpg', preview: 'https://audio-ssl.itunes.apple.com/p.m4a', link: 'https://music.apple.com/fr/album/x?i=123' };
+r = await call('/api/club/posts', { token: selim.token, body: { text: 'Avec du son', music: track } });
+check('publication avec musique', r.status === 200 && r.data.post.music?.title === 'Titre' && r.data.post.music.preview === track.preview);
+r = await call('/api/club/posts', { token: selim.token, body: { music: track } });
+check('une musique seule suffit pour publier', r.status === 200);
+r = await call('/api/club/posts', { token: selim.token, body: { text: 'Lien piégé', music: { ...track, link: 'https://evil.example/x' } } });
+check('musique hors Apple ignorée', r.status === 200 && !r.data.post.music);
+
 /* ---------- Défis ---------- */
 
 r = await call('/api/club/challenges', { token: selim.token, body: { to: ines.id, hours: 48, text: 'Jambes avant jeudi ?' } });

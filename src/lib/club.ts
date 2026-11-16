@@ -1,5 +1,6 @@
 // Le club côté app : fil, publication d'une séance (photos, @mentions, visibilité), étincelles, commentaires,
 // membres et notifications. En mode démo, tout tourne en mémoire avec des membres fictifs.
+import type { Track } from './music';
 import { catalogEntry, DISCIPLINE_NAMES } from '../../shared/catalog';
 import { disciplinesOf, fmtClock, repSeconds, sessionBlocks } from '../../shared/effort';
 import { api, DEMO } from './api';
@@ -37,6 +38,7 @@ export interface ClubPost {
   mentions: Mention[];
   session?: SessionSummary;
   photos: string[];
+  music?: Track;
   visibility: Visibility;
   /** Étincelles reçues, et la mienne. */
   sparks: number;
@@ -112,6 +114,7 @@ export interface NewPost {
   mentions: Mention[];
   session?: SessionSummary;
   photos: string[];
+  music?: Track;
   visibility: Visibility;
 }
 
@@ -412,7 +415,7 @@ const demo = (() => {
         images.set(photoPath(id), data);
         return id;
       });
-      const p: Stored = { id: `p-${Date.now()}`, author: me, authorName: members[0].name, at: Date.now(), text: n.text, mentions: n.mentions, session: n.session, photos, visibility: n.visibility, comments: 0, sparksBy: [] };
+      const p: Stored = { id: `p-${Date.now()}`, author: me, authorName: members[0].name, at: Date.now(), text: n.text, mentions: n.mentions, session: n.session, photos, ...(n.music ? { music: n.music } : {}), visibility: n.visibility, comments: 0, sparksBy: [] };
       posts.unshift(p);
       members[0].posts++;
       // Les copains réagissent vite, c'est une démo.

@@ -1,4 +1,4 @@
-import { type CSSProperties, useState } from 'react';
+import { type CSSProperties, useEffect, useState } from 'react';
 import { Bubble, type Mood, Pulse } from '../components/Pulse';
 import { Flame } from '../components/Flame';
 import { Icon } from '../components/Icon';
@@ -33,6 +33,7 @@ import type { Tab } from '../App';
 import { InstallGuide } from '../components/InstallGuide';
 import { DEMO } from '../lib/api';
 import { installDismissed } from '../lib/install';
+import { atGym } from '../lib/places';
 
 
 
@@ -94,6 +95,12 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
   const flames = flameInfo(s, today);
   const [report, setReport] = useState<string | null>(null);
   const [showInstall, setShowInstall] = useState(() => !DEMO && !installDismissed());
+  const [arrived, setArrived] = useState(false);
+  const gymPlace = s.settings.modules.gym ? s.settings.gym.place : undefined;
+  useEffect(() => {
+    if (!gymPlace || day.mainDone || session.type === 'rest') return;
+    void atGym(gymPlace, today).then(setArrived);
+  }, [gymPlace?.id, today]);
   const planLine = planSummary(s.program, today);
   const prog = setProgress(session, day);
   const t = totals(day);
@@ -135,6 +142,21 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
           <Icon name="gear" size={20} />
         </button>
       </header>
+
+      {arrived && !day.mainDone && (
+        <section className="card arrival" aria-live="polite">
+          <span className="settings-icon">
+            <Icon name="pin" size={18} />
+          </span>
+          <div className="grow" style={{ minWidth: 0 }}>
+            <b>Tu es à {gymPlace?.name}</b>
+            <div className="small muted ellipsis">{session.name} t’attend.</div>
+          </div>
+          <button className="btn primary small" onClick={() => go('workout')}>
+            Commencer
+          </button>
+        </section>
+      )}
 
       {showInstall && (
         <div style={{ marginBottom: 16 }}>

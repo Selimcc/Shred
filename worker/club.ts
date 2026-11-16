@@ -2,6 +2,7 @@
 // saluer une séance, elle rapporte de l'XP à son auteur), commentaires, mentions @, abonnements et notifications. Tout vit dans un seul Durable Object (cohérent, sans course
 // entre deux écritures) ; les photos sont rangées dans KV. Rien de la sauvegarde chiffrée n'est lu ici :
 // chacun choisit ce qu'il publie, séance par séance.
+import { sanitizeTrack, type Track } from './places';
 import { type Env, HttpError, json, readJson } from './env';
 import { vapidFromEnv } from './reminders';
 import { getAccount, listAccounts, loadJson, type User, userStore } from './users';
@@ -36,6 +37,8 @@ export interface Post {
   mentions: Mention[];
   session?: SessionSummary;
   photos: string[];
+  /** Musique jointe (extrait Apple Music de 30 s). */
+  music?: Track;
   visibility: Visibility;
   /** Membres qui ont envoyé une étincelle. */
   sparks: string[];
@@ -461,11 +464,12 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
   }
 
   if (pathname === '/api/club/posts' && method === 'POST') {
-    const b = await readJson<{ text?: string; session?: unknown; photos?: unknown[]; visibility?: Visibility; mentions?: unknown }>(req, 5_000_000);
+    const b = await readJson<{ text?: string; session?: unknown; photos?: unknown[]; visibility?: Visibility; mentions?: unknown; music?: unknown }>(req, 5_000_000);
+    const music = sanitizeTrack(b.music);
     const text = str(b.text, LIMITS.text);
     const session = sanitizeSummary(b.session);
     const photosIn = Array.isArray(b.photos) ? b.photos.slice(0, LIMITS.photos) : [];
-    if (!text && !session && !photosIn.length) throw new HttpError(400, 'Rien à publier');
+    if (!text && !session && !photosIn.length && !music) throw new HttpError(400, 'Rien à publier');
     const photos: string[] = [];
     for (const raw of photosIn) {
       const { bytes, type } = decodePhoto(raw);
@@ -482,6 +486,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
       mentions: await checkMentions(env, b.mentions),
       ...(session ? { session } : {}),
       photos,
+      ...(music ? { music } : {}),
       visibility: b.visibility === 'followers' || b.visibility === 'private' ? b.visibility : 'all',
       sparks: [],
       comments: 0,

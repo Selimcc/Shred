@@ -75,7 +75,7 @@ const PHYSIQUE_LABELS: Record<Physique, string> = {
 
 /* ---------- Salle et matériel ---------- */
 
-export type GymChain = 'fitness-park' | 'basic-fit' | 'on-air' | 'other' | 'home';
+export type GymChain = 'fitness-park' | 'basic-fit' | 'on-air' | 'other' | 'small' | 'home';
 
 export type Equipment =
   | 'barbell'
@@ -118,14 +118,38 @@ export const GYMS: { id: GymChain; name: string; equipment: Equipment[] }[] = [
   { id: 'fitness-park', name: 'Fitness Park', equipment: BIG_GYM },
   { id: 'basic-fit', name: 'Basic-Fit', equipment: BIG_GYM },
   { id: 'on-air', name: 'On Air', equipment: BIG_GYM },
-  { id: 'other', name: 'Autre salle', equipment: BIG_GYM },
+  { id: 'other', name: 'Grande salle', equipment: BIG_GYM },
+  { id: 'small', name: 'Petite salle', equipment: ['barbell', 'dumbbells', 'pullup', 'machines'] },
   { id: 'home', name: 'Maison ou extérieur', equipment: ['dumbbells', 'pullup'] },
 ];
+
+/** Type de salle proposé sur l'écran (les chaînes françaises sont reconnues à leur nom sur la carte). */
+export const GYM_KINDS: GymChain[] = ['other', 'small', 'home'];
+
+/** Reconnaît une chaîne connue dans le nom d'une salle trouvée sur la carte. */
+export function chainFromName(name: string): GymChain | null {
+  const n = name.toLowerCase().replace(/[^a-z]/g, '');
+  if (n.includes('basicfit')) return 'basic-fit';
+  if (n.includes('fitnesspark')) return 'fitness-park';
+  if (n.includes('onair')) return 'on-air';
+  return null;
+}
+
+/** Salle choisie sur la carte (OpenStreetMap), n'importe où dans le monde. */
+export interface GymPlace {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  address?: string;
+}
 
 export interface Gym {
   chain: GymChain;
   /** Nom ou ville du club, pour le repérer (« Basic-Fit Sartrouville »). */
   club?: string;
+  /** Position de la salle, pour proposer la séance en arrivant. */
+  place?: GymPlace;
   equipment: Partial<Record<Equipment, boolean>>;
 }
 

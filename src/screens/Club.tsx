@@ -35,6 +35,8 @@ import { dayKey, formatShort } from '../lib/date';
 import { prepareImage } from '../lib/image';
 import { AvatarCrop } from '../components/AvatarCrop';
 import { setMe } from '../lib/me';
+import { MusicBar, MusicPicker } from '../components/Music';
+import { stopMusic, type Track } from '../lib/music';
 import { signedIn } from '../lib/session';
 import { getState, setState, useApp } from '../lib/store';
 import { moment } from '../lib/moments';
@@ -88,6 +90,8 @@ export function MemberAvatar({ m, size = 40 }: { m: Pick<Member, 'id' | 'name' |
 export function Club({ openSettings, compose, onComposed, openPost }: { openSettings: (page?: 'account' | 'profile') => void; compose?: string | null; onComposed: () => void; openPost?: string | null }) {
   const s = useApp();
   const [view, setView] = useState<View>('feed');
+  // En quittant le club, l'extrait en cours s'arrête.
+  useEffect(() => stopMusic, []);
   const [posts, setPosts] = useState<ClubPost[] | null>(null);
   const [next, setNext] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -470,6 +474,7 @@ function PostCard({
         </p>
       )}
       <Photos ids={post.photos} onOpen={setPhoto} />
+      {post.music && <MusicBar t={post.music} playKey={`post:${post.id}`} />}
 
       <footer className="post-actions">
         <button
@@ -612,6 +617,8 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
   const [photos, setPhotos] = useState<string[]>([]);
   const [visibility, setVisibility] = useState<Visibility>('all');
   const [busy, setBusy] = useState(false);
+  const [music, setMusic] = useState<Track | null>(null);
+  const [picking, setPicking] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const summary = days.find((d) => d.date === picked)?.summary;
 
@@ -632,7 +639,8 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
     if (!summary && !text.trim() && !photos.length) return toast('Ajoute une séance, un texte ou une photo', true);
     setBusy(true);
     try {
-      const { post } = await club.create({ text: text.trim(), mentions: keptMentions(text, mentions), session: summary, photos, visibility });
+      const { post } = await club.create({ text: text.trim(), mentions: keptMentions(text, mentions), session: summary, photos, visibility, ...(music ? { music } : {}) });
+      stopMusic();
       onPosted(post);
       if (visibility === 'private') toast('Gardé pour toi');
       else {
@@ -688,7 +696,27 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
             </button>
           )}
           <input ref={file} type="file" accept="image/*" multiple hidden onChange={add} />
+          {!music && (
+            <button className="compose-add" onClick={() => setPicking(true)}>
+              <Icon name="music" size={22} />
+              <span className="small">Musique</span>
+            </button>
+          )}
         </div>
+        {music && <MusicBar t={music} playKey={`compose:${music.id}`} onRemove={() => setMusic(null)} />}
+        {picking && (
+          <MusicPicker
+            onClose={() => {
+              stopMusic();
+              setPicking(false);
+            }}
+            onPick={(t) => {
+              stopMusic();
+              setMusic(t);
+              setPicking(false);
+            }}
+          />
+        )}
 
         <div className="seg" role="group" aria-label="Qui peut voir">
           {(Object.keys(VIS) as Visibility[]).map((v) => (

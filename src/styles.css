@@ -3610,6 +3610,114 @@ span.roll.roll {
   pointer-events: none;
 }
 
+.arrival {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  border-color: color-mix(in srgb, var(--amber) 50%, var(--line));
+}
+.music-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.music-art {
+  flex: none;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-3);
+}
+.music-art-empty {
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+}
+.music-play {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+}
+.music-play svg {
+  position: absolute;
+  inset: 2px;
+  transform: rotate(-90deg);
+}
+.music-ring-bg,
+.music-ring {
+  fill: none;
+  stroke-width: 2.5;
+}
+.music-ring-bg {
+  stroke: var(--surface-3);
+}
+.music-ring {
+  stroke: var(--amber);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.25s linear;
+}
+.music-play.on {
+  color: var(--amber);
+}
+.music-link {
+  flex: none;
+  color: var(--ink-3);
+  text-decoration: none;
+  padding: 10px 2px;
+}
+.music-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.music-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.music-pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+}
+.music-pick:active {
+  background: var(--surface-2);
+}
+.row-form {
+  display: flex;
+  gap: 8px;
+}
+.row-form .input {
+  flex: 1;
+  min-width: 0;
+}
+.gym-picked {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
 .install-guide {
   gap: 14px;
   margin-bottom: 4px;

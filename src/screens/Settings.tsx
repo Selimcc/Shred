@@ -154,7 +154,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
       rows: [
         { id: 'program', icon: 'dumbbell', sub: s.program.name },
         { id: 'goals', icon: 'trophy', sub: `${WEIGHT_GOALS[s.settings.weightGoal].label}${mod.nutrition ? `, ${s.settings.targets.kcal} kcal` : ''}` },
-        { id: 'gym', icon: 'wrench', sub: `${GYMS.find((g) => g.id === s.settings.gym.chain)?.name ?? 'Salle'}${s.settings.gym.club ? `, ${s.settings.gym.club}` : ''}` },
+        { id: 'gym', icon: 'wrench', sub: s.settings.gym.place?.name ?? s.settings.gym.club ?? GYMS.find((g) => g.id === s.settings.gym.chain)?.name ?? 'Trouver ma salle' },
       ],
     },
     {

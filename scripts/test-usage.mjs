@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 
 const dir = mkdtempSync(join(tmpdir(), 'shred-usage-'));
 await build({
-  entryPoints: ['worker/index.ts', 'worker/health.ts', 'src/lib/crypto.ts'],
+  entryPoints: ['worker/index.ts', 'worker/health.ts', 'worker/places.ts', 'src/lib/crypto.ts'],
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -19,6 +19,7 @@ await build({
 const mod = await import(pathToFileURL(join(dir, 'worker/index.js')).href);
 const worker = mod.default;
 const health = await import(pathToFileURL(join(dir, 'worker/health.js')).href);
+const places = await import(pathToFileURL(join(dir, 'worker/places.js')).href);
 const kdf = await import(pathToFileURL(join(dir, 'src/lib/crypto.js')).href);
 
 let failures = 0;
@@ -71,9 +72,36 @@ const env = {
   MOCK_AI: '1',
   KV,
   ASSETS: { fetch: async (r) => (new URL(r.url).pathname === '/manifest.webmanifest' ? Response.json({ name: 'Shred', start_url: '/' }) : new Response('app')) },
+  FETCH: async (url, init) => {
+    fetched.push(String(url));
+    if (String(url).includes('overpass')) {
+      const q = decodeURIComponent(String(init.body).slice(5));
+      fetchedBodies.push(q);
+      return Response.json({
+        elements: [
+          { type: 'node', id: 1, lat: 36.8065, lon: 10.1815, tags: { leisure: 'fitness_centre', name: 'California Gym', 'addr:street': 'Avenue Habib Bourguiba', 'addr:city': 'Tunis' } },
+          { type: 'way', id: 2, center: { lat: 36.8066, lon: 10.1816 }, tags: { leisure: 'fitness_centre', name: 'California Gym' } },
+          { type: 'node', id: 3, lat: 36.82, lon: 10.17, tags: { leisure: 'fitness_centre', name: 'Salle du quartier' } },
+          { type: 'node', id: 4, lat: 36.81, lon: 10.18, tags: { leisure: 'fitness_centre' } },
+        ],
+      });
+    }
+    if (String(url).includes('nominatim')) return Response.json([{ lat: '36.8065', lon: '10.1815', display_name: 'Tunis, Gouvernorat de Tunis, Tunisie' }]);
+    if (String(url).includes('itunes')) {
+      return Response.json({
+        results: [
+          { kind: 'song', trackId: 123, trackName: 'Titre', artistName: 'Artiste', artworkUrl100: 'https://is1-ssl.mzstatic.com/a/100x100bb.jpg', previewUrl: 'https://audio-ssl.itunes.apple.com/p.m4a', trackViewUrl: 'https://music.apple.com/fr/album/x?i=123' },
+          { kind: 'music-video', trackId: 9, trackViewUrl: 'https://music.apple.com/x' },
+        ],
+      });
+    }
+    return new Response('nope', { status: 404 });
+  },
   USAGE: { idFromName: () => 'usage', get: () => ({ fetch: (url, init) => (doCalls++, usage.fetch(new Request(url, init))) }) },
 };
 const waits = [];
+const fetched = [];
+const fetchedBodies = [];
 const ctx = { waitUntil: (p) => waits.push(p) };
 let ip = 1;
 async function call(path, { token, body, method } = {}) {
@@ -150,6 +178,32 @@ r = await call('/api/backup', { token, method: 'PUT', body: box });
 check('mode économie : la première sauvegarde passe', r.status === 200, JSON.stringify(r.data));
 r = await call('/api/backup', { token, method: 'PUT', body: box });
 check('mode économie : une seconde dans la demi-heure attend', r.status === 429 && /économie/.test(r.data.error), r.data.error);
+
+/* ---------- Salles autour de soi, partout dans le monde ---------- */
+
+r = await call('/api/places/gyms?lat=36.80652&lon=10.18151', { token });
+check('salles autour d’un point à Tunis', r.status === 200 && r.data.places[0].name === 'California Gym' && r.data.places[0].address === 'Avenue Habib Bourguiba, Tunis', JSON.stringify(r.data.places?.[0]));
+check('une même salle en point et en bâtiment : un seul résultat', r.data.places.filter((p) => p.name === 'California Gym').length === 1);
+check('lieu sans nom ignoré, triées par distance', r.data.places.length === 2 && r.data.places[0].distance <= r.data.places[1].distance);
+check('position arrondie à ~100 m avant d’être envoyée', fetchedBodies[0].includes('36.807,10.182'), fetchedBodies[0]);
+r = await call('/api/places/gyms?lat=36.8&lon=10.18&q=califor"nia', { token });
+check('recherche par nom, caractères spéciaux retirés', fetchedBodies[1].includes('"name"~"california",i') && fetchedBodies[1].includes('around:25000'), fetchedBodies[1]);
+r = await call('/api/places/gyms?lat=200&lon=10', { token });
+check('position impossible : refusée', r.status === 400);
+r = await call('/api/places/gyms?lat=36.8&lon=10.18');
+check('réservé aux membres connectés', r.status === 401);
+r = await call('/api/places/geocode?q=Tunis', { token });
+check('ville en position (sans localisation)', r.status === 200 && Math.abs(r.data.lat - 36.8065) < 0.001 && r.data.label.startsWith('Tunis'));
+
+/* ---------- Musique des publications ---------- */
+
+r = await call('/api/music/search?q=titre', { token });
+check('recherche de musique : seulement des chansons', r.status === 200 && r.data.tracks.length === 1 && r.data.tracks[0].artwork.includes('300x300bb'));
+const t = r.data.tracks[0];
+check('musique valide acceptée dans une publication', places.sanitizeTrack(t)?.id === '123');
+check('lien hors Apple refusé', places.sanitizeTrack({ ...t, link: 'https://evil.example/x' }) === undefined);
+check('extrait audio hors Apple retiré', places.sanitizeTrack({ ...t, preview: 'https://evil.example/a.mp3' })?.preview === undefined);
+check('pochette hors Apple refusée', places.sanitizeTrack({ ...t, artwork: 'http://is1-ssl.mzstatic.com/a.jpg' }) === undefined);
 
 /* ---------- Installation depuis un lien d'invitation ---------- */
 
