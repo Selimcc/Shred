@@ -108,7 +108,36 @@ export function sleepMinutes(body: Record<string, unknown>): number | undefined 
   return h === undefined ? undefined : Math.round(h * 60);
 }
 
-export async function ingestHealth(store: Store, body: Record<string, unknown>, now = new Date()) {
+/**
+ * Raccourcis envoie parfois une liste (plusieurs échantillons), un objet, ou des clés avec un espace en
+ * trop : on ramène chaque valeur à un nombre ou un texte simple, et chaque clé à sa forme propre.
+ */
+function flatValue(v: unknown): unknown {
+  if (Array.isArray(v)) return v.length ? flatValue(v[0]) : undefined;
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    return flatValue(o.value ?? o.quantity ?? o.Valeur ?? Object.values(o)[0]);
+  }
+  return v;
+}
+
+export function cleanBody(raw: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw ?? {})) {
+    const value = flatValue(v);
+    out[k] = value;
+    out[k.trim().toLowerCase().replace(/[\s-]+/g, '_')] = value;
+  }
+  return out;
+}
+
+function received(body: Record<string, unknown>): string {
+  const parts = Object.entries(body).filter(([k]) => k === k.toLowerCase()).map(([k, v]) => `${k} = ${v === undefined || v === '' ? 'vide' : JSON.stringify(v).slice(0, 30)}`);
+  return parts.length ? ` Reçu : ${parts.join(', ')}.` : ' Le corps de la requête est vide : vérifie « Corps de la requête : JSON ».';
+}
+
+export async function ingestHealth(store: Store, rawBody: Record<string, unknown>, now = new Date()) {
+  const body = cleanBody(rawBody);
   const cfg = await userCfg(store);
   const today = localTime(now, cfg.timezone).date;
   const date = typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : today;
@@ -125,7 +154,10 @@ export async function ingestHealth(store: Store, body: Record<string, unknown>, 
     distanceKm: toDecimal(body.distance_km ?? body.distanceKm, 300),
   };
   if (Object.values(incoming).every((v) => v === undefined)) {
-    throw new HttpError(400, 'Aucune valeur lisible : envoie steps, active_kcal, resting_kcal, sleep_h, resting_hr, hrv, exercise_min ou distance_km');
+    throw new HttpError(
+      400,
+      `Aucune valeur lisible : envoie steps, active_kcal, resting_kcal, sleep_min, resting_hr, hrv, exercise_min ou distance_km.${received(body)}`,
+    );
   }
   const key = `health:${date}`;
   const prev = await loadJson<HealthDay>(store, key);
