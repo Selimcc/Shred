@@ -33,7 +33,7 @@ A training and nutrition companion that installs on the phone like a native app:
 | --- | --- |
 | **Workout** | Today's session, sets with load and reps, suggested next load, swap/skip/add exercises (broken machines are swapped for a week), 30 or 45 min express mode, rest-timer notification on a locked phone (Durable Object alarm), automatic deload week every 6 to 8 weeks, ~110 exercises with demos |
 | **Endurance** | Easy, long, progressive and recovery runs, intervals, hills, fartlek and tempo; swim drills (catch-up, fist, side kick, sculling), kick and pull sets, CSS threshold sets, sprints, open water; endurance, long, sweet spot, threshold, VO2 max, cadence and force rides; bike-to-run bricks and transitions; sport-specific strength (runner, swimmer, cyclist, triathlete). Each session shows an intensity profile (zones 1 to 5) that lights up as you go; distance and time are logged per block |
-| **Nutrition** | Calorie and macro targets (Mifflin-St Jeor), barcode scanner (Open Food Facts, native BarcodeDetector or ZXing on iPhone), meal photo analysis, weekly meal plan with batch cooking and a shopping list, dish suggestions for the remaining macros |
+| **Nutrition** | Calorie and macro targets (Mifflin-St Jeor), barcode scanner (Open Food Facts, native BarcodeDetector or ZXing on iPhone; 1×, 2×, 3× zoom and pinch, torch when available, check digit verified and two matching reads required, sharpening for slightly blurred codes), meal photo analysis, weekly meal plan with batch cooking and a shopping list, dish suggestions for the remaining macros |
 | **Streak** | Daily goal (half of the session, a started cardio session or 30 min at the gym is enough; rest days only need meals), streak freezes, flame tiers, XP, an original mascot and celebration animations (SVG/CSS, respects reduced motion) |
 | **Progress** | Rolling counters with motion blur, weekly training time stacked by sport with tooltips, distance tiles with 8-week sparklines (rolling 7 days), estimated 1RM curve per lift with records marked, interactive Apple Health cards, weight trend, waist, weekly physique photos compared side by side, strength profile, volume per muscle |
 | **Club** | Feed of members' sessions (whole club or people you follow), session card with stats, intensity profile and records, up to 4 photos, @mentions with autocomplete, sparks (+5 XP for the author), comments, per-post visibility (club, followers, only me), profile photo, follow, notifications with push for mentions and comments |
@@ -99,7 +99,7 @@ Worker secrets (`ANTHROPIC_API_KEY`, VAPID keys, `ADMIN_CODE`) stay on Cloudflar
 ## Tests
 
 ```bash
-npm test           # push encryption, VAPID, reminders, health, auth, encrypted backup and merge, retrieval, streak, coaching, generator, deload, rest timer, endurance, club, Strava, activity import
+npm test           # barcode reading, push encryption, VAPID, reminders, health, auth, encrypted backup and merge, retrieval, streak, coaching, generator, deload, rest timer, endurance, club, Strava, activity import
 npm run typecheck  # front and Worker
 ```
 

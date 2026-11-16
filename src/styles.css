@@ -2257,6 +2257,64 @@ input[type='time'].input {
   display: block;
 }
 
+.scan-view {
+  touch-action: none;
+}
+.scan-view video {
+  transform-origin: center;
+  transition: transform 0.18s var(--ease);
+}
+.scan-tools {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.scan-zoom {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+.scan-zoom button,
+.scan-torch {
+  min-width: 44px;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font-weight: 750;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.scan-zoom button.on {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+}
+.scan-torch {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+.scan-torch.on {
+  background: var(--amber);
+  color: #111;
+}
+
 .scan-frame {
   position: absolute;
   left: 12%;

@@ -1,7 +1,8 @@
 // Scanner un code-barres : la caméra lit l'EAN, Open Food Facts donne les valeurs pour 100 g,
 // tu choisis la quantité et le repas. Les produits déjà scannés restent à portée de main.
-import { useEffect, useRef, useState } from 'react';
+import { type TouchEvent, useEffect, useRef, useState } from 'react';
 import { addMeal } from '../lib/actions';
+import { codeVariants, confirmer, scanRegion, sharpenBars, validBarcode } from '../lib/barcode';
 import { formatNumber } from '../lib/date';
 import type { MealSlot } from '../../shared/types';
 import { Icon } from './Icon';
@@ -40,11 +41,22 @@ const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : t
 
 /** Cherche un produit par son code-barres : d'abord ceux déjà scannés, puis Open Food Facts. */
 export async function lookupProduct(ean: string): Promise<Product | null> {
-  const cached = readCache().find((p) => p.ean === ean);
+  const variants = codeVariants(ean);
+  const cached = readCache().find((p) => variants.includes(p.ean));
   if (cached) return cached;
+  // Un UPC à 12 chiffres est souvent rangé avec un 0 devant chez Open Food Facts (et inversement).
+  for (const code of variants) {
+    const p = await fetchProduct(code);
+    if (p) return p;
+  }
+  return null;
+}
+
+async function fetchProduct(ean: string): Promise<Product | null> {
   const fields = 'product_name,product_name_fr,brands,nutriments,serving_quantity,image_front_small_url';
   const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(ean)}.json?fields=${fields}`);
-  if (!res.ok) return null;
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Open Food Facts ${res.status}`);
   const data = (await res.json()) as { status?: number; product?: Record<string, unknown> };
   const p = data.product;
   if (!p || data.status === 0) return null;
@@ -74,21 +86,199 @@ export function macrosFor(p: Product, grams: number) {
 
 const SLOT_NAMES: Record<MealSlot, string> = { breakfast: 'Petit-déj', lunch: 'Déjeuner', snack: 'Collation', dinner: 'Dîner', extra: 'Extra' };
 
-type Controls = { stop: () => void };
+type Detector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
+type Track = MediaStreamTrack;
+type Caps = MediaTrackCapabilities & { zoom?: { min: number; max: number; step?: number }; torch?: boolean };
+
+const ZOOMS = [1, 2, 3];
+
+/** Ouvre la caméra arrière en haute définition, mise au point continue quand le téléphone le permet. */
+async function openCamera(): Promise<MediaStream> {
+  const base = { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } };
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      video: { ...base, advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] },
+      audio: false,
+    });
+  } catch {
+    return navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  }
+}
+
+/**
+ * La caméra et la lecture. Le zoom passe par l'objectif quand le téléphone l'expose (Android), sinon il
+ * agrandit l'image et ne décode que le centre : on peut tenir le téléphone à 20 cm, là où la mise au point
+ * est nette, et le code-barres reste assez grand pour être lu. Un code n'est accepté qu'après deux lectures
+ * identiques avec une clé de contrôle juste.
+ */
+function ScanCamera({ onCode, onFail }: { onCode: (code: string) => void; onFail: () => void }) {
+  const video = useRef<HTMLVideoElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const track = useRef<Track | null>(null);
+  const zoomRef = useRef(1);
+  const hw = useRef<{ min: number; max: number } | null>(null);
+  const [zoom, setZoomState] = useState(1);
+  const [torch, setTorch] = useState<boolean | null>(null);
+  const [slow, setSlow] = useState(false);
+  const pinch = useRef<{ d: number; z: number } | null>(null);
+
+  const setZoom = (z: number) => {
+    const v = Math.min(4, Math.max(1, Math.round(z * 10) / 10));
+    zoomRef.current = v;
+    setZoomState(v);
+    const t = track.current;
+    if (t && hw.current) {
+      const target = Math.min(hw.current.max, Math.max(hw.current.min, hw.current.min * v));
+      void t.applyConstraints({ advanced: [{ zoom: target } as MediaTrackConstraintSet] }).catch(() => undefined);
+    }
+  };
+
+  useEffect(() => {
+    let alive = true;
+    let stream: MediaStream | null = null;
+    const slowTimer = setTimeout(() => alive && setSlow(true), 7000);
+    (async () => {
+      try {
+        const el = video.current;
+        if (!el || !navigator.mediaDevices?.getUserMedia) throw new Error('nocam');
+        stream = await openCamera();
+        if (!alive) return stream.getTracks().forEach((t) => t.stop());
+        el.srcObject = stream;
+        await el.play();
+        const t = stream.getVideoTracks()[0] as Track;
+        track.current = t;
+        const caps = t.getCapabilities?.() as Caps | undefined;
+        if (caps?.zoom && caps.zoom.max > caps.zoom.min) hw.current = { min: caps.zoom.min, max: caps.zoom.max };
+        if (caps?.torch) setTorch(false);
+
+        // Détecteur du système quand il existe (Android, Chrome), sinon ZXing (iPhone).
+        const Native = (window as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
+        let decode: (c: HTMLCanvasElement) => Promise<string | null>;
+        if (Native) {
+          const det = new Native({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+          decode = async (c) => (await det.detect(c).catch(() => []))[0]?.rawValue ?? null;
+        } else {
+          const { BrowserMultiFormatReader } = await import('@zxing/browser');
+          const { BarcodeFormat, DecodeHintType } = await import('@zxing/library');
+          const hints = new Map();
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E]);
+          hints.set(DecodeHintType.TRY_HARDER, true);
+          const reader = new BrowserMultiFormatReader(hints);
+          decode = async (c) => {
+            try {
+              return reader.decodeFromCanvas(c).getText();
+            } catch {
+              return null;
+            }
+          };
+        }
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const ok = confirmer();
+        let pass = 0;
+        let hold = false;
+        const tick = async () => {
+          if (!alive) return;
+          const v = video.current;
+          const b = box.current;
+          if (v && b && ctx && v.videoWidth) {
+            // Zoom de l'objectif : l'image est déjà agrandie, on décode le cadre tel quel.
+            const r = scanRegion({ w: v.videoWidth, h: v.videoHeight }, { w: b.clientWidth, h: b.clientHeight }, hw.current ? 1 : zoomRef.current);
+            // On alterne trois lectures de la même zone : telle quelle, agrandie quand elle est petite (zoom)
+            // pour mieux séparer les barres, et rendue plus nette pour une image un peu floue.
+            // Une lecture à confirmer garde la même méthode pour l'image suivante.
+            if (!hold) pass = (pass + 1) % 3;
+            const scale = pass === 1 && r.w < 700 ? 1000 / r.w : Math.min(1, 1100 / r.w);
+            canvas.width = Math.round(r.w * scale);
+            canvas.height = Math.round(r.h * scale);
+            ctx.drawImage(v, r.x, r.y, r.w, r.h, 0, 0, canvas.width, canvas.height);
+            if (pass === 2) {
+              const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              sharpenBars(img.data, canvas.width, canvas.height);
+              ctx.putImageData(img, 0, 0);
+            }
+            const code = await decode(canvas);
+            if (code && ok(code)) {
+              alive = false;
+              return onCode(code);
+            }
+            hold = Boolean(code && validBarcode(code));
+          }
+          setTimeout(tick, hold ? 30 : 70);
+        };
+        void tick();
+      } catch {
+        if (alive) onFail();
+      }
+    })();
+    return () => {
+      alive = false;
+      clearTimeout(slowTimer);
+      stream?.getTracks().forEach((t) => t.stop());
+      track.current = null;
+    };
+  }, []);
+
+  const toggleTorch = () => {
+    const t = track.current;
+    if (!t || torch === null) return;
+    void t
+      .applyConstraints({ advanced: [{ torch: !torch } as MediaTrackConstraintSet] })
+      .then(() => setTorch(!torch))
+      .catch(() => setTorch(null));
+  };
+
+  const dist = (e: TouchEvent) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+
+  return (
+    <div className="stack" style={{ gap: 12 }}>
+      <div
+        ref={box}
+        className="scan-view"
+        onTouchStart={(e) => {
+          if (e.touches.length === 2) pinch.current = { d: dist(e), z: zoomRef.current };
+        }}
+        onTouchMove={(e) => {
+          if (e.touches.length === 2 && pinch.current) setZoom(pinch.current.z * (dist(e) / pinch.current.d));
+        }}
+        onTouchEnd={() => (pinch.current = null)}
+      >
+        <video ref={video} playsInline muted style={hw.current ? undefined : { transform: `scale(${zoom})` }} />
+        <span className="scan-frame" aria-hidden="true" />
+        <div className="scan-tools">
+          <div className="scan-zoom" role="group" aria-label="Zoom">
+            {ZOOMS.map((z) => (
+              <button key={z} type="button" className={Math.abs(zoom - z) < 0.25 ? 'on' : ''} onClick={() => setZoom(z)} aria-pressed={Math.abs(zoom - z) < 0.25}>
+                {z === 1 ? '1' : `${z}×`}
+              </button>
+            ))}
+          </div>
+          {torch !== null && (
+            <button type="button" className={`scan-torch ${torch ? 'on' : ''}`} onClick={toggleTorch} aria-pressed={torch} aria-label="Lampe">
+              <Icon name="bolt" size={18} />
+            </button>
+          )}
+        </div>
+      </div>
+      <p className="small muted" style={{ margin: 0, textAlign: 'center' }}>
+        {slow
+          ? 'Toujours rien ? Recule un peu, passe en 2× ou 3×, et garde le code bien droit dans le cadre.'
+          : 'Tiens le téléphone à une vingtaine de centimètres et zoome : de trop près, l’image est floue.'}
+      </p>
+    </div>
+  );
+}
 
 export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string; slot: MealSlot; onClose: () => void }) {
-  const video = useRef<HTMLVideoElement>(null);
-  const [status, setStatus] = useState<'camera' | 'looking' | 'found' | 'missing' | 'nocam'>('camera');
+  const [status, setStatus] = useState<'camera' | 'looking' | 'found' | 'missing' | 'nocam' | 'manual'>('camera');
   const [product, setProduct] = useState<Product | null>(null);
   const [grams, setGrams] = useState('100');
   const [slot, setSlot] = useState<MealSlot>(initialSlot);
   const [manual, setManual] = useState('');
   const recent = readCache().slice(0, 8);
-  const stopRef = useRef<Controls | null>(null);
 
   const found = async (ean: string) => {
-    stopRef.current?.stop();
-    stopRef.current = null;
     try {
       navigator.vibrate?.(30);
     } catch {
@@ -112,58 +302,6 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
     }
   };
 
-  useEffect(() => {
-    if (status !== 'camera') return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const el = video.current;
-        if (!el || !navigator.mediaDevices?.getUserMedia) throw new Error('nocam');
-        // Détecteur natif quand il existe (Android, Chrome), sinon ZXing (iPhone).
-        const Native = (window as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector;
-        if (Native) {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          if (cancelled) return stream.getTracks().forEach((t) => t.stop());
-          el.srcObject = stream;
-          await el.play();
-          const det = new Native({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
-          let alive = true;
-          stopRef.current = {
-            stop: () => {
-              alive = false;
-              stream.getTracks().forEach((t) => t.stop());
-            },
-          };
-          const tick = async () => {
-            if (!alive) return;
-            const codes = await det.detect(el).catch(() => []);
-            if (codes[0]?.rawValue) return found(codes[0].rawValue);
-            setTimeout(tick, 180);
-          };
-          void tick();
-          return;
-        }
-        const { BrowserMultiFormatReader } = await import('@zxing/browser');
-        const { BarcodeFormat, DecodeHintType } = await import('@zxing/library');
-        const hints = new Map();
-        hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E]);
-        const reader = new BrowserMultiFormatReader(hints);
-        const controls = await reader.decodeFromConstraints({ video: { facingMode: 'environment' } }, el, (result) => {
-          if (result) void found(result.getText());
-        });
-        if (cancelled) return controls.stop();
-        stopRef.current = controls;
-      } catch {
-        if (!cancelled) setStatus('nocam');
-      }
-    })();
-    return () => {
-      cancelled = true;
-      stopRef.current?.stop();
-      stopRef.current = null;
-    };
-  }, [status]);
-
   const g = Math.max(0, Number(grams.replace(',', '.')) || 0);
   const m = product ? macrosFor(product, g) : null;
 
@@ -183,15 +321,12 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
   return (
     <Sheet title="Scanner un produit" onClose={onClose}>
       {status === 'camera' && (
-        <div className="stack" style={{ gap: 14 }}>
-          <div className="scan-view">
-            <video ref={video} playsInline muted />
-            <span className="scan-frame" aria-hidden="true" />
-          </div>
-          <p className="small muted" style={{ margin: 0, textAlign: 'center' }}>
-            Vise le code-barres, il se lit tout seul.
-          </p>
-        </div>
+        <>
+          <ScanCamera onCode={(c) => void found(c)} onFail={() => setStatus('nocam')} />
+          <button className="link small" style={{ display: 'block', margin: '12px auto 0' }} onClick={() => setStatus('manual')}>
+            Taper le code à la main
+          </button>
+        </>
       )}
 
       {status === 'looking' && (
@@ -201,26 +336,33 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
         </div>
       )}
 
-      {(status === 'nocam' || status === 'missing') && (
+      {(status === 'nocam' || status === 'missing' || status === 'manual') && (
         <div className="stack" style={{ gap: 12 }}>
           <p className="muted" style={{ margin: 0 }}>
             {status === 'nocam'
               ? 'La caméra n’est pas disponible. Autorise-la dans les réglages du navigateur, ou tape le code sous le code-barres.'
-              : 'Produit introuvable dans Open Food Facts. Vérifie le code, ou note le repas à la main.'}
+              : status === 'manual'
+                ? 'Tape les chiffres écrits sous le code-barres (8, 12 ou 13).'
+                : `Le code ${manual} est bien lu, mais ce produit n’est pas dans Open Food Facts. Note le repas à la main, ou ajoute le produit sur openfoodfacts.org.`}
           </p>
           <form
             style={{ display: 'flex', gap: 8 }}
             onSubmit={(e) => {
               e.preventDefault();
-              if (manual.trim().length >= 8) void found(manual.trim());
+              if (validBarcode(manual)) void found(manual.trim());
             }}
           >
-            <input className="input num" inputMode="numeric" placeholder="3017620422003" value={manual} onChange={(e) => setManual(e.target.value.replace(/\D/g, ''))} aria-label="Code-barres" />
-            <button className="btn primary" disabled={manual.length < 8}>
+            <input className="input num" inputMode="numeric" placeholder="3017620422003" value={manual} onChange={(e) => setManual(e.target.value.replace(/\D/g, '').slice(0, 13))} aria-label="Code-barres" />
+            <button className="btn primary" disabled={!validBarcode(manual)}>
               Chercher
             </button>
           </form>
-          {status === 'missing' && (
+          {[8, 12, 13].includes(manual.length) && !validBarcode(manual) && (
+            <p className="small" style={{ margin: 0, color: 'var(--red)' }}>
+              Ce code ne passe pas la vérification : un chiffre est sans doute mal tapé.
+            </p>
+          )}
+          {status !== 'nocam' && (
             <button className="btn" onClick={() => setStatus('camera')}>
               <Icon name="camera" size={18} /> Scanner à nouveau
             </button>
@@ -238,6 +380,7 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
                 {product.brand ? `${product.brand}, ` : ''}
                 {product.per100.kcal} kcal pour 100 g
               </div>
+              <div className="small faint num">Code {product.ean}</div>
             </div>
           </div>
 
@@ -292,7 +435,7 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
         </div>
       )}
 
-      {(status === 'camera' || status === 'nocam') && recent.length > 0 && (
+      {(status === 'camera' || status === 'nocam' || status === 'manual') && recent.length > 0 && (
         <section className="stack" style={{ gap: 10, marginTop: 20 }}>
           <h2 style={{ fontSize: '1rem' }}>Déjà scannés</h2>
           <div className="group">
@@ -302,7 +445,6 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
                 className="row"
                 style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }}
                 onClick={() => {
-                  stopRef.current?.stop();
                   setProduct(p);
                   setGrams(String(p.serving ?? 100));
                   setStatus('found');

@@ -1,7 +1,7 @@
 {
   "name": "shred",
   "private": true,
-  "version": "0.11.0",
+  "version": "0.12.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,7 @@
     "build:demo": "vite build --mode demo",
     "deploy": "npm run build && wrangler deploy",
     "vapid": "node scripts/gen-vapid.mjs",
-    "test": "node scripts/test-webpush.mjs && node scripts/test-reminders.mjs && node scripts/test-health.mjs && node scripts/test-auth.mjs && node scripts/test-knowledge.mjs && node scripts/test-flames.mjs && node scripts/test-coaching.mjs && node scripts/test-advisor.mjs && node scripts/test-dynamic.mjs && node scripts/test-sync.mjs && node scripts/test-endurance.mjs && node scripts/test-club.mjs && node scripts/test-social.mjs",
+    "test": "node scripts/test-webpush.mjs && node scripts/test-reminders.mjs && node scripts/test-health.mjs && node scripts/test-auth.mjs && node scripts/test-knowledge.mjs && node scripts/test-flames.mjs && node scripts/test-coaching.mjs && node scripts/test-advisor.mjs && node scripts/test-dynamic.mjs && node scripts/test-sync.mjs && node scripts/test-endurance.mjs && node scripts/test-club.mjs && node scripts/test-social.mjs && node scripts/test-barcode.mjs",
     "setup": "node scripts/setup.mjs",
     "admin": "node scripts/admin.mjs",
     "build:native": "vite build --mode native",
