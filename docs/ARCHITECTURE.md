@@ -136,3 +136,11 @@ Each account has a first name, a unique `@handle`, and optionally a nickname (30
 - What a non-follower sees of a private account: name, handle, photo, nickname, bio and counters. Not its sessions (posts marked « Tout le club » behave as « Abonnés »), not its strength chart or stats, and no challenge can be sent.
 - A member can remove a follower (`DELETE /api/club/followers/<id>`), silently. Deleting an account removes it from everyone's following and follower lists.
 - Feed posts carry `authorHandle` and `authorAvatar`, since authors are no longer all in the member's list.
+
+## Videos and feed sound
+
+- **Short videos.** One per post, 15 seconds at most. The phone re-encodes them before sending (`src/lib/video.ts`): replayed into a canvas and recorded with `MediaRecorder` at 720p, about 1.6 Mbit/s (around 3 MB), first 15 seconds only, and without the audio track when the member turns the video's sound off. A video that is already light, short, MP4 or WebM and keeps its sound is sent as it is. The recording starts inside the tap on « Publier », because iPhones only let the sound be captured after a touch.
+- **Storage.** `POST /api/club/videos` takes the raw file (MP4, MOV or WebM, 6 MB at most, magic bytes checked, 8 a day), kept in KV for one hour until a post claims it (`video: { id, poster, w, h, dur, sound }`). The poster frame is stored as a photo. Video and poster share the post's visibility check and are deleted with it.
+- **Playback.** The app downloads a video once it nears the screen (4 kept in memory), plays it in a loop while it is the most visible post, and pauses it otherwise. A tap pauses it.
+- **Feed sound** (`src/lib/feedSound.ts`), like Instagram: the most visible post plays its music (and its video's own sound when kept), on by default. The button at the bottom right of the photo or video mutes or unmutes the whole feed; the choice stays on the phone. Sound is unlocked by the first touch on the page; until then videos play silently. A track paused by hand is not restarted automatically. Leaving the screen or the app stops the sound.
+- **Comment field.** `Sheet` has a `footer`: the comment box stays at the bottom of the post sheet, outside the scrolling area, and grows with the text up to four lines.

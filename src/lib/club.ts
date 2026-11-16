@@ -42,6 +42,8 @@ export interface ClubPost {
   mentions: Mention[];
   session?: SessionSummary;
   photos: string[];
+  /** Courte vidéo : fichier sur le serveur, image d'aperçu, format, durée, son gardé ou coupé. */
+  video?: PostVideo;
   music?: Track;
   visibility: Visibility;
   /** Étincelles reçues, et la mienne. */
@@ -125,11 +127,22 @@ export interface Notice {
   at: number;
 }
 
+export interface PostVideo {
+  id: string;
+  poster: string;
+  w: number;
+  h: number;
+  dur: number;
+  sound: boolean;
+}
+
 export interface NewPost {
   text: string;
   mentions: Mention[];
   session?: SessionSummary;
   photos: string[];
+  /** Vidéo déjà envoyée (club.uploadVideo) et son aperçu en image. */
+  video?: { id: string; poster: string; w: number; h: number; dur: number; sound: boolean };
   music?: Track;
   visibility: Visibility;
 }
@@ -260,6 +273,35 @@ export function imageUrl(path: string): Promise<string> {
 }
 
 export const photoPath = (id: string) => `/api/club/photo/${id}`;
+
+/** Vidéos : chargées entières (6 Mo au plus) puis lues sur place ; on n'en garde que 4 en mémoire. */
+const videoBlobs = new Map<string, Promise<string>>();
+export function videoUrl(id: string): Promise<string> {
+  const hit = videoBlobs.get(id);
+  if (hit) {
+    videoBlobs.delete(id);
+    videoBlobs.set(id, hit);
+    return hit;
+  }
+  const p = fetch(`${BASE}/api/club/video/${id}`, { headers: authHeaders(authToken(), false) })
+    .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+    .then((b) => URL.createObjectURL(b));
+  p.catch(() => videoBlobs.delete(id));
+  videoBlobs.set(id, p);
+  while (videoBlobs.size > 4) {
+    const [oldId, old] = videoBlobs.entries().next().value as [string, Promise<string>];
+    videoBlobs.delete(oldId);
+    void old.then((u) => setTimeout(() => URL.revokeObjectURL(u), 5000), () => undefined);
+  }
+  return p;
+}
+
+async function uploadVideo(blob: Blob, type: string): Promise<{ id: string }> {
+  const r = await fetch(`${BASE}/api/club/videos`, { method: 'POST', headers: { ...authHeaders(authToken(), false), 'content-type': type }, body: blob });
+  const data = (await r.json().catch(() => ({}))) as { id?: string; error?: string };
+  if (!r.ok || !data.id) throw new Error(data.error ?? 'La vidéo n’a pas pu être envoyée');
+  return { id: data.id };
+}
 export const avatarPath = (m: Pick<Member, 'id' | 'avatar'>) => (m.avatar ? `/api/club/avatar/${m.id}?v=${m.avatar}` : null);
 
 /* ---------- API ---------- */
@@ -269,6 +311,7 @@ export const club = {
     DEMO ? demo.feed(filter) : api<{ posts: ClubPost[]; next: string | null }>(`/api/club/feed?filter=${encodeURIComponent(filter)}${before ? `&before=${encodeURIComponent(before)}` : ''}`),
   post: (id: string) => (DEMO ? demo.post(id) : api<{ post: ClubPost; comments: ClubComment[] }>(`/api/club/posts/${id}`)),
   create: (p: NewPost) => (DEMO ? demo.create(p) : api<{ post: ClubPost }>('/api/club/posts', { body: p })),
+  uploadVideo: (blob: Blob, type: string) => (DEMO ? Promise.reject(new Error('Pas de vidéo dans la démo')) : uploadVideo(blob, type)),
   remove: (id: string) => (DEMO ? demo.remove(id) : api(`/api/club/posts/${id}`, { method: 'DELETE' })),
   spark: (id: string) => (DEMO ? demo.spark(id) : api<{ post: ClubPost }>(`/api/club/posts/${id}/spark`, { body: {} })),
   comment: (id: string, text: string, mentions: Mention[]) =>

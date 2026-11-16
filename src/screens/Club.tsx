@@ -1,6 +1,6 @@
 // Le club : le fil des séances des membres, comme sur Strava. Publier sa séance avec des photos,
 // identifier quelqu'un avec @, envoyer une étincelle (elle rapporte de l'XP à l'auteur), commenter, suivre, être prévenu.
-import { type ChangeEvent, type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, type CSSProperties, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { DISCIPLINE_ICON, Icon } from '../components/Icon';
 import { Radar } from '../components/Radar';
 import { RollingNumber } from '../components/RollingNumber';
@@ -29,6 +29,9 @@ import {
   CHALLENGE_DELAYS,
   rememberMe,
   timeLeft,
+  videoUrl,
+  type NewPost,
+  type PostVideo,
 } from '../lib/club';
 import { Field } from '../components/form';
 import { dayKey, formatShort } from '../lib/date';
@@ -36,7 +39,9 @@ import { prepareImage } from '../lib/image';
 import { AvatarCrop } from '../components/AvatarCrop';
 import { setMe } from '../lib/me';
 import { MusicBar, MusicPicker } from '../components/Music';
-import { stopMusic, type Track } from '../lib/music';
+import { autoplay, playable, stopIf, stopMusic, type Track } from '../lib/music';
+import { activePostId, setSound, useActive, useNear, useSound, useVisibility } from '../lib/feedSound';
+import { type PickedVideo, pickVideo, prepareVideo, VIDEO_SECONDS } from '../lib/video';
 import { signedIn } from '../lib/session';
 import { getState, setState, useApp } from '../lib/store';
 import { moment } from '../lib/moments';
@@ -408,6 +413,100 @@ export function SummaryCard({ s, compact = false }: { s: SessionSummary; compact
   );
 }
 
+const fmtDur = (sec: number) => `0:${String(Math.round(sec)).padStart(2, '0')}`;
+
+/** Bouton son, en bas à droite de la photo ou de la vidéo : coupe ou remet le son de tout le fil. */
+function SoundButton({ on, onToggle }: { on: boolean; onToggle: (next: boolean) => void }) {
+  return (
+    <button
+      className="sound-btn"
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle(!on);
+      }}
+      aria-label={on ? 'Couper le son' : 'Activer le son'}
+      aria-pressed={on}
+    >
+      <Icon name={on ? 'sound' : 'mute'} size={15} />
+    </button>
+  );
+}
+
+/** Vidéo d'une publication : chargée quand elle approche, jouée en boucle quand elle est au centre. */
+function PostVideoView({ v, slot, audible, videoRef }: { v: PostVideo; slot: string; audible: boolean; videoRef: { current: HTMLVideoElement | null } }) {
+  const active = useActive(slot);
+  const near = useNear(slot);
+  const poster = useImage(photoPath(v.poster));
+  const [src, setSrc] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
+  useEffect(() => {
+    if (!near || src) return;
+    let live = true;
+    videoUrl(v.id).then((u) => live && setSrc(u), () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [near, v.id, src]);
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !src) return;
+    el.muted = !audible;
+    if (active && !paused) {
+      // Le téléphone peut refuser le son sans toucher préalable : la vidéo joue alors sans son.
+      el.play().catch(() => {
+        el.muted = true;
+        void el.play().catch(() => undefined);
+      });
+    } else el.pause();
+  }, [active, audible, src, paused, videoRef]);
+  const ratio = Math.min(1.91, Math.max(0.8, v.w / Math.max(1, v.h)));
+  return (
+    <div className="post-video" style={{ aspectRatio: String(ratio) }} onClick={() => setPaused((p) => !p)}>
+      {src ? (
+        <video ref={videoRef} src={src} poster={poster ?? undefined} playsInline loop muted preload="auto" aria-label={`Vidéo de ${fmtDur(v.dur)}`} />
+      ) : poster ? (
+        <img src={poster} alt="" />
+      ) : (
+        <span className="sk-block" />
+      )}
+      {paused && (
+        <span className="video-paused" aria-hidden="true">
+          <Icon name="play" size={30} />
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Photos ou vidéo, avec le bouton son quand la publication a du son (musique, ou vidéo qui garde le sien). */
+function PostMedia({ post, slot, onPhoto }: { post: ClubPost; slot: string; onPhoto: (i: number) => void }) {
+  const soundOn = useSound();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const music = post.music && playable(post.music) ? post.music : null;
+  const hasSound = Boolean(post.video?.sound || music);
+  if (!post.video && !post.photos.length) return null;
+  const toggle = (next: boolean) => {
+    setSound(next);
+    // Dans le geste : l'iPhone accepte alors de mettre le son.
+    const el = videoRef.current;
+    if (el && post.video?.sound) {
+      el.muted = !next;
+      if (next) void el.play().catch(() => undefined);
+    }
+    if (music) {
+      if (next) void autoplay(music, `post:${post.id}`);
+      else stopIf(`post:${post.id}`);
+    }
+  };
+  return (
+    <div className="post-media">
+      {post.video ? <PostVideoView v={post.video} slot={slot} audible={soundOn && post.video.sound} videoRef={videoRef} /> : <Photos ids={post.photos} onOpen={onPhoto} />}
+      {hasSound && <SoundButton on={soundOn} onToggle={toggle} />}
+      {post.video && <span className="video-badge small">{fmtDur(post.video.dur)}</span>}
+    </div>
+  );
+}
+
 function Photos({ ids, onOpen }: { ids: string[]; onOpen: (i: number) => void }) {
   if (!ids.length) return null;
   return (
@@ -447,6 +546,20 @@ function PostCard({
 }) {
   const [burst, setBurst] = useState(0);
   const [photo, setPhoto] = useState<number | null>(null);
+  // Lecture automatique : la publication la plus visible joue sa musique si le son du fil est activé.
+  const box = useRef<HTMLElement>(null);
+  const slot = detail ? `${post.id}:detail` : post.id;
+  useVisibility(box, slot);
+  const active = useActive(slot);
+  const soundOn = useSound();
+  const musicKey = `post:${post.id}`;
+  useEffect(() => {
+    const t = post.music;
+    if (!t || !playable(t)) return;
+    if (active && soundOn) void autoplay(t, musicKey);
+    // Sortie de l'écran (et pas seulement passée à sa propre fiche ouverte) : sa musique s'arrête.
+    else if (!soundOn || activePostId() !== post.id) stopIf(musicKey);
+  }, [active, soundOn, post.music, musicKey]);
   const spark = async () => {
     if (post.mine) return;
     // Réponse immédiate à l'écran, corrigée par le serveur ensuite.
@@ -478,7 +591,7 @@ function PostCard({
     }
   };
   return (
-    <article className="card post">
+    <article className="card post" ref={box}>
       <header className="post-head">
         <button className="post-author" onClick={onAuthor} aria-label={`Voir le profil de ${post.authorName}`}>
           <MemberAvatar m={author} />
@@ -510,8 +623,8 @@ function PostCard({
           <MentionText text={post.text} mentions={post.mentions} />
         </p>
       )}
-      <Photos ids={post.photos} onOpen={setPhoto} />
-      {post.music && <MusicBar t={post.music} playKey={`post:${post.id}`} />}
+      <PostMedia post={post} slot={slot} onPhoto={setPhoto} />
+      {post.music && <MusicBar t={post.music} playKey={musicKey} />}
 
       <footer className="post-actions">
         <button
@@ -585,6 +698,7 @@ function MentionInput({
   placeholder,
   rows = 3,
   autoFocus,
+  grow,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -594,8 +708,16 @@ function MentionInput({
   placeholder: string;
   rows?: number;
   autoFocus?: boolean;
+  /** Hauteur qui suit le texte (une ligne au départ, quatre au plus). */
+  grow?: boolean;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!grow || !el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight + 2, 132)}px`;
+  }, [value, grow]);
   const [caret, setCaret] = useState(0);
   const q = mentionQuery(value, caret);
   const options = q ? matchMembers(members, q.query) : [];
@@ -617,7 +739,7 @@ function MentionInput({
     <div className="mention-input">
       <textarea
         ref={ref}
-        className="input"
+        className={`input${grow ? ' grow' : ''}`}
         rows={rows}
         value={value}
         placeholder={placeholder}
@@ -656,8 +778,35 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
   const [busy, setBusy] = useState(false);
   const [music, setMusic] = useState<Track | null>(null);
   const [picking, setPicking] = useState(false);
+  const [video, setVideo] = useState<PickedVideo | null>(null);
+  const [videoSound, setVideoSound] = useState(true);
+  const [prep, setPrep] = useState<number | null>(null);
   const file = useRef<HTMLInputElement>(null);
+  const videoFile = useRef<HTMLInputElement>(null);
   const summary = days.find((d) => d.date === picked)?.summary;
+
+  // La vidéo choisie reste en mémoire le temps de la publication seulement.
+  useEffect(
+    () => () => {
+      if (video) URL.revokeObjectURL(video.url);
+    },
+    [video],
+  );
+
+  const addVideo = async (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const v = await pickVideo(f);
+      setPhotos([]);
+      setVideo(v);
+      // Avec une musique, c'est elle qu'on entend : le son de la vidéo part coupé (réglable).
+      setVideoSound(!music);
+    } catch (err) {
+      toast(errorText(err), true);
+    }
+  };
 
   const add = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = [...(e.target.files ?? [])].slice(0, 4 - photos.length);
@@ -673,10 +822,28 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
   };
 
   const publish = async () => {
-    if (!summary && !text.trim() && !photos.length) return toast('Ajoute une séance, un texte ou une photo', true);
+    if (!summary && !text.trim() && !photos.length && !video && !music) return toast('Ajoute une séance, un texte, une photo ou une vidéo', true);
+    // La vidéo se prépare tout de suite, dans le geste : sinon l'iPhone coupe son son pendant la compression.
+    const preparing = video ? prepareVideo(video, videoSound, setPrep) : null;
     setBusy(true);
+    if (preparing) setPrep(0);
     try {
-      const { post } = await club.create({ text: text.trim(), mentions: keptMentions(text, mentions), session: summary, photos, visibility, ...(music ? { music } : {}) });
+      let clip: NewPost['video'];
+      if (preparing) {
+        const v = await preparing;
+        setPrep(1);
+        const { id } = await club.uploadVideo(v.blob, v.type);
+        clip = { id, poster: v.poster, w: v.w, h: v.h, dur: v.dur, sound: v.sound };
+      }
+      const { post } = await club.create({
+        text: text.trim(),
+        mentions: keptMentions(text, mentions),
+        session: summary,
+        photos,
+        visibility,
+        ...(clip ? { video: clip } : {}),
+        ...(music ? { music } : {}),
+      });
       stopMusic();
       onPosted(post);
       if (visibility === 'private') toast('Gardé pour toi');
@@ -689,6 +856,7 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
       toast(errorText(e), true);
     } finally {
       setBusy(false);
+      setPrep(null);
     }
   };
 
@@ -711,11 +879,32 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
           </>
         ) : (
           <p className="small muted" style={{ margin: 0 }}>
-            Pas de séance notée ces 7 derniers jours : tu peux quand même publier un mot ou une photo.
+            Pas de séance notée ces 7 derniers jours : tu peux quand même publier un mot, une photo ou une vidéo.
           </p>
         )}
 
         <MentionInput value={text} onChange={setText} mentions={mentions} onMentions={setMentions} members={members} placeholder="Raconte ta séance. Tape @ pour identifier un membre." rows={4} />
+
+        {video && (
+          <div className="compose-video">
+            <video src={video.url} muted autoPlay loop playsInline poster={video.poster} />
+            <span className="video-badge small">{fmtDur(Math.min(video.dur, VIDEO_SECONDS))}</span>
+            <button className="icon-btn" onClick={() => setVideo(null)} aria-label="Retirer la vidéo">
+              <Icon name="x" size={16} />
+            </button>
+          </div>
+        )}
+        {video && (
+          <div className="stack" style={{ gap: 6 }}>
+            <button type="button" className={`chip sound-chip ${videoSound ? 'on' : ''}`} onClick={() => setVideoSound((v) => !v)} aria-pressed={videoSound}>
+              <Icon name={videoSound ? 'sound' : 'mute'} size={15} /> {videoSound ? 'Son de la vidéo gardé' : 'Son de la vidéo coupé'}
+            </button>
+            <p className="small faint" style={{ margin: 0 }}>
+              {video.dur > VIDEO_SECONDS + 0.5 ? 'Seules les 15 premières secondes seront gardées. ' : ''}
+              {music && videoSound ? 'La musique et le son de la vidéo se joueront ensemble.' : music ? 'On entendra ta musique.' : ''}
+            </p>
+          </div>
+        )}
 
         <div className="compose-photos">
           {photos.map((p, i) => (
@@ -726,13 +915,20 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
               </button>
             </div>
           ))}
-          {photos.length < 4 && (
+          {photos.length < 4 && !video && (
             <button className="compose-add" onClick={() => file.current?.click()}>
               <Icon name="camera" size={22} />
               <span className="small">Photo</span>
             </button>
           )}
           <input ref={file} type="file" accept="image/*" multiple hidden onChange={add} />
+          {!video && !photos.length && (
+            <button className="compose-add" onClick={() => videoFile.current?.click()}>
+              <Icon name="video" size={22} />
+              <span className="small">Vidéo</span>
+            </button>
+          )}
+          <input ref={videoFile} type="file" accept="video/mp4,video/quicktime,video/webm,video/*" hidden onChange={addVideo} />
           {!music && (
             <button className="compose-add" onClick={() => setPicking(true)}>
               <Icon name="music" size={22} />
@@ -751,6 +947,7 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
               stopMusic();
               setMusic(t);
               setPicking(false);
+              if (video) setVideoSound(false);
             }}
           />
         )}
@@ -769,7 +966,15 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
         )}
 
         <button className="btn primary block" disabled={busy} onClick={publish}>
-          {busy ? 'Publication…' : visibility === 'private' ? 'Garder pour moi' : 'Publier'}
+          {prep !== null && prep < 1
+            ? `Préparation de la vidéo… ${Math.round(prep * 100)} %`
+            : prep === 1
+              ? 'Envoi de la vidéo…'
+              : busy
+                ? 'Publication…'
+                : visibility === 'private'
+                  ? 'Garder pour moi'
+                  : 'Publier'}
         </button>
       </div>
     </Sheet>
@@ -823,7 +1028,20 @@ function PostSheet({ id, members, onClose, onChange }: { id: string; members: Me
   };
 
   return (
-    <Sheet title="Publication" onClose={onClose}>
+    <Sheet
+      title="Publication"
+      onClose={onClose}
+      footer={
+        data && (
+          <div className="comment-box">
+            <MentionInput value={text} onChange={setText} mentions={mentions} onMentions={setMentions} members={members} placeholder="Écris un commentaire, @ pour identifier" rows={1} grow />
+            <button className="btn primary comment-send" disabled={busy || !text.trim()} onClick={send} aria-label="Envoyer le commentaire">
+              <Icon name="send" size={18} />
+            </button>
+          </div>
+        )
+      }
+    >
       {error && <p className="muted">{error}</p>}
       {!data && !error && <div className="spinner" />}
       {data && (
@@ -850,12 +1068,6 @@ function PostSheet({ id, members, onClose, onChange }: { id: string; members: Me
               </div>
             ))}
           </section>
-          <div className="comment-box">
-            <MentionInput value={text} onChange={setText} mentions={mentions} onMentions={setMentions} members={members} placeholder="Écris un commentaire, @ pour identifier" rows={2} />
-            <button className="btn primary" disabled={busy || !text.trim()} onClick={send} aria-label="Envoyer le commentaire">
-              <Icon name="send" size={18} />
-            </button>
-          </div>
         </div>
       )}
     </Sheet>

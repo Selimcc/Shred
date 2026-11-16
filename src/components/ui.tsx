@@ -30,7 +30,8 @@ function useKeyboardView(): { top: number; height: number } | null {
   return view;
 }
 
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+/** `footer` : barre fixée en bas de la feuille (champ de commentaire…), hors de la zone qui défile. */
+export function Sheet({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -48,11 +49,19 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   // En partant, la feuille glisse vers le bas et le fond s'efface (même si c'est le programme qui la ferme).
   useLayoutEffect(() => {
     const el = root.current;
-    return () => leave(el, 'sheet-out', 220, [{ selector: '.sheet', top: scroll.current }]);
+    return () => leave(el, 'sheet-out', 220, [{ selector: footer ? '.sheet-scroll' : '.sheet', top: scroll.current }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <div ref={root} className="sheet-backdrop" onClick={onClose} style={view ? { top: view.top, height: view.height, bottom: 'auto', '--sheet-max': `${view.height - 12}px` } as CSSProperties : undefined}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()} onScroll={(e) => (scroll.current = e.currentTarget.scrollTop)}>
+      <div
+        className={`sheet${footer ? ' has-foot' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+        onScroll={footer ? undefined : (e) => (scroll.current = e.currentTarget.scrollTop)}
+      >
         <div className="grip" />
         <div className="sheet-head">
           <h2>{title}</h2>
@@ -60,7 +69,16 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
             <Icon name="x" />
           </button>
         </div>
-        {children}
+        {footer ? (
+          <>
+            <div className="sheet-scroll" onScroll={(e) => (scroll.current = e.currentTarget.scrollTop)}>
+              {children}
+            </div>
+            <div className="sheet-foot">{footer}</div>
+          </>
+        ) : (
+          children
+        )}
       </div>
     </div>
   );

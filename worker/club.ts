@@ -40,6 +40,8 @@ export interface Post {
   mentions: Mention[];
   session?: SessionSummary;
   photos: string[];
+  /** Courte vidéo (15 s au plus) : fichier, image d'aperçu, format, durée, et si son propre son se joue. */
+  video?: PostVideo;
   /** Musique jointe (extrait Apple Music de 30 s). */
   music?: Track;
   visibility: Visibility;
@@ -95,7 +97,19 @@ interface Push {
   url: string;
 }
 
-const LIMITS = { text: 1000, comment: 500, photos: 4, photoBytes: 900_000, stats: 6, profile: 90, feed: 20 };
+const LIMITS = { text: 1000, comment: 500, photos: 4, photoBytes: 900_000, videoBytes: 6_000_000, videoSeconds: 16, stats: 6, profile: 90, feed: 20 };
+
+export interface PostVideo {
+  id: string;
+  poster: string;
+  w: number;
+  h: number;
+  dur: number;
+  sound: boolean;
+}
+
+/** Tous les fichiers d'une publication (photos, vidéo et son aperçu) : même droit de lecture, même suppression. */
+const media = (p: Post) => [...p.photos, ...(p.video ? [p.video.id, p.video.poster] : [])];
 
 const rid = () => {
   const b = new Uint8Array(12);
@@ -249,7 +263,7 @@ export class Club {
         const p = b.post as Post;
         await this.db.put(postKey(p), p);
         await this.db.put(`pid:${p.id}`, postKey(p));
-        for (const ph of p.photos) await this.db.put(`ph:${ph}`, p.id);
+        for (const ph of media(p)) await this.db.put(`ph:${ph}`, p.id);
         const n = (await this.db.get<number>(`count:${viewer}`)) ?? 0;
         await this.db.put(`count:${viewer}`, n + 1);
         for (const m of p.mentions) {
@@ -267,8 +281,8 @@ export class Club {
           // Photos d'avant l'index : on retrouve leur publication une fois, puis on retient le lien.
           const all = await this.db.list<Post>({ prefix: 'p:' });
           for (const p of all.values()) {
-            for (const ph of p.photos) await this.db.put(`ph:${ph}`, p.id);
-            if (p.photos.includes(photo)) postId = p.id;
+            for (const ph of media(p)) await this.db.put(`ph:${ph}`, p.id);
+            if (media(p).includes(photo)) postId = p.id;
           }
         }
         const found = postId ? await this.getPost(postId) : null;
@@ -286,7 +300,7 @@ export class Club {
         const found = await this.getPost(String(b.id));
         if (!found) return out({ error: 'not-found' });
         if (found.post.author !== viewer && !b.admin) return out({ error: 'forbidden' });
-        for (const ph of found.post.photos) await this.db.delete(`ph:${ph}`);
+        for (const ph of media(found.post)) await this.db.delete(`ph:${ph}`);
         const comments = await this.db.list({ prefix: `c:${found.post.id}:` });
         await this.db.delete([found.key, `pid:${found.post.id}`, ...comments.keys()]);
         const n = (await this.db.get<number>(`count:${found.post.author}`)) ?? 1;
@@ -294,7 +308,7 @@ export class Club {
         // Les étincelles de la publication supprimée ne comptent plus.
         const sp = (await this.db.get<number>(`sp:${found.post.author}`)) ?? 0;
         await this.db.put(`sp:${found.post.author}`, Math.max(0, sp - found.post.sparks.length));
-        return out({ ok: true, photos: found.post.photos });
+        return out({ ok: true, photos: found.post.photos, videos: found.post.video ? [found.post.video.id] : [], posters: found.post.video ? [found.post.video.poster] : [] });
       }
 
       case '/spark': {
@@ -492,9 +506,11 @@ export class Club {
         // Compte supprimé : ses publications, commentaires et abonnements partent avec lui.
         const all = await this.db.list<Post>({ prefix: 'p:' });
         const photos: string[] = [];
+        const videos: string[] = [];
         for (const [key, p] of all) {
           if (p.author !== viewer) continue;
-          photos.push(...p.photos);
+          photos.push(...p.photos, ...(p.video ? [p.video.poster] : []));
+          if (p.video) videos.push(p.video.id);
           const comments = await this.db.list({ prefix: `c:${p.id}:` });
           await this.db.delete([key, `pid:${p.id}`, ...comments.keys()]);
         }
@@ -508,7 +524,7 @@ export class Club {
         const privs = await this.privates();
         if (privs.delete(viewer)) await this.db.put('private', [...privs]);
         await this.db.delete([`f:${viewer}`, `fb:${viewer}`, `rq:${viewer}`, `rqo:${viewer}`, `count:${viewer}`, `nr:${viewer}`, `sp:${viewer}`]);
-        return out({ ok: true, photos });
+        return out({ ok: true, photos, videos });
       }
     }
     return Response.json({ error: 'route inconnue' }, { status: 404 });
@@ -614,6 +630,34 @@ async function sendPushes(env: Env, pushes: Push[]) {
 }
 
 /** Une photo envoyée en data URL JPEG, PNG ou WebP, bornée en taille. */
+const VIDEO_TYPES = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
+
+/** Les premiers octets d'un MP4/MOV (« ftyp ») ou d'un WebM (en-tête EBML). */
+function looksLikeVideo(b: Uint8Array, type: string): boolean {
+  if (b.length < 16) return false;
+  if (type === 'video/webm') return b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3;
+  const box = String.fromCharCode(b[4], b[5], b[6], b[7]);
+  return box === 'ftyp' || box === 'moov' || box === 'mdat' || box === 'wide' || box === 'free';
+}
+
+/**
+ * Rattache à une publication une vidéo envoyée juste avant par la même personne : elle est gardée pour de bon,
+ * avec son image d'aperçu.
+ */
+async function claimVideo(env: Env, user: User, raw: unknown): Promise<PostVideo> {
+  const v = (raw ?? {}) as Record<string, unknown>;
+  const id = typeof v.id === 'string' && /^[a-f0-9]{24}$/.test(v.id) ? v.id : null;
+  if (!id) throw new HttpError(400, 'Vidéo invalide');
+  const { value, metadata } = await env.KV.getWithMetadata<{ type?: string; author?: string; pending?: boolean }>(`club:video:${id}`, 'arrayBuffer');
+  if (!value || metadata?.author !== user.id) throw new HttpError(400, 'Vidéo expirée : ajoute-la à nouveau');
+  const num = (x: unknown, max: number) => Math.max(0, Math.min(max, Math.round(Number(x) * 10) / 10 || 0));
+  const { bytes, type } = decodePhoto(v.poster);
+  const poster = rid();
+  await env.KV.put(`club:photo:${poster}`, bytes, { metadata: { type, author: user.id } });
+  if (metadata.pending) await env.KV.put(`club:video:${id}`, value, { metadata: { type: metadata.type, author: user.id } });
+  return { id, poster, w: num(v.w, 4096) || 720, h: num(v.h, 4096) || 1280, dur: num(v.dur, LIMITS.videoSeconds), sound: v.sound !== false };
+}
+
 function decodePhoto(data: unknown): { bytes: Uint8Array; type: string } {
   const m = typeof data === 'string' ? data.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/) : null;
   if (!m) throw new HttpError(400, 'Photo invalide');
@@ -672,12 +716,13 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
 
   if (pathname === '/api/club/posts' && method === 'POST') {
     await capDaily(env, user.id, 'post');
-    const b = await readJson<{ text?: string; session?: unknown; photos?: unknown[]; visibility?: Visibility; mentions?: unknown; music?: unknown }>(req, 5_000_000);
+    const b = await readJson<{ text?: string; session?: unknown; photos?: unknown[]; visibility?: Visibility; mentions?: unknown; music?: unknown; video?: unknown }>(req, 5_000_000);
     const music = sanitizeTrack(b.music);
     const text = str(b.text, LIMITS.text);
     const session = sanitizeSummary(b.session);
     const photosIn = Array.isArray(b.photos) ? b.photos.slice(0, LIMITS.photos) : [];
-    if (!text && !session && !photosIn.length && !music) throw new HttpError(400, 'Rien à publier');
+    const video = b.video ? await claimVideo(env, user, b.video) : undefined;
+    if (!text && !session && !photosIn.length && !music && !video) throw new HttpError(400, 'Rien à publier');
     const photos: string[] = [];
     for (const raw of photosIn) {
       const { bytes, type } = decodePhoto(raw);
@@ -694,6 +739,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
       mentions: await checkMentions(env, b.mentions),
       ...(session ? { session } : {}),
       photos,
+      ...(video ? { video } : {}),
       ...(music ? { music } : {}),
       visibility: b.visibility === 'followers' || b.visibility === 'private' ? b.visibility : 'all',
       sparks: [],
@@ -712,8 +758,11 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
       return json({ post: view(data.post, user), comments: data.comments.map((c) => ({ ...c, mine: c.author === user.id })) });
     }
     if (!sub && method === 'DELETE') {
-      const data = await callClub<{ photos: string[] }>(env, user, '/delete', { id });
-      await Promise.all(data.photos.map((p) => env.KV.delete(`club:photo:${p}`)));
+      const data = await callClub<{ photos: string[]; videos?: string[]; posters?: string[] }>(env, user, '/delete', { id });
+      await Promise.all([
+        ...[...data.photos, ...(data.posters ?? [])].map((p) => env.KV.delete(`club:photo:${p}`)),
+        ...(data.videos ?? []).map((v) => env.KV.delete(`club:video:${v}`)),
+      ]);
       return json({ ok: true });
     }
     if (sub === 'spark' && method === 'POST') {
@@ -739,13 +788,28 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
     return json({ post: view(data.post, user) });
   }
 
-  const photo = pathname.match(/^\/api\/club\/(photo|avatar)\/([a-f0-9]{24}|[A-Za-z0-9_-]{6,64})$/);
+  const photo = pathname.match(/^\/api\/club\/(photo|avatar|video)\/([a-f0-9]{24}|[A-Za-z0-9_-]{6,64})$/);
   if (photo && method === 'GET') {
-    if (photo[1] === 'photo' && !(await photoVisible(env, user, photo[2]))) throw new HttpError(404, 'Photo introuvable');
-    const key = photo[1] === 'photo' ? `club:photo:${photo[2]}` : `club:avatar:${photo[2]}`;
+    if (photo[1] !== 'avatar' && !(await photoVisible(env, user, photo[2]))) throw new HttpError(404, 'Photo introuvable');
+    const key = photo[1] === 'avatar' ? `club:avatar:${photo[2]}` : `club:${photo[1]}:${photo[2]}`;
     const { value, metadata } = await env.KV.getWithMetadata<{ type?: string }>(key, 'arrayBuffer');
     if (!value) throw new HttpError(404, 'Photo introuvable');
     return new Response(value, { headers: { 'content-type': metadata?.type ?? 'image/jpeg', 'cache-control': 'private, max-age=31536000, immutable' } });
+  }
+
+  if (pathname === '/api/club/videos' && method === 'POST') {
+    // Une courte vidéo, envoyée telle quelle (pas en JSON). Elle n'est gardée qu'une heure si aucune
+    // publication ne la reprend.
+    await capDaily(env, user.id, 'video');
+    const type = (req.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+    if (!VIDEO_TYPES.has(type)) throw new HttpError(415, 'Format vidéo non accepté (MP4, MOV ou WebM)');
+    if (Number(req.headers.get('content-length') ?? 0) > LIMITS.videoBytes) throw new HttpError(413, 'Vidéo trop lourde (6 Mo au plus)');
+    const bytes = new Uint8Array(await req.arrayBuffer());
+    if (bytes.length > LIMITS.videoBytes) throw new HttpError(413, 'Vidéo trop lourde (6 Mo au plus)');
+    if (!looksLikeVideo(bytes, type)) throw new HttpError(415, 'Ce fichier n’est pas une vidéo');
+    const id = rid();
+    await env.KV.put(`club:video:${id}`, bytes, { metadata: { type, author: user.id, pending: true }, expirationTtl: 3600 });
+    return json({ id });
   }
 
   if (pathname === '/api/club/avatar' && method === 'PUT') {
@@ -880,6 +944,10 @@ function view(p: Post, user: User) {
 export async function forgetMember(env: Env, user: Pick<User, 'id' | 'name' | 'role'>) {
   if (!env.CLUB) return;
   const res = await stub(env).fetch('https://club/forget', { method: 'POST', body: JSON.stringify({ viewer: user.id, viewerName: user.name }) });
-  const data = (await res.json()) as { photos?: string[] };
-  await Promise.all([...(data.photos ?? []).map((p) => env.KV.delete(`club:photo:${p}`)), env.KV.delete(`club:avatar:${user.id}`)]);
+  const data = (await res.json()) as { photos?: string[]; videos?: string[] };
+  await Promise.all([
+    ...(data.photos ?? []).map((p) => env.KV.delete(`club:photo:${p}`)),
+    ...(data.videos ?? []).map((v) => env.KV.delete(`club:video:${v}`)),
+    env.KV.delete(`club:avatar:${user.id}`),
+  ]);
 }

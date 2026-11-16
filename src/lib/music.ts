@@ -166,6 +166,10 @@ function start(el: HTMLAudioElement, key: string) {
   });
 }
 
+/** Extraits mis en pause à la main : la lecture automatique du fil ne les relance pas. */
+const pausedByHand = new Set<string>();
+export const pausedByUser = (key: string) => pausedByHand.has(key);
+
 export function toggle(t: Track, key = t.id) {
   if (!playable(t)) return;
   if (current === key && active) {
@@ -173,9 +177,11 @@ export function toggle(t: Track, key = t.id) {
       active.pause();
       current = null;
       loading = false;
+      pausedByHand.add(key);
     } else start(active, key);
     return emit();
   }
+  pausedByHand.delete(key);
   active?.pause();
   current = key;
   loading = true;
@@ -200,6 +206,51 @@ export function toggle(t: Track, key = t.id) {
     el.src = u;
     start(el, key);
   });
+}
+
+/**
+ * Débloquer le son au premier toucher : l'iPhone n'autorise un lecteur à jouer seul (lecture automatique du
+ * fil) que s'il a déjà été lancé pendant un geste. On lance donc le lecteur partagé une fois, à vide.
+ */
+export function unlockAudio() {
+  shared ??= watch(new Audio());
+  if (!shared.getAttribute('src')) void shared.play().catch(() => undefined);
+}
+
+/**
+ * Lecture automatique d'un extrait (publication au centre de l'écran, son activé), avec le lecteur partagé
+ * déjà débloqué. Renvoie false si le téléphone refuse (aucun toucher encore) : un appui sur le bouton son suffira.
+ */
+export async function autoplay(t: Track, key: string): Promise<boolean> {
+  if (!playable(t) || pausedByHand.has(key)) return false;
+  if (current === key) return true;
+  const url = knownUrl(t) ?? (await resolveUrl(t));
+  if (!url) return false;
+  active?.pause();
+  shared ??= watch(new Audio());
+  const el = shared;
+  current = key;
+  loading = true;
+  progress = 0;
+  active = el;
+  emit();
+  if (el.getAttribute('src') !== url) el.src = url;
+  try {
+    el.currentTime = 0;
+  } catch {
+    // pas encore prêt
+  }
+  try {
+    await el.play();
+    return true;
+  } catch {
+    if (current === key) {
+      current = null;
+      loading = false;
+      emit();
+    }
+    return false;
+  }
 }
 
 export function stopMusic() {

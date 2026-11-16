@@ -89,7 +89,7 @@ async function call(path, { token, body, method } = {}) {
     env,
   );
   const type = res.headers.get('content-type') ?? '';
-  const data = type.includes('json') ? await res.json().catch(() => ({})) : type.startsWith('image/') ? new Uint8Array(await res.arrayBuffer()) : await res.text();
+  const data = type.includes('json') ? await res.json().catch(() => ({})) : type.startsWith('image/') || type.startsWith('video/') ? new Uint8Array(await res.arrayBuffer()) : await res.text();
   return { status: res.status, data, type };
 }
 
@@ -372,6 +372,40 @@ r = await call('/api/club/members', { token: yanis.token });
 check('repassé en public : les demandes en attente sont acceptées', r.data.members.some((m) => m.id === leo.id && m.following));
 r = await call(`/api/club/followers/${'0'.repeat(16)}`, { token: leo.token, method: 'POST' });
 check('route inconnue pour une mauvaise méthode', r.status === 404);
+
+/* ---------- Courtes vidéos ---------- */
+
+const raw = async (path, token, type, bytes) => {
+  const res = await worker.fetch(new Request(`https://shred.test${path}`, { method: 'POST', headers: { 'content-type': type, authorization: `Bearer ${token}`, 'cf-connecting-ip': `10.1.0.${ip++}` }, body: bytes }), env);
+  return { status: res.status, data: await res.json().catch(() => ({})) };
+};
+// Un faux MP4 : la boîte « ftyp » au bon endroit, puis du remplissage.
+const mp4 = new Uint8Array(4096);
+mp4.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]);
+r = await raw('/api/club/videos', selim.token, 'video/mp4', mp4);
+check('vidéo envoyée', r.status === 200 && /^[a-f0-9]{24}$/.test(r.data.id), JSON.stringify(r.data));
+const vid = r.data.id;
+r = await raw('/api/club/videos', selim.token, 'video/mp4', new TextEncoder().encode('<html><script>alert(1)</script></html>'.padEnd(64, ' ')));
+check('faux fichier refusé', r.status === 415);
+r = await raw('/api/club/videos', selim.token, 'text/html', mp4);
+check('type non vidéo refusé', r.status === 415);
+r = await raw('/api/club/videos', selim.token, 'video/mp4', new Uint8Array(6_000_001));
+check('vidéo de plus de 6 Mo refusée', r.status === 413);
+r = await call('/api/club/posts', { token: yanis.token, body: { text: 'Vol de vidéo', video: { id: vid, poster: png, w: 720, h: 1280, dur: 9, sound: true } } });
+check('on ne publie pas la vidéo d’un autre', r.status === 400);
+r = await call('/api/club/posts', { token: selim.token, body: { text: 'Dernière série', visibility: 'followers', video: { id: vid, poster: png, w: 720, h: 1280, dur: 99, sound: false } } });
+check('publication avec vidéo', r.status === 200 && r.data.post.video?.id === vid && r.data.post.video.sound === false, JSON.stringify(r.data.post?.video ?? r.data));
+check('durée bornée à 16 s', r.data.post.video.dur === 16);
+const vpost = r.data.post;
+check('vidéo gardée pour de bon une fois publiée', kv.has(`club:video:${vid}`) && !kv.get(`club:video:${vid}`).metadata?.pending);
+r = await call(`/api/club/video/${vid}`, { token: selim.token });
+check('vidéo servie à son auteur', r.status === 200 && r.type === 'video/mp4');
+r = await call(`/api/club/video/${vid}`, { token: ines.token });
+check('vidéo « abonnés » refusée à qui ne suit pas', r.status === 404);
+r = await call(`/api/club/photo/${vpost.video.poster}`, { token: ines.token });
+check('aperçu protégé de la même façon', r.status === 404);
+r = await call(`/api/club/posts/${vpost.id}`, { token: selim.token, method: 'DELETE' });
+check('suppression : la vidéo et son aperçu partent avec', r.status === 200 && !kv.has(`club:video:${vid}`) && !kv.has(`club:photo:${vpost.video.poster}`));
 
 console.log(failures ? `\n${failures} échec(s)` : '\nTout est bon.');
 process.exit(failures ? 1 : 0);
