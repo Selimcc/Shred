@@ -61,14 +61,14 @@ const env = {
 };
 
 let ipCounter = 1;
-async function call(path, { token, body, method, ip } = {}) {
+async function call(path, { token, body, method, ip, auth } = {}) {
   const res = await worker.fetch(
     new Request(`https://shred.test${path}`, {
       method: method ?? (body ? 'POST' : 'GET'),
       headers: {
         'content-type': 'application/json',
         'cf-connecting-ip': ip ?? `10.0.0.${ipCounter}`,
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(auth !== undefined ? { authorization: auth } : token ? { authorization: `Bearer ${token}` } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
     }),
@@ -144,6 +144,16 @@ const shortcutKey = r.data.key;
 check('clé Raccourcis créée', r.status === 200 && shortcutKey.startsWith('shk_'));
 r = await call('/api/health/ingest', { token: shortcutKey, body: { steps: 4321 } });
 check('la clé Raccourcis envoie Santé', r.status === 200);
+for (const auth of [`bearer ${shortcutKey}`, `Bearer:${shortcutKey}`, `Bearer${shortcutKey}`, shortcutKey, ` Bearer  ${shortcutKey} `]) {
+  r = await call('/api/health/ingest', { auth, body: { steps: 4322 } });
+  check(`en-tête tapé à la main accepté : « ${auth.replace(shortcutKey, 'clé')} »`, r.status === 200, JSON.stringify(r.data));
+}
+r = await call('/api/health/ingest', { body: { steps: 4323 } });
+check('sans en-tête : message qui dit quoi ajouter', r.status === 401 && /en-tête Authorization/.test(r.data.error), r.data.error);
+r = await call('/api/health/ingest', { auth: 'Bearer ', body: { steps: 4323 } });
+check('« Bearer » sans clé (variable vide) : même message', r.status === 401 && /en-tête Authorization/.test(r.data.error), r.data.error);
+r = await call('/api/health/ingest', { auth: 'Bearer shk_mauvaise', body: { steps: 4323 } });
+check('clé fausse : refusée', r.status === 401);
 r = await call('/api/gym/checkin', { token: shortcutKey, body: {} });
 check('la clé Raccourcis signale la salle', r.status === 200);
 r = await call('/api/backup', { token: shortcutKey });

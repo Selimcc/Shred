@@ -102,9 +102,19 @@ export async function ensureIndexed(env: Env, id: string) {
  * Un jeton de session donne accès à tout ; une clé Raccourcis (shk_…) seulement aux routes qui l'acceptent.
  */
 export async function authenticate(req: Request, env: Env, opts: { deviceKey?: boolean } = {}): Promise<User> {
-  const header = req.headers.get('authorization') ?? '';
-  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-  if (!token) throw new HttpError(401, 'Connecte-toi pour utiliser cette fonction');
+  const header = (req.headers.get('authorization') ?? '').trim();
+  // Les Raccourcis sont tapés à la main : « bearer », « Bearer: », espace oublié ou clé seule sont acceptés.
+  const found = header.match(/^(?:bearer\s*:?\s*)?(\S+)$/i)?.[1] ?? '';
+  // « Bearer » seul : la variable de la clé est vide dans le raccourci.
+  const token = /^bearer:?$/i.test(found) ? '' : found;
+  if (!token) {
+    throw new HttpError(
+      401,
+      opts.deviceKey
+        ? 'Clé absente : dans « Obtenir le contenu de l’URL », ajoute l’en-tête Authorization avec Bearer suivi de ta clé'
+        : 'Connecte-toi pour utiliser cette fonction',
+    );
+  }
   const h = await sha256hex(token);
   let acct: Account | null = null;
 
