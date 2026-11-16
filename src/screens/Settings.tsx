@@ -38,6 +38,7 @@ import { ProgramEditor } from './ProgramEditor';
 import { StravaPage } from './Connections';
 import { isNative } from '../lib/native';
 import { MyProfilePage } from './MyProfile';
+import { UsagePage } from './Usage';
 
 export type SettingsPage =
   | 'menu'
@@ -58,7 +59,8 @@ export type SettingsPage =
   | 'mealplan'
   | 'report'
   | 'data'
-  | 'strava';
+  | 'strava'
+  | 'usage';
 
 const TITLES: Record<SettingsPage, string> = {
   menu: 'Réglages',
@@ -80,6 +82,7 @@ const TITLES: Record<SettingsPage, string> = {
   report: 'Bilan de la semaine',
   data: 'Données',
   strava: 'Strava',
+  usage: 'Cloudflare',
 };
 
 const AI_MODES: { id: AiMode; title: string; text: string }[] = [
@@ -178,6 +181,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
         },
         { id: 'publicProfile', icon: 'users', sub: s.settings.profile.visible ? 'Profil visible par le club' : 'Profil privé' },
         { id: 'report', icon: 'chart', sub: s.settings.reportEmail ? 'Par mail chaque lundi' : 'Dans l’app chaque lundi', show: !DEMO },
+        { id: 'usage', icon: 'pulse', sub: 'Plan gratuit : écritures, lectures, mode économie', show: DEMO || session.account?.role === 'admin' },
       ],
     },
   ];
@@ -259,6 +263,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
       {page === 'report' && <ReportPage />}
       {page === 'data' && <DataPage onReset={onClose} />}
       {page === 'strava' && <StravaPage />}
+      {page === 'usage' && <UsagePage />}
     </Sheet>
   );
 }

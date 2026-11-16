@@ -4,6 +4,7 @@
 // et n'envoie que cette clé. Le serveur n'en garde qu'une empreinte HMAC avec un sel aléatoire.
 // Une seconde clé, dérivée elle aussi du mot de passe, chiffre la sauvegarde sur le téléphone :
 // le serveur (et l'administrateur) ne peuvent pas lire les séances et les repas sauvegardés.
+import { counters } from './usage';
 import { forgetMember } from './club';
 import { type Env, HttpError, json, readJson } from './env';
 import { disconnectStrava } from './strava';
@@ -119,17 +120,14 @@ const ip = (req: Request) => req.headers.get('cf-connecting-ip') ?? 'local';
 
 async function guard(env: Env, keys: string[], max: number) {
   for (const k of keys) {
-    if (Number((await env.KV.get(`rl:${k}`)) ?? 0) >= max) {
+    if ((await counters.get(env, `rl:${k}`)) >= max) {
       throw new HttpError(429, 'Trop d’essais. Réessaie dans un quart d’heure.');
     }
   }
 }
 
 async function strike(env: Env, keys: string[]) {
-  for (const k of keys) {
-    const n = Number((await env.KV.get(`rl:${k}`)) ?? 0);
-    await env.KV.put(`rl:${k}`, String(n + 1), { expirationTtl: 900 });
-  }
+  for (const k of keys) await counters.incr(env, `rl:${k}`, 900);
 }
 
 /* ---------- Sessions ---------- */

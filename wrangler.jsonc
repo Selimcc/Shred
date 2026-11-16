@@ -21,12 +21,14 @@
   "durable_objects": {
     "bindings": [
       { "name": "TIMERS", "class_name": "RestTimer" },
-      { "name": "CLUB", "class_name": "Club" }
+      { "name": "CLUB", "class_name": "Club" },
+      { "name": "USAGE", "class_name": "Usage" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["RestTimer"] },
-    { "tag": "v2", "new_sqlite_classes": ["Club"] }
+    { "tag": "v2", "new_sqlite_classes": ["Club"] },
+    { "tag": "v3", "new_sqlite_classes": ["Usage"] }
   ],
 
   // Vérifie les rappels toutes les 15 minutes.

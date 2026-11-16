@@ -6,16 +6,18 @@ import { accountRoutes, adminRoutes, authRoutes } from './auth';
 import { getBackup, putBackup } from './backup';
 import { profileRoutes } from './profiles';
 import { emailReady, sendReport } from './report';
-import { authenticate, ensureIndexed, loadJson, type User } from './users';
+import { authenticate, ensureIndexed, listAccounts, loadJson, type User, userStore } from './users';
 import { restRoute } from './timers';
 import { clubRoutes } from './club';
 import { stravaCallback, stravaRoutes } from './strava';
 import { type PushSubscriptionData, sendPush } from './webpush';
+import { counters, currentMode, FREE, flushUsage, lastKnownMode, metered, summary, sweepUsage, usageReport, utcDay } from './usage';
 
 export { RestTimer } from './timers';
 export { Club } from './club';
+export { Usage } from './usage';
 
-const VERSION = '0.13.0';
+const VERSION = '0.14.0';
 
 function cors(res: Response): Response {
   const h = new Headers(res.headers);
@@ -37,11 +39,10 @@ async function consumeAiQuota(env: Env, user: User) {
   const limit = aiLimit(env, user);
   if (limit === 0) throw new HttpError(403, 'L’IA intégrée n’est pas ouverte aux invités : choisis « App Claude » dans Réglages, IA.');
   const day = new Date().toISOString().slice(0, 10);
-  const key = `usage:${day}`;
-  const used = Number((await user.store.get(key)) ?? 0);
+  const key = `ai:${user.id}:${day}`;
+  const used = await counters.get(env, key);
   if (used >= limit) throw new HttpError(429, `Limite de ${limit} requêtes IA atteinte aujourd’hui`);
-  await user.store.put(key, String(used + 1), { expirationTtl: 2 * 86400 });
-  return { used: used + 1, limit };
+  return { used: await counters.incr(env, key, 2 * 86400), limit };
 }
 
 /** Routes que les Raccourcis iPhone appellent avec leur clé dédiée. */
@@ -98,6 +99,12 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
 
   const user: User = await authenticate(req, env, { deviceKey: DEVICE_ROUTES.has(pathname) });
   const store = user.store;
+
+  if (pathname === '/api/admin/usage' && method === 'GET') {
+    if (user.role !== 'admin') throw new HttpError(403, 'Réservé à l’administrateur');
+    const days = await usageReport(env, 14);
+    return json({ limits: FREE, mode: await currentMode(env), days: days.map((d) => summary(d)), tracked: Boolean(env.USAGE) });
+  }
 
   const acct =
     (await accountRoutes(req, env, user, pathname)) ??
@@ -195,7 +202,7 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
   if (pathname === '/api/health/ingest' && method === 'POST') {
     // Appelé par le Raccourci iPhone « Shred Santé ».
     const body = await readJson<Record<string, unknown>>(req, 5_000);
-    return json({ ok: true, saved: await ingestHealth(store, body) });
+    return json({ ok: true, saved: await ingestHealth(store, body, new Date(), await currentMode(env)) });
   }
 
   if (pathname === '/api/health/recent' && method === 'GET') {
@@ -236,8 +243,11 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
 }
 
 export default {
-  async fetch(req, env, ctx): Promise<Response> {
+  async fetch(req, rawEnv, ctx): Promise<Response> {
     const url = new URL(req.url);
+    // Les fichiers de l'app ne touchent ni KV ni les objets : seules les requêtes de l'API sont comptées.
+    const env = url.pathname.startsWith('/api/') ? metered(rawEnv) : rawEnv;
+    if (env !== rawEnv) ctx?.waitUntil(flushUsage(env).then(() => alertIfNeeded(env)));
     if (!url.pathname.startsWith('/api/')) {
       // App privée : on demande aux moteurs de recherche de ne pas l'indexer.
       const res = await env.ASSETS.fetch(req);
@@ -256,11 +266,47 @@ export default {
     }
   },
 
-  async scheduled(event, env, ctx): Promise<void> {
+  async scheduled(event, rawEnv, ctx): Promise<void> {
+    const env = metered(rawEnv);
+    const at = new Date(event.scheduledTime);
     ctx.waitUntil(
-      runReminders(env, new Date(event.scheduledTime)).then((sent) => {
-        for (const [who, types] of Object.entries(sent)) if (types.length) console.log(`Rappels envoyés à ${who} :`, types.join(', '));
-      }),
+      runReminders(env, at)
+        .then((sent) => {
+          for (const [who, types] of Object.entries(sent)) if (types.length) console.log(`Rappels envoyés à ${who} :`, types.join(', '));
+        })
+        // Une fois par jour, vers 3 h UTC, on range les compteurs expirés.
+        .then(() => (at.getUTCHours() === 3 && at.getUTCMinutes() < 15 ? sweepUsage(env) : undefined))
+        .then(() => flushUsage(env, true))
+        .then(() => alertIfNeeded(env)),
     );
   },
 } satisfies ExportedHandler<Env>;
+
+/** Le plan gratuit approche de sa limite : l'administrateur reçoit une notification, une fois par jour et par palier. */
+async function alertIfNeeded(env: Env) {
+  const mode = lastKnownMode();
+  if (mode === 'normal') return;
+  const vapid = vapidFromEnv(env);
+  if (!vapid || !(await counters.once(env, `alert:${mode}:${utcDay()}`, 86400))) return;
+  const admins = (await listAccounts(env)).filter((a) => a.role === 'admin');
+  await Promise.all(
+    admins.map(async (a) => {
+      const store = userStore(env.KV, a.id);
+      const sub = await loadJson<PushSubscriptionData>(store, 'sub');
+      if (!sub) return;
+      await sendPush(
+        sub,
+        {
+          title: mode === 'critical' ? 'Cloudflare : plan gratuit presque épuisé' : 'Cloudflare : mode économie',
+          body:
+            mode === 'critical'
+              ? 'Plus de 90 % des écritures du jour. La santé et les sauvegardes ralentissent jusqu’à 1 h du matin.'
+              : 'Plus de 60 % des écritures du jour. Shred enregistre moins souvent pour tenir jusqu’à minuit UTC.',
+          tag: 'usage',
+          url: '/?settings=usage',
+        },
+        vapid,
+      ).catch(() => undefined);
+    }),
+  );
+}

@@ -42,7 +42,7 @@ export function App() {
   const [tabState, setTab] = useState<Tab>(initialTab);
   const tabs = TABS.filter((t) => !t.enabled || t.enabled(s));
   const tab = tabs.some((t) => t.id === tabState) ? tabState : 'today';
-  const [settings, setSettings] = useState<SettingsPage | null>(null);
+  const [settings, setSettings] = useState<SettingsPage | null>(() => (new URLSearchParams(location.search).get('settings') === 'usage' ? 'usage' : null));
   const [compose, setCompose] = useState<string | null>(null);
   const [openPost] = useState(() => new URLSearchParams(location.search).get('post'));
 

@@ -192,8 +192,9 @@ export function startBackup() {
   });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-      // En quittant l'app, on envoie tout de suite ce qui a changé.
-      if (meta.dirty && Date.now() - (meta.uploadedAt ?? 0) > 60_000) void tryUpload();
+      // En quittant l'app, on envoie ce qui a changé, sauf si une sauvegarde vient de partir :
+      // chaque envoi est une écriture, la ressource la plus rare du plan gratuit (1 000 par jour pour tous).
+      if (meta.dirty && Date.now() - (meta.uploadedAt ?? 0) > 5 * 60_000) void tryUpload();
     } else {
       void check();
     }

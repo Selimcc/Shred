@@ -12,6 +12,8 @@
 import { type Env, HttpError } from './env';
 
 export interface Store {
+  /** Identifiant de la personne (pour les compteurs hors KV). */
+  scope?: string;
   get(key: string): Promise<string | null>;
   put(key: string, value: string, opts?: { expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
@@ -71,6 +73,7 @@ export async function sha256hex(text: string): Promise<string> {
 export function userStore(kv: KVNamespace, id: string): Store {
   const prefix = `u:${id}:`;
   return {
+    scope: id,
     get: (k) => kv.get(prefix + k),
     put: (k, v, opts) => kv.put(prefix + k, v, opts),
     delete: (k) => kv.delete(prefix + k),

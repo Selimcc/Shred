@@ -105,3 +105,9 @@ Visibility per post: the whole club, followers only, or only me; people tagged i
 | a reminder | `ReminderType`, `DEFAULT_CFG` and `buildReminder` in `worker/reminders.ts` |
 
 Local data goes through `migrate()` (`src/lib/store.ts`): an old backup gets new fields with their defaults, so adding a setting breaks nothing.
+
+## Free plan watch (`worker/usage.ts`)
+
+Every API request runs with a metered `env`: KV gets, puts, deletes and lists, and Durable Object calls, are counted in the isolate and sent to the `USAGE` Durable Object (SQLite, single instance) at the end of the request, at most every 30 s unless something was written. Totals are kept per UTC day (Cloudflare resets at 00:00 UTC) with KV writes broken down by use (`santé`, `sauvegarde`, `état du jour`…), 35 days of history.
+
+The KV write budget (1,000 per day on the free plan) is the tightest one, so the small counters that used to write to KV live in `USAGE` instead (100,000 SQLite rows per day): AI requests per user per day, login and signup attempts, reminders already sent. The mode follows the day's KV writes (or requests): normal below 60 %, economy from 60 % (health saved at most hourly, one backup per person per 30 min), critical from 90 % (health every 3 h, backup every 2 h). Data stays on the phones in the meantime. Admins get one push per day and per level. `GET /api/admin/usage` returns the last 14 days with limits and an end-of-day projection; the app shows it in Settings, Cloudflare (admins only).

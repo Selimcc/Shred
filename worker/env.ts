@@ -5,6 +5,8 @@ export interface Env {
   TIMERS?: DurableObjectNamespace;
   /** Le club : fil, étincelles, commentaires, abonnements (Durable Object unique). */
   CLUB?: DurableObjectNamespace;
+  /** Compteurs d'utilisation du plan gratuit et petits compteurs (IA du jour, essais, rappels envoyés). */
+  USAGE?: DurableObjectNamespace;
 
   // Secrets (wrangler secret put …, ou .dev.vars en local)
   ANTHROPIC_API_KEY?: string;

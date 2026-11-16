@@ -1,4 +1,5 @@
 // Sauvegarde du téléphone, chiffrée par l'app avant l'envoi : le serveur ne garde qu'un bloc illisible.
+import { counters, currentMode } from './usage';
 import { type Env, HttpError, json, readJson } from './env';
 import type { User } from './users';
 
@@ -18,6 +19,11 @@ export async function putBackup(req: Request, env: Env, user: User): Promise<Res
   const b = await readJson<Partial<Box>>(req, MAX + 10_000);
   if (typeof b.iv !== 'string' || b.iv.length > 40 || typeof b.data !== 'string' || !b.data || b.data.length > MAX) {
     throw new HttpError(400, 'Sauvegarde invalide ou trop lourde');
+  }
+  // Plan gratuit presque épuisé : une sauvegarde par personne toutes les 30 min (2 h en critique).
+  const mode = await currentMode(env);
+  if (mode !== 'normal' && !(await counters.once(env, `backup:${user.id}`, mode === 'critical' ? 7200 : 1800))) {
+    throw new HttpError(429, 'Mode économie du serveur : ta sauvegarde partira un peu plus tard, tes données restent sur ce téléphone');
   }
   const savedAt = Date.now();
   const box: Box = { v: 1, iv: b.iv, data: b.data, gz: Boolean(b.gz), savedAt };

@@ -1,3 +1,4 @@
+import { counters } from './usage';
 import { type Env, localTime } from './env';
 import { allUsers, loadJson, type Store } from './users';
 import type { GymDay, HealthDay } from './health';
@@ -210,9 +211,14 @@ export async function runRemindersFor(env: Env, store: Store, now = new Date()):
     const t = h * 60 + m;
     if (minutes < t || minutes >= t + WINDOW_MIN) continue;
 
-    const sentKey = `sent:${date}:${type}`;
-    if (await store.get(sentKey)) continue;
-    await store.put(sentKey, '1', { expirationTtl: 2 * 86400 });
+    // Un rappel ne part qu'une fois : le drapeau vit dans le compteur (USAGE), pas dans KV.
+    if (store.scope && env.USAGE) {
+      if (!(await counters.once(env, `sent:${store.scope}:${date}:${type}`, 2 * 86400))) continue;
+    } else {
+      const sentKey = `sent:${date}:${type}`;
+      if (await store.get(sentKey)) continue;
+      await store.put(sentKey, '1', { expirationTtl: 2 * 86400 });
+    }
 
     extra ??= {
       health: await loadJson<HealthDay>(store, `health:${date}`),

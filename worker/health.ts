@@ -140,7 +140,10 @@ function received(body: Record<string, unknown>): string {
   return parts.length ? ` Reçu : ${parts.join(', ')}.` : ' Le corps de la requête est vide : vérifie « Corps de la requête : JSON ».';
 }
 
-export async function ingestHealth(store: Store, rawBody: Record<string, unknown>, now = new Date()) {
+/** Écart minimal entre deux enregistrements de petits changements, selon le mode du serveur (minutes). */
+export const HEALTH_GAP: Record<'normal' | 'economy' | 'critical', number> = { normal: 15, economy: 60, critical: 180 };
+
+export async function ingestHealth(store: Store, rawBody: Record<string, unknown>, now = new Date(), mode: 'normal' | 'economy' | 'critical' = 'normal') {
   const body = cleanBody(rawBody);
   const cfg = await userCfg(store);
   const today = localTime(now, cfg.timezone).date;
@@ -166,7 +169,7 @@ export async function ingestHealth(store: Store, rawBody: Record<string, unknown
   const key = `health:${date}`;
   const prev = await loadJson<HealthDay>(store, key);
   const merged = mergeHealth(prev, incoming, now.toISOString());
-  if (prev && !worthSaving(prev, merged, now)) return { date, ...prev, skipped: true };
+  if (prev && !worthSaving(prev, merged, now, HEALTH_GAP[mode])) return { date, ...prev, skipped: true };
   await store.put(key, JSON.stringify(merged), { expirationTtl: TTL });
   return { date, ...merged };
 }
@@ -176,15 +179,17 @@ export async function ingestHealth(store: Store, rawBody: Record<string, unknown
  * On n'écrit que si quelque chose a vraiment bougé, et pas plus d'une fois par quart d'heure pour de petits écarts :
  * la base gratuite limite les écritures à 1 000 par jour pour tout le monde.
  */
-export function worthSaving(prev: HealthDay, next: HealthDay, now: Date): boolean {
+export function worthSaving(prev: HealthDay, next: HealthDay, now: Date, gapMin = 15): boolean {
   const gain = (a?: number, b?: number) => (b ?? 0) - (a ?? 0);
-  // Sommeil, cœur : une nouvelle valeur s'enregistre tout de suite.
-  if (LATEST.some((k) => next[k] !== undefined && next[k] !== prev[k])) return true;
+  const age = now.getTime() - new Date(prev.at).getTime();
+  // Sommeil, cœur : une nouvelle valeur s'enregistre tout de suite (en mode critique, au rythme réduit).
+  if (LATEST.some((k) => next[k] !== undefined && next[k] !== prev[k])) return gapMin <= 60 || age >= gapMin * 60_000;
   const steps = gain(prev.steps, next.steps);
   const kcal = gain(prev.activeKcal, next.activeKcal) + gain(prev.restingKcal, next.restingKcal) + gain(prev.exerciseMin, next.exerciseMin) * 5;
   if (steps <= 0 && kcal <= 0) return false;
-  const age = now.getTime() - new Date(prev.at).getTime();
-  return age >= 15 * 60_000 || steps >= 1000 || kcal >= 100;
+  if (age >= gapMin * 60_000) return true;
+  // Gros écart : enregistré sans attendre, sauf en mode critique.
+  return gapMin <= 60 && (steps >= 1000 || kcal >= 100);
 }
 
 export async function recentHealth(store: Store, days: number, now = new Date()) {
