@@ -7,7 +7,8 @@ import { capDaily } from './usage';
 import { ensureHandles } from './identity';
 import { type Env, HttpError, json, readJson } from './env';
 import { vapidFromEnv } from './reminders';
-import { getAccount, listAccounts, loadJson, type User, userStore } from './users';
+import { getAccount, type IndexEntry, listAccounts, loadJson, type User, userStore } from './users';
+import { fold } from '../shared/handle';
 import { type PushSubscriptionData, sendPush } from './webpush';
 
 export type Visibility = 'all' | 'followers' | 'private';
@@ -57,7 +58,7 @@ export interface Comment {
   mentions: Mention[];
 }
 
-export type NoticeType = 'mention' | 'comment' | 'spark' | 'follow' | 'challenge' | 'challengeDone';
+export type NoticeType = 'mention' | 'comment' | 'spark' | 'follow' | 'request' | 'accepted' | 'challenge' | 'challengeDone';
 
 /** Un défi : « fais une séance avant telle heure ». Relevé quand la personne défiée valide une séance à temps. */
 export interface Challenge {
@@ -153,10 +154,47 @@ export class Club {
     return (await this.db.get<string[]>(`f:${user}`)) ?? [];
   }
 
-  private canSee(p: Post, viewer: string, follows: string[]): boolean {
+  /** Comptes privés : leurs publications « tout le club » ne se montrent qu'à leurs abonnés. */
+  private async privates(): Promise<Set<string>> {
+    return new Set((await this.db.get<string[]>('private')) ?? []);
+  }
+
+  private async see(viewer: string): Promise<(p: Post) => boolean> {
+    const [follows, privs] = await Promise.all([this.following(viewer), this.privates()]);
+    return (p) => this.canSee(p, viewer, follows, privs);
+  }
+
+  private canSee(p: Post, viewer: string, follows: string[], privs: Set<string> = new Set()): boolean {
     if (p.author === viewer || p.mentions.some((m) => m.id === viewer)) return true;
-    if (p.visibility === 'all') return true;
+    if (p.visibility === 'all') return !privs.has(p.author) || follows.includes(p.author);
     return p.visibility === 'followers' && follows.includes(p.author);
+  }
+
+  private async list(key: string): Promise<string[]> {
+    return (await this.db.get<string[]>(key)) ?? [];
+  }
+
+  /** `follower` suit désormais `target` (abonnement direct ou demande acceptée). */
+  private async link(follower: string, target: string) {
+    const [f, fb] = await Promise.all([this.list(`f:${follower}`), this.list(`fb:${target}`)]);
+    await this.db.put(`f:${follower}`, [...new Set([...f, target])]);
+    await this.db.put(`fb:${target}`, [...new Set([...fb, follower])]);
+  }
+
+  private async unlink(follower: string, target: string) {
+    const [f, fb] = await Promise.all([this.list(`f:${follower}`), this.list(`fb:${target}`)]);
+    await this.db.put(`f:${follower}`, f.filter((x) => x !== target));
+    await this.db.put(`fb:${target}`, fb.filter((x) => x !== follower));
+  }
+
+  /** Retire une demande en attente des deux côtés, et sa notification chez la personne demandée. */
+  private async dropRequest(from: string, target: string) {
+    const [rq, rqo] = await Promise.all([this.list(`rq:${target}`), this.list(`rqo:${from}`)]);
+    await this.db.put(`rq:${target}`, rq.filter((x) => x !== from));
+    await this.db.put(`rqo:${from}`, rqo.filter((x) => x !== target));
+    const notes = await this.db.list<Notice>({ prefix: `n:${target}:` });
+    const stale = [...notes].filter(([, n]) => n.type === 'request' && n.actor === from).map(([k]) => k);
+    if (stale.length) await this.db.delete(stale);
   }
 
   private async notify(user: string, n: Omit<Notice, 'id' | 'at'>): Promise<void> {
@@ -182,6 +220,7 @@ export class Club {
     switch (pathname) {
       case '/feed': {
         const follows = await this.following(viewer);
+        const visible = await this.see(viewer);
         const filter = typeof b.filter === 'string' ? b.filter : 'all';
         const only = filter.startsWith('user:') ? filter.slice(5) : null;
         const posts: Post[] = [];
@@ -194,7 +233,7 @@ export class Club {
           for (const [key, p] of page) {
             seen++;
             end = key;
-            if (!this.canSee(p, viewer, follows)) continue;
+            if (!visible(p)) continue;
             if (only && p.author !== only) continue;
             if (filter === 'following' && p.author !== viewer && !follows.includes(p.author)) continue;
             posts.push(p);
@@ -233,12 +272,12 @@ export class Club {
           }
         }
         const found = postId ? await this.getPost(postId) : null;
-        return out({ ok: Boolean(found && this.canSee(found.post, viewer, await this.following(viewer))) });
+        return out({ ok: Boolean(found && (await this.see(viewer))(found.post)) });
       }
 
       case '/post': {
         const found = await this.getPost(String(b.id));
-        if (!found || !this.canSee(found.post, viewer, await this.following(viewer))) return out({ error: 'not-found' });
+        if (!found || !(await this.see(viewer))(found.post)) return out({ error: 'not-found' });
         const comments = await this.db.list<Comment>({ prefix: `c:${found.post.id}:` });
         return out({ post: found.post, comments: [...comments.values()] });
       }
@@ -260,7 +299,7 @@ export class Club {
 
       case '/spark': {
         const found = await this.getPost(String(b.id));
-        if (!found || !this.canSee(found.post, viewer, await this.following(viewer))) return out({ error: 'not-found' });
+        if (!found || !(await this.see(viewer))(found.post)) return out({ error: 'not-found' });
         const p = found.post;
         if (p.author === viewer) return out({ error: 'self' });
         const had = p.sparks.includes(viewer);
@@ -275,7 +314,7 @@ export class Club {
 
       case '/comment': {
         const found = await this.getPost(String(b.id));
-        if (!found || !this.canSee(found.post, viewer, await this.following(viewer))) return out({ error: 'not-found' });
+        if (!found || !(await this.see(viewer))(found.post)) return out({ error: 'not-found' });
         const c = b.comment as Comment;
         await this.db.put(`c:${found.post.id}:${pad(c.at)}:${c.id}`, c);
         found.post.comments++;
@@ -309,32 +348,93 @@ export class Club {
       }
 
       case '/follow': {
+        // Suivre, ne plus suivre, ou (compte privé) demander puis annuler sa demande.
         const target = String(b.target);
         if (target === viewer) return out({ error: 'self' });
         const list = await this.following(viewer);
-        const on = !list.includes(target);
-        await this.db.put(`f:${viewer}`, on ? [...list, target] : list.filter((x) => x !== target));
-        const followers = (await this.db.get<string[]>(`fb:${target}`)) ?? [];
-        await this.db.put(`fb:${target}`, on ? [...new Set([...followers, viewer])] : followers.filter((x) => x !== viewer));
-        if (on) {
-          await this.notify(target, { type: 'follow', actor: viewer, actorName: b.viewerName });
-          pushes.push({ user: target, title: 'Nouvel abonné', body: `${b.viewerName} suit tes séances`, url: '/?tab=club' });
+        if (list.includes(target)) {
+          await this.unlink(viewer, target);
+          return out({ following: false, requested: false });
         }
-        return out({ following: on });
+        if ((await this.list(`rqo:${viewer}`)).includes(target)) {
+          await this.dropRequest(viewer, target);
+          return out({ following: false, requested: false });
+        }
+        if ((await this.privates()).has(target)) {
+          const [rq, rqo] = await Promise.all([this.list(`rq:${target}`), this.list(`rqo:${viewer}`)]);
+          await this.db.put(`rq:${target}`, [...new Set([...rq, viewer])]);
+          await this.db.put(`rqo:${viewer}`, [...new Set([...rqo, target])]);
+          await this.notify(target, { type: 'request', actor: viewer, actorName: b.viewerName });
+          pushes.push({ user: target, title: 'Demande d’abonnement', body: `${b.viewerName} veut suivre tes séances`, url: '/?tab=club&requests=1' });
+          return out({ following: false, requested: true });
+        }
+        await this.link(viewer, target);
+        await this.notify(target, { type: 'follow', actor: viewer, actorName: b.viewerName });
+        pushes.push({ user: target, title: 'Nouvel abonné', body: `${b.viewerName} suit tes séances`, url: '/?tab=club' });
+        return out({ following: true, requested: false });
+      }
+
+      case '/requests': {
+        return out({ requests: await this.list(`rq:${viewer}`) });
+      }
+
+      case '/answer': {
+        // Accepter ou refuser une demande reçue.
+        const from = String(b.from);
+        if (!(await this.list(`rq:${viewer}`)).includes(from)) return out({ error: 'no-request' });
+        await this.dropRequest(from, viewer);
+        if (b.accept) {
+          await this.link(from, viewer);
+          await this.notify(from, { type: 'accepted', actor: viewer, actorName: b.viewerName });
+          pushes.push({ user: from, title: 'Demande acceptée', body: `${b.viewerName} a accepté ta demande : tu vois ses séances`, url: '/?tab=club' });
+        }
+        return out({ ok: true, accepted: Boolean(b.accept) });
+      }
+
+      case '/remove-follower': {
+        const target = String(b.target);
+        await this.unlink(target, viewer);
+        return out({ ok: true });
+      }
+
+      case '/privacy': {
+        const privs = await this.privates();
+        const on = Boolean(b.private);
+        if (on) privs.add(viewer);
+        else privs.delete(viewer);
+        await this.db.put('private', [...privs]);
+        if (!on) {
+          // Compte redevenu public : les demandes en attente sont acceptées.
+          for (const from of await this.list(`rq:${viewer}`)) {
+            await this.dropRequest(from, viewer);
+            await this.link(from, viewer);
+            await this.notify(from, { type: 'accepted', actor: viewer, actorName: b.viewerName });
+          }
+        }
+        return out({ private: on });
       }
 
       case '/social': {
-        const ids = (b.ids as string[]) ?? [];
-        const following = await this.following(viewer);
+        // Sans liste d'identifiants : les relations de la personne (abonnements, abonnés, demandes).
+        const [following, followers, requested, requests, privs] = await Promise.all([
+          this.following(viewer),
+          this.list(`fb:${viewer}`),
+          this.list(`rqo:${viewer}`),
+          this.list(`rq:${viewer}`),
+          this.privates(),
+        ]);
+        const ids = Array.isArray(b.ids) ? (b.ids as string[]) : [...new Set([viewer, ...following, ...followers, ...requested, ...requests])];
         const rows = await Promise.all(
           ids.map(async (id) => ({
             id,
-            followers: ((await this.db.get<string[]>(`fb:${id}`)) ?? []).length,
+            followers: (await this.list(`fb:${id}`)).length,
+            following: (await this.list(`f:${id}`)).length,
             posts: (await this.db.get<number>(`count:${id}`)) ?? 0,
             sparks: (await this.db.get<number>(`sp:${id}`)) ?? 0,
+            private: privs.has(id),
           })),
         );
-        return out({ following, rows });
+        return out({ following, followers, requested, requests, rows });
       }
 
       case '/notices': {
@@ -352,6 +452,7 @@ export class Club {
       case '/challenge': {
         const c = b.challenge as Challenge;
         if (c.to === viewer) return out({ error: 'challenge-self' });
+        if ((await this.privates()).has(c.to) && !(await this.following(viewer)).includes(c.to)) return out({ error: 'challenge-private' });
         const mine = await this.db.list<string>({ prefix: `chu:${viewer}:`, reverse: true, limit: 50 });
         let open = 0;
         for (const id of mine.values()) {
@@ -399,7 +500,14 @@ export class Club {
         }
         const challenges = await this.db.list<string>({ prefix: `chu:${viewer}:` });
         await this.db.delete([...challenges.keys(), ...[...challenges.values()].map((id) => `ch:${id}`)]);
-        await this.db.delete([`f:${viewer}`, `fb:${viewer}`, `count:${viewer}`, `nr:${viewer}`, `sp:${viewer}`]);
+        // Ses abonnements et abonnés : on le retire aussi des listes des autres.
+        for (const t of await this.following(viewer)) await this.unlink(viewer, t);
+        for (const f of await this.list(`fb:${viewer}`)) await this.unlink(f, viewer);
+        for (const t of await this.list(`rqo:${viewer}`)) await this.dropRequest(viewer, t);
+        for (const f of await this.list(`rq:${viewer}`)) await this.dropRequest(f, viewer);
+        const privs = await this.privates();
+        if (privs.delete(viewer)) await this.db.put('private', [...privs]);
+        await this.db.delete([`f:${viewer}`, `fb:${viewer}`, `rq:${viewer}`, `rqo:${viewer}`, `count:${viewer}`, `nr:${viewer}`, `sp:${viewer}`]);
         return out({ ok: true, photos });
       }
     }
@@ -425,11 +533,69 @@ async function callClub<T>(env: Env, user: User, path: string, body: Record<stri
   if (data.error === 'forbidden') throw new HttpError(403, 'Tu ne peux pas supprimer ça');
   if (data.error === 'self') throw new HttpError(400, 'Pas d’étincelle pour soi-même');
   if (data.error === 'challenge-self') throw new HttpError(400, 'Pas de défi à soi-même');
+  if (data.error === 'challenge-private') throw new HttpError(403, 'Compte privé : abonne-toi d’abord pour lancer un défi');
+  if (data.error === 'no-request') throw new HttpError(404, 'Demande introuvable ou déjà traitée');
   if (data.error === 'challenge-many') throw new HttpError(429, 'Déjà deux défis en cours pour cette personne : attends qu’elle les relève');
   if (data.error === 'challenge-missing') throw new HttpError(404, 'Défi introuvable');
   if (data.error === 'challenge-expired') throw new HttpError(410, 'Défi expiré');
   if (data.error) throw new HttpError(400, data.error);
   return data;
+}
+
+interface SocialRow {
+  id: string;
+  followers: number;
+  following: number;
+  posts: number;
+  sparks: number;
+  private: boolean;
+}
+interface Social {
+  following: string[];
+  followers: string[];
+  requested: string[];
+  requests: string[];
+  rows: SocialRow[];
+}
+
+/** Liens de la personne avec ces membres (ou, sans liste, avec toutes ses relations). */
+function social(env: Env, user: User, ids?: string[]) {
+  return callClub<Social>(env, user, '/social', ids ? { ids } : {});
+}
+
+/**
+ * Fiches de membres vues par `user`. Un compte privé que la personne ne suit pas ne montre que son nom,
+ * son pseudo, sa photo, son surnom, sa bio et ses compteurs : pas sa fiche de force ni ses séances.
+ */
+async function buildMembers(env: Env, user: User, accounts: IndexEntry[], s: Social) {
+  const avatars = await Promise.all(accounts.map((a) => userStore(env.KV, a.id).get('avatar')));
+  const profiles = await Promise.all(accounts.map((a) => loadJson<{ visible: boolean; data?: Record<string, unknown> }>(env.KV, `u:${a.id}:profile`)));
+  return accounts.map((a, i) => {
+    const row = s.rows.find((r) => r.id === a.id);
+    const me = a.id === user.id;
+    const following = s.following.includes(a.id);
+    const priv = row?.private ?? false;
+    const open = me || !priv || following;
+    const p = profiles[i];
+    return {
+      id: a.id,
+      name: a.name,
+      handle: a.handle ?? null,
+      ...(a.nick ? { nick: a.nick } : {}),
+      ...(a.bio ? { bio: a.bio } : {}),
+      me,
+      following,
+      requested: s.requested.includes(a.id),
+      followsMe: s.followers.includes(a.id),
+      private: priv,
+      followers: row?.followers ?? 0,
+      followingCount: row?.following ?? 0,
+      posts: row?.posts ?? 0,
+      sparks: row?.sparks ?? 0,
+      avatar: avatars[i] ?? null,
+      ...(open && p?.visible ? { profile: p.data ?? {} } : {}),
+    };
+  });
 }
 
 /** Notifications sur le téléphone des personnes concernées (sans bloquer la réponse). */
@@ -493,7 +659,15 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
       filter: url.searchParams.get('filter') ?? 'all',
       before: url.searchParams.get('before') ?? undefined,
     });
-    return json({ posts: data.posts.map((p) => view(p, user)), next: data.next, following: data.following });
+    // Auteurs hors de tes relations : leur pseudo et leur photo voyagent avec la publication.
+    const authors = [...new Set(data.posts.map((p) => p.author))];
+    const [index, avatars] = await Promise.all([listAccounts(env), Promise.all(authors.map((a) => userStore(env.KV, a).get('avatar')))]);
+    const info = new Map(authors.map((a, i) => [a, { handle: index.find((x) => x.id === a)?.handle ?? null, avatar: avatars[i] ?? null }]));
+    return json({
+      posts: data.posts.map((p) => ({ ...view(p, user), authorHandle: info.get(p.author)?.handle ?? null, authorAvatar: info.get(p.author)?.avatar ?? null })),
+      next: data.next,
+      following: data.following,
+    });
   }
 
   if (pathname === '/api/club/posts' && method === 'POST') {
@@ -590,39 +764,74 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
   }
 
   if (pathname === '/api/club/members' && method === 'GET') {
-    const accounts = await ensureHandles(env, await listAccounts(env));
-    const data = await callClub<{ following: string[]; rows: { id: string; followers: number; posts: number; sparks: number }[] }>(env, user, '/social', { ids: accounts.map((a) => a.id) });
-    const avatars = await Promise.all(accounts.map((a) => userStore(env.KV, a.id).get('avatar')));
-    const profiles = await Promise.all(accounts.map((a) => loadJson<{ visible: boolean; data?: Record<string, unknown> }>(env.KV, `u:${a.id}:profile`)));
-    const members = accounts.map((a, i) => {
-      const row = data.rows.find((r) => r.id === a.id);
-      const p = profiles[i];
-      return {
-        id: a.id,
-        name: a.name,
-        handle: a.handle ?? null,
-        ...(a.nick ? { nick: a.nick } : {}),
-        ...(a.bio ? { bio: a.bio } : {}),
-        me: a.id === user.id,
-        following: data.following.includes(a.id),
-        followers: row?.followers ?? 0,
-        posts: row?.posts ?? 0,
-        sparks: row?.sparks ?? 0,
-        avatar: avatars[i] ?? null,
-        ...(p?.visible ? { profile: p.data ?? {} } : {}),
-      };
-    });
-    return json({ members });
+    // Seulement tes relations : toi, tes abonnements, tes abonnés et les demandes en cours.
+    // Les autres membres se trouvent par leur @pseudo (recherche ci-dessous).
+    const s = await social(env, user);
+    const accounts = (await ensureHandles(env, await listAccounts(env))).filter((a) => s.rows.some((r) => r.id === a.id));
+    return json({ members: await buildMembers(env, user, accounts, s), requests: s.requests.length });
+  }
+
+  if (pathname === '/api/club/search' && method === 'GET') {
+    const q = fold(url.searchParams.get('q') ?? '')
+      .replace(/^@+/, '')
+      .replace(/[^a-z0-9._]/g, '')
+      .slice(0, 20);
+    if (q.length < 2) return json({ members: [] });
+    await capDaily(env, user.id, 'search');
+    const all = (await ensureHandles(env, await listAccounts(env))).filter((a) => a.handle);
+    const starts = all.filter((a) => a.handle!.startsWith(q));
+    const inside = all.filter((a) => !a.handle!.startsWith(q) && a.handle!.includes(q));
+    const found = [...starts.sort((x, y) => x.handle!.length - y.handle!.length), ...inside].slice(0, 10);
+    if (!found.length) return json({ members: [] });
+    const s = await social(env, user, found.map((a) => a.id));
+    return json({ members: await buildMembers(env, user, found, s) });
+  }
+
+  const oneMember = pathname.match(/^\/api\/club\/member\/([a-z0-9._]{2,20}|[0-9a-f]{16})$/);
+  if (oneMember && method === 'GET') {
+    const a = (await ensureHandles(env, await listAccounts(env))).find((x) => x.handle === oneMember[1] || x.id === oneMember[1]);
+    if (!a) throw new HttpError(404, 'Membre introuvable');
+    const s = await social(env, user, [a.id]);
+    return json({ member: (await buildMembers(env, user, [a], s))[0] });
+  }
+
+  if (pathname === '/api/club/requests' && method === 'GET') {
+    const ids = (await callClub<{ requests: string[] }>(env, user, '/requests')).requests;
+    const accounts = (await listAccounts(env)).filter((a) => ids.includes(a.id));
+    const s = await social(env, user, accounts.map((a) => a.id));
+    return json({ members: await buildMembers(env, user, accounts, s) });
+  }
+
+  const answer = pathname.match(/^\/api\/club\/requests\/([0-9a-f]{16})$/);
+  if (answer && method === 'POST') {
+    const b = await readJson<{ accept?: boolean }>(req, 200);
+    const data = await callClub<{ accepted: boolean }>(env, user, '/answer', { from: answer[1], accept: b.accept === true });
+    await later(data.pushes);
+    return json({ ok: true, accepted: data.accepted });
+  }
+
+  const removeFollower = pathname.match(/^\/api\/club\/followers\/([0-9a-f]{16})$/);
+  if (removeFollower && method === 'DELETE') {
+    await callClub(env, user, '/remove-follower', { target: removeFollower[1] });
+    return json({ ok: true });
+  }
+
+  if (pathname === '/api/club/privacy' && method === 'PUT') {
+    const b = await readJson<{ private?: boolean }>(req, 200);
+    const data = await callClub<{ private: boolean }>(env, user, '/privacy', { private: b.private === true });
+    await later(data.pushes);
+    return json({ private: data.private });
   }
 
   const follow = pathname.match(/^\/api\/club\/follow\/([A-Za-z0-9_-]{6,64})$/);
   if (follow && method === 'POST') {
     await capDaily(env, user.id, 'follow');
     if (!(await getAccount(env, follow[1]))) throw new HttpError(404, 'Membre introuvable');
-    const data = await callClub<{ following: boolean }>(env, user, '/follow', { target: follow[1] });
+    const data = await callClub<{ following: boolean; requested: boolean }>(env, user, '/follow', { target: follow[1] });
     await later(data.pushes);
-    return json({ following: data.following });
+    return json({ following: data.following, requested: data.requested });
   }
+
 
   if (pathname === '/api/club/challenges' && method === 'POST') {
     await capDaily(env, user.id, 'challenge');

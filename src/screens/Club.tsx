@@ -113,7 +113,8 @@ export function Club({
   const [person, setPerson] = useState<Member | null>(null);
   const memberShown = useRef(false);
   const [notices, setNotices] = useState<{ list: Notice[]; unread: number } | null>(null);
-  const [showNotices, setShowNotices] = useState(false);
+  // Notification « demande d'abonnement » touchée : la liste s'ouvre directement.
+  const [showNotices, setShowNotices] = useState(() => new URLSearchParams(location.search).get('requests') === '1');
   const can = DEMO || signedIn();
 
   useEffect(() => {
@@ -137,7 +138,7 @@ export function Club({
       if (openMember && !memberShown.current) {
         // Lien de profil : on ouvre la fiche une seule fois, puis l'adresse redevient celle du club.
         memberShown.current = true;
-        const target = m.members.find((x) => x.handle === openMember);
+        const target = m.members.find((x) => x.handle === openMember) ?? (await club.member(openMember).then((r) => r.member, () => null));
         if (target) setPerson(target);
         else toast(`Aucun membre @${openMember}`, true);
         try {
@@ -180,7 +181,17 @@ export function Club({
   };
 
   const update = (p: ClubPost) => setPosts((list) => list?.map((x) => (x.id === p.id ? p : x)) ?? null);
-  const memberOf = (id: string) => members.find((m) => m.id === id) ?? { id, name: '?', avatar: null };
+  const memberOf = (id: string, p?: ClubPost) => members.find((m) => m.id === id) ?? { id, name: p?.authorName ?? '?', handle: p?.authorHandle ?? null, avatar: p?.authorAvatar ?? null };
+  /** Fiche d'un membre : depuis mes relations, sinon demandée au serveur (auteur d'une publication du club). */
+  const openPerson = async (id: string) => {
+    const known = members.find((m) => m.id === id);
+    if (known) return setPerson(known);
+    try {
+      setPerson((await club.member(id)).member);
+    } catch (e) {
+      toast(errorText(e), true);
+    }
+  };
 
   if (!can) {
     return (
@@ -208,7 +219,7 @@ export function Club({
     <>
       <header className="topbar">
         <div>
-          <div className="date">{members.length ? `${members.length} membres` : 'Les séances des membres'}</div>
+          <div className="date">Les séances des membres</div>
           <h1>Club</h1>
         </div>
         <button
@@ -255,7 +266,7 @@ export function Club({
       )}
 
       {view === 'members' ? (
-        <MemberList members={members} onOpen={setPerson} onChange={setMembers} />
+        <MemberList members={members} onOpen={setPerson} onChange={setMembers} onAnswered={load} />
       ) : (
         <div className="stack feed">
           {!posts && !error && <FeedSkeleton />}
@@ -263,15 +274,15 @@ export function Club({
             <div className="card empty-feed">
               <div style={{ fontWeight: 800 }}>{view === 'following' ? 'Personne de suivi pour l’instant' : 'Le fil est vide'}</div>
               <p className="small muted" style={{ margin: '4px 0 12px' }}>
-                {view === 'following' ? 'Abonne-toi aux membres dans l’onglet Membres pour voir leurs séances ici.' : 'Publie ta première séance : les autres membres la verront ici.'}
+                {view === 'following' ? 'Cherche un membre par son @pseudo dans l’onglet Membres, puis abonne-toi pour voir ses séances ici.' : 'Publie ta première séance : les autres membres la verront ici.'}
               </p>
               <button className="btn primary" onClick={() => (view === 'following' ? setView('members') : setComposer(dayKey()))}>
-                {view === 'following' ? 'Voir les membres' : 'Publier une séance'}
+                {view === 'following' ? 'Chercher un membre' : 'Publier une séance'}
               </button>
             </div>
           )}
           {posts?.map((p) => (
-            <PostCard key={p.id} post={p} author={memberOf(p.author)} onChange={update} onOpen={() => setOpen(p.id)} onAuthor={() => setPerson(members.find((m) => m.id === p.author) ?? null)} onRemoved={() => setPosts((l) => l?.filter((x) => x.id !== p.id) ?? null)} />
+            <PostCard key={p.id} post={p} author={memberOf(p.author, p)} onChange={update} onOpen={() => setOpen(p.id)} onAuthor={() => void openPerson(p.author)} onRemoved={() => setPosts((l) => l?.filter((x) => x.id !== p.id) ?? null)} />
           ))}
           {next && (
             <button className="btn block" onClick={more}>
@@ -299,16 +310,17 @@ export function Club({
       {person && <MemberSheet m={person} onEdit={() => { setPerson(null); openSettings('profile'); }} onClose={() => setPerson(null)} onChange={(m) => setMembers((l) => l.map((x) => (x.id === m.id ? m : x)))} />}
       {showNotices && notices && (
         <NoticesSheet
+          onAnswered={(n) => {
+            setNotices((x) => x && { ...x, list: x.list.filter((y) => y.id !== n.id) });
+            void load();
+          }}
           notices={notices.list}
           members={members}
           onClose={() => setShowNotices(false)}
           onOpen={(n) => {
             setShowNotices(false);
             if (n.post) setOpen(n.post);
-            else {
-              const m = members.find((x) => x.id === n.actor);
-              if (m) setPerson(m);
-            }
+            else void openPerson(n.actor);
           }}
         />
       )}
@@ -855,16 +867,20 @@ function PostSheet({ id, members, onClose, onChange }: { id: string; members: Me
 function FollowButton({ m, onChange }: { m: Member; onChange: (m: Member) => void }) {
   const [busy, setBusy] = useState(false);
   if (m.me) return <span className="tag">Toi</span>;
+  const label = m.following ? 'Abonné' : m.requested ? 'Demandé' : m.private ? 'Demander' : 'Suivre';
   return (
     <button
-      className={`btn small ${m.following ? '' : 'primary'}`}
+      className={`btn small ${m.following || m.requested ? '' : 'primary'}`}
       disabled={busy}
+      aria-label={m.following ? `Ne plus suivre ${m.name}` : m.requested ? `Annuler la demande à ${m.name}` : `${label} ${m.name}`}
       onClick={async (e) => {
         e.stopPropagation();
+        if (m.following && m.private && !(await ask(`Ne plus suivre ${m.name} ? Son compte est privé : il faudra refaire une demande.`, 'Ne plus suivre'))) return;
         setBusy(true);
         try {
           const r = await club.follow(m.id);
-          onChange({ ...m, following: r.following, followers: m.followers + (r.following ? 1 : -1) });
+          onChange({ ...m, following: r.following, requested: Boolean(r.requested), followers: m.followers + (r.following ? 1 : m.following ? -1 : 0) });
+          if (r.requested) toast(`Demande envoyée à ${m.name}`);
         } catch (err) {
           toast(errorText(err), true);
         } finally {
@@ -872,46 +888,184 @@ function FollowButton({ m, onChange }: { m: Member; onChange: (m: Member) => voi
         }
       }}
     >
-      {m.following ? 'Abonné' : 'Suivre'}
+      {m.private && !m.following && !m.requested && <Icon name="lock" size={14} />} {label}
     </button>
   );
 }
 
-function MemberList({ members, onOpen, onChange }: { members: Member[]; onOpen: (m: Member) => void; onChange: (l: Member[]) => void }) {
-  const [q, setQ] = useState('');
-  const fold = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  const query = fold(q.trim().replace(/^@/, ''));
-  const sorted = [...members]
-    .filter((m) => !query || [m.name, m.handle, m.nick].some((x) => x && fold(x).includes(query)))
-    .sort((a, b) => Number(b.me) - Number(a.me) || b.posts - a.posts);
+function MemberRow({ m, onOpen, onChange }: { m: Member; onOpen: (m: Member) => void; onChange: (m: Member) => void }) {
   return (
-    <>
-      {members.length > 6 && (
-        <input className="input member-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher un prénom, un @pseudo, un surnom" aria-label="Chercher un membre" />
-      )}
-      {query && !sorted.length && <p className="small muted">Personne ne correspond à « {q.trim()} ».</p>}
-      <div className="group">
-      {sorted.map((m) => (
-        <div key={m.id} className="row member-row" role="button" tabIndex={0} onClick={() => onOpen(m)} onKeyDown={(e) => e.key === 'Enter' && onOpen(m)}>
-          <MemberAvatar m={m} size={44} />
-          <div className="grow" style={{ minWidth: 0 }}>
-            <div className="title">{m.name}</div>
-            {m.handle && (
-              <div className="small ellipsis">
-                <span className="member-handle">@{m.handle}</span>
-                {m.nick && <span className="member-nick muted">, {m.nick}</span>}
-              </div>
-            )}
-            <div className="small muted">
-              {m.posts} publication{m.posts > 1 ? 's' : ''}, {m.followers} abonné{m.followers > 1 ? 's' : ''}
-              {m.profile?.streak ? `, série de ${m.profile.streak} j` : ''}
-            </div>
-          </div>
-          <FollowButton m={m} onChange={(x) => onChange(members.map((y) => (y.id === x.id ? x : y)))} />
+    <div className="row member-row" role="button" tabIndex={0} onClick={() => onOpen(m)} onKeyDown={(e) => e.key === 'Enter' && onOpen(m)}>
+      <MemberAvatar m={m} size={44} />
+      <div className="grow" style={{ minWidth: 0 }}>
+        <div className="title">
+          {m.name} {m.private && <Icon name="lock" size={13} />}
         </div>
-      ))}
+        {m.handle && (
+          <div className="small ellipsis">
+            <span className="member-handle">@{m.handle}</span>
+            {m.nick && <span className="member-nick muted">, {m.nick}</span>}
+          </div>
+        )}
+        <div className="small muted">
+          {m.followsMe && !m.me ? 'Te suit, ' : ''}
+          {m.posts} publication{m.posts > 1 ? 's' : ''}, {m.followers} abonné{m.followers > 1 ? 's' : ''}
+        </div>
       </div>
-    </>
+      <FollowButton m={m} onChange={onChange} />
+    </div>
+  );
+}
+
+/** Demandes d'abonnement reçues (compte privé) : accepter ou refuser. */
+function RequestRow({ m, onDone }: { m: Member; onDone: (accepted: boolean) => void }) {
+  const [busy, setBusy] = useState(false);
+  const answer = async (accept: boolean) => {
+    setBusy(true);
+    try {
+      await club.answer(m.id, accept);
+      toast(accept ? `${m.name} te suit maintenant` : 'Demande refusée');
+      onDone(accept);
+    } catch (e) {
+      toast(errorText(e), true);
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="row member-row">
+      <MemberAvatar m={m} size={44} />
+      <div className="grow" style={{ minWidth: 0 }}>
+        <div className="title">{m.name}</div>
+        {m.handle && <div className="small member-handle ellipsis">@{m.handle}</div>}
+      </div>
+      <div className="request-actions">
+        <button className="btn small primary" disabled={busy} onClick={() => answer(true)}>
+          Accepter
+        </button>
+        <button className="btn small" disabled={busy} onClick={() => answer(false)} aria-label={`Refuser la demande de ${m.name}`}>
+          <Icon name="x" size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MemberList({ members, onOpen, onChange, onAnswered }: { members: Member[]; onOpen: (m: Member) => void; onChange: (l: Member[]) => void; onAnswered: () => void }) {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<Member[] | null>(null);
+  const [requests, setRequests] = useState<Member[]>([]);
+  const query = q.trim().replace(/^@+/, '').toLowerCase();
+
+  useEffect(() => {
+    club.requests().then((r) => setRequests(r.members), () => undefined);
+  }, []);
+
+  // Recherche par pseudo sur le serveur, après une courte pause dans la frappe.
+  useEffect(() => {
+    if (query.length < 2) return setResults(null);
+    let live = true;
+    const t = setTimeout(() => {
+      club.search(query).then(
+        (r) => live && setResults(r.members),
+        (e) => live && (toast(errorText(e), true), setResults([])),
+      );
+    }, 300);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [query]);
+
+  const change = (x: Member) => {
+    onChange(members.some((y) => y.id === x.id) ? members.map((y) => (y.id === x.id ? x : y)) : [...members, x]);
+    setResults((l) => l?.map((y) => (y.id === x.id ? x : y)) ?? null);
+  };
+  const me = members.find((m) => m.me);
+  const following = members.filter((m) => !m.me && (m.following || m.requested));
+  const followers = members.filter((m) => !m.me && m.followsMe && !m.following && !m.requested);
+
+  return (
+    <div className="stack" style={{ gap: 14 }}>
+      <div className="member-search">
+        <Icon name="at" size={17} />
+        <input
+          className="input"
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Chercher un @pseudo"
+          aria-label="Chercher un membre par son pseudo"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+      </div>
+
+      {results ? (
+        results.length ? (
+          <div className="group">
+            {results.map((m) => (
+              <MemberRow key={m.id} m={m} onOpen={onOpen} onChange={change} />
+            ))}
+          </div>
+        ) : (
+          <p className="small muted" style={{ margin: 0 }}>
+            Aucun membre avec un pseudo proche de « {query} ».
+          </p>
+        )
+      ) : (
+        <>
+          {query.length === 1 && <p className="small muted" style={{ margin: 0 }}>Encore un caractère pour chercher.</p>}
+          {requests.length > 0 && (
+            <section className="stack" style={{ gap: 8 }}>
+              <h2 style={{ fontSize: '1rem' }}>Demandes d’abonnement</h2>
+              <div className="group">
+                {requests.map((m) => (
+                  <RequestRow
+                    key={m.id}
+                    m={m}
+                    onDone={() => {
+                      setRequests((l) => l.filter((x) => x.id !== m.id));
+                      onAnswered();
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+          {me && (
+            <div className="group">
+              <MemberRow m={me} onOpen={onOpen} onChange={change} />
+            </div>
+          )}
+          {following.length > 0 && (
+            <section className="stack" style={{ gap: 8 }}>
+              <h2 style={{ fontSize: '1rem' }}>Tes abonnements</h2>
+              <div className="group">
+                {following.map((m) => (
+                  <MemberRow key={m.id} m={m} onOpen={onOpen} onChange={change} />
+                ))}
+              </div>
+            </section>
+          )}
+          {followers.length > 0 && (
+            <section className="stack" style={{ gap: 8 }}>
+              <h2 style={{ fontSize: '1rem' }}>Ils te suivent</h2>
+              <div className="group">
+                {followers.map((m) => (
+                  <MemberRow key={m.id} m={m} onOpen={onOpen} onChange={change} />
+                ))}
+              </div>
+            </section>
+          )}
+          {!following.length && !followers.length && (
+            <p className="small muted" style={{ margin: 0 }}>
+              La liste des membres n’est pas publique : cherche tes amis par leur @pseudo, ou partage le tien depuis ton profil.
+            </p>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -920,9 +1074,12 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
   const [posts, setPosts] = useState<ClubPost[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
+  // Compte privé que je ne suis pas : ni séances ni fiche de force, seulement le profil.
+  const locked = Boolean(m.private && !m.me && !m.following);
   useEffect(() => {
+    if (locked) return setPosts([]);
     club.feed(`user:${m.id}`).then((f) => setPosts(f.posts), () => setPosts([]));
-  }, [m.id]);
+  }, [m.id, locked]);
   const update = (x: Member) => {
     setM(x);
     onChange(x);
@@ -930,9 +1087,9 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
   const stats = [
     [m.posts, m.posts > 1 ? 'publications' : 'publication'],
     [m.followers, m.followers > 1 ? 'abonnés' : 'abonné'],
+    ...(m.followingCount !== undefined ? [[m.followingCount, m.followingCount > 1 ? 'abonnements' : 'abonnement']] : []),
     [m.sparks, m.sparks > 1 ? 'étincelles' : 'étincelle'],
-    ...(m.profile?.streak !== undefined ? [[m.profile.streak, 'série']] : []),
-    ...(m.profile?.level !== undefined ? [[m.profile.level, 'niveau']] : []),
+    ...(m.followingCount === undefined && m.profile?.streak !== undefined ? [[m.profile.streak, 'série']] : []),
   ] as [number, string][];
   const [crop, setCrop] = useState<File | null>(null);
   const [challenge, setChallenge] = useState(false);
@@ -967,7 +1124,9 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
           <input ref={file} type="file" accept="image/*" hidden onChange={avatar} />
           {crop && <AvatarCrop file={crop} onCancel={() => setCrop(null)} onDone={upload} />}
           <div className="grow" style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 850, fontSize: '1.3rem' }}>{m.name}</div>
+            <div style={{ fontWeight: 850, fontSize: '1.3rem' }}>
+              {m.name} {m.private && <Icon name="lock" size={16} />}
+            </div>
             {m.handle && (
               <div className="small ellipsis">
                 <span className="member-handle">@{m.handle}</span>
@@ -985,7 +1144,38 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
           )}
         </div>
         {m.bio && <p className="member-bio small">{m.bio}</p>}
-        {!m.me && (
+        {!m.me && m.followsMe && (
+          <div className="follows-me small">
+            <span className="muted">Te suit</span>
+            <button
+              className="link small"
+              onClick={async () => {
+                if (!(await ask(`Retirer ${m.name} de tes abonnés ? Ça ne lui est pas notifié.`, 'Retirer'))) return;
+                try {
+                  await club.removeFollower(m.id);
+                  update({ ...m, followsMe: false });
+                  toast(`${m.name} ne te suit plus`);
+                } catch (e) {
+                  toast(errorText(e), true);
+                }
+              }}
+            >
+              Retirer cet abonné
+            </button>
+          </div>
+        )}
+        {locked && (
+          <div className="card private-card">
+            <Icon name="lock" size={22} />
+            <div>
+              <div style={{ fontWeight: 800 }}>Compte privé</div>
+              <p className="small muted" style={{ margin: 0 }}>
+                {m.requested ? `Demande envoyée : tu verras ses séances quand ${m.name} l’aura acceptée.` : `Abonne-toi pour voir ses séances. ${m.name} devra accepter ta demande.`}
+              </p>
+            </div>
+          </div>
+        )}
+        {!m.me && !locked && (
           <button className="btn block" onClick={() => setChallenge(true)}>
             <Icon name="bolt" size={17} /> Défier {m.name}
           </button>
@@ -1001,14 +1191,14 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
             </div>
           ))}
         </div>
-        {m.profile?.radar && m.profile.radar.some((r) => r.score !== null) && (
+        {!locked && m.profile?.radar && m.profile.radar.some((r) => r.score !== null) && (
           <section className="card" style={{ padding: '8px 8px 4px' }}>
             <Radar groups={m.profile.radar.map((r) => ({ ...r, grade: r.grade as GroupScore['grade'], lifts: [] }))} />
           </section>
         )}
         <section className="stack" style={{ gap: 12 }}>
           {!posts && <div className="spinner" />}
-          {posts?.length === 0 && <p className="small muted" style={{ margin: 0 }}>Aucune publication visible pour l’instant.</p>}
+          {posts?.length === 0 && !locked && <p className="small muted" style={{ margin: 0 }}>Aucune publication visible pour l’instant.</p>}
           {posts?.map((p) => (
             <PostCard key={p.id} post={p} author={m} onChange={(x) => setPosts((l) => l?.map((y) => (y.id === x.id ? x : y)) ?? null)} onOpen={() => setOpen(p.id)} onRemoved={() => setPosts((l) => l?.filter((x) => x.id !== p.id) ?? null)} />
           ))}
@@ -1025,31 +1215,86 @@ const NOTICE_TEXT: Record<Notice['type'], (n: Notice) => string> = {
   mention: (n) => `${n.actorName} t’a identifié${n.text ? ` : « ${n.text.slice(0, 70)} »` : ''}`,
   comment: (n) => `${n.actorName} a commenté ta séance${n.text ? ` : « ${n.text.slice(0, 70)} »` : ''}`,
   spark: (n) => `${n.actorName} t’a envoyé une étincelle pour ${n.text ? `« ${n.text.slice(0, 50)} »` : 'ta séance'} (+5 XP)`,
-  follow: (n) => `${n.actorName} suit tes séances`,
+  follow: (n) => `${n.actorName} s’est abonné à tes séances`,
+  request: (n) => `${n.actorName} demande à suivre tes séances`,
+  accepted: (n) => `${n.actorName} a accepté ta demande : tu vois ses séances`,
   challenge: (n) => `${n.actorName} te lance un défi${n.text ? ` : « ${n.text.slice(0, 70)} »` : ' : une séance avant la fin du délai'}`,
   challengeDone: (n) => `${n.actorName} a relevé ton défi${n.text ? ` « ${n.text.slice(0, 50)} »` : ''}`,
 };
 
-function NoticesSheet({ notices, members, onClose, onOpen }: { notices: Notice[]; members: Member[]; onClose: () => void; onOpen: (n: Notice) => void }) {
+function NoticeAnswer({ n, onAnswered }: { n: Notice; onAnswered: (n: Notice) => void }) {
+  const [busy, setBusy] = useState(false);
+  const answer = async (accept: boolean) => {
+    setBusy(true);
+    try {
+      await club.answer(n.actor, accept);
+      toast(accept ? `${n.actorName} te suit maintenant` : 'Demande refusée');
+      onAnswered(n);
+    } catch (e) {
+      toast(errorText(e), true);
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="request-actions">
+      <button className="btn small primary" disabled={busy} onClick={() => answer(true)}>
+        Accepter
+      </button>
+      <button className="btn small" disabled={busy} onClick={() => answer(false)} aria-label={`Refuser la demande de ${n.actorName}`}>
+        <Icon name="x" size={15} />
+      </button>
+    </div>
+  );
+}
+
+const NOTICE_ICON: Record<Notice['type'], string> = {
+  spark: 'spark',
+  follow: 'plus',
+  request: 'lock',
+  accepted: 'check',
+  mention: 'at',
+  challenge: 'bolt',
+  challengeDone: 'bolt',
+  comment: 'chat',
+};
+
+function NoticesSheet({
+  notices,
+  members,
+  onClose,
+  onOpen,
+  onAnswered,
+}: {
+  notices: Notice[];
+  members: Member[];
+  onClose: () => void;
+  onOpen: (n: Notice) => void;
+  onAnswered: (n: Notice) => void;
+}) {
+  // Les demandes d'abonnement passent en tête : elles attendent une réponse.
+  const sorted = [...notices].sort((a, b) => Number(b.type === 'request') - Number(a.type === 'request') || b.at - a.at);
   return (
     <Sheet title="Notifications" onClose={onClose}>
       {notices.length === 0 ? (
-        <p className="muted">Rien pour l’instant. Les étincelles, commentaires et mentions arrivent ici.</p>
+        <p className="muted">Rien pour l’instant. Abonnements, demandes, étincelles, commentaires et mentions arrivent ici.</p>
       ) : (
         <div className="group">
-          {notices.map((n) => (
-            <button key={n.id} className="row settings-row" onClick={() => onOpen(n)}>
-              <span className="notice-avatar">
-                <MemberAvatar m={members.find((m) => m.id === n.actor) ?? { id: n.actor, name: n.actorName, avatar: null }} size={38} />
-                <span className={`notice-kind ${n.type}`}>
-                  <Icon name={n.type === 'spark' ? 'spark' : n.type === 'follow' ? 'plus' : n.type === 'mention' ? 'at' : n.type === 'challenge' || n.type === 'challengeDone' ? 'bolt' : 'chat'} size={11} filled={n.type === 'spark'} />
+          {sorted.map((n) => (
+            <div key={n.id} className="row settings-row notice-row">
+              <button className="notice-main" onClick={() => onOpen(n)}>
+                <span className="notice-avatar">
+                  <MemberAvatar m={members.find((m) => m.id === n.actor) ?? { id: n.actor, name: n.actorName, avatar: null }} size={38} />
+                  <span className={`notice-kind ${n.type}`}>
+                    <Icon name={NOTICE_ICON[n.type]} size={11} filled={n.type === 'spark'} />
+                  </span>
                 </span>
-              </span>
-              <div className="grow" style={{ minWidth: 0 }}>
-                <div className="small">{NOTICE_TEXT[n.type](n)}</div>
-                <div className="small faint">{ago(n.at)}</div>
-              </div>
-            </button>
+                <div className="grow" style={{ minWidth: 0 }}>
+                  <div className="small">{NOTICE_TEXT[n.type](n)}</div>
+                  <div className="small faint">{ago(n.at)}</div>
+                </div>
+              </button>
+              {n.type === 'request' && <NoticeAnswer n={n} onAnswered={onAnswered} />}
+            </div>
           ))}
         </div>
       )}

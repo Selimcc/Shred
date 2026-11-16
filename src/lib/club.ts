@@ -34,6 +34,9 @@ export interface ClubPost {
   id: string;
   author: string;
   authorName: string;
+  /** Pseudo et photo de l'auteur, pour les auteurs hors de tes relations. */
+  authorHandle?: string | null;
+  authorAvatar?: string | null;
   at: number;
   text: string;
   mentions: Mention[];
@@ -69,6 +72,13 @@ export interface Member {
   bio?: string;
   me: boolean;
   following: boolean;
+  /** Demande d'abonnement envoyée, en attente (compte privé). */
+  requested?: boolean;
+  /** Cette personne me suit. */
+  followsMe?: boolean;
+  /** Compte privé : ses séances ne se montrent qu'à ses abonnés acceptés. */
+  private?: boolean;
+  followingCount?: number;
   followers: number;
   posts: number;
   /** Étincelles reçues au total. */
@@ -107,7 +117,7 @@ export function timeLeft(due: number, now = Date.now()): string {
 
 export interface Notice {
   id: string;
-  type: 'mention' | 'comment' | 'spark' | 'follow' | 'challenge' | 'challengeDone';
+  type: 'mention' | 'comment' | 'spark' | 'follow' | 'request' | 'accepted' | 'challenge' | 'challengeDone';
   actor: string;
   actorName: string;
   post?: string;
@@ -264,8 +274,17 @@ export const club = {
   comment: (id: string, text: string, mentions: Mention[]) =>
     DEMO ? demo.comment(id, text) : api<{ comment: ClubComment; post: ClubPost }>(`/api/club/posts/${id}/comments`, { body: { text, mentions } }),
   uncomment: (id: string, comment: string) => (DEMO ? demo.uncomment(id, comment) : api<{ post: ClubPost }>(`/api/club/posts/${id}/comments/${comment}`, { method: 'DELETE' })),
-  members: () => (DEMO ? demo.members() : api<{ members: Member[] }>('/api/club/members')),
-  follow: (id: string) => (DEMO ? demo.follow(id) : api<{ following: boolean }>(`/api/club/follow/${id}`, { body: {} })),
+  /** Mes relations : moi, mes abonnements, mes abonnés, les demandes en cours. */
+  members: () => (DEMO ? demo.members() : api<{ members: Member[]; requests?: number }>('/api/club/members')),
+  /** Recherche par @pseudo (2 caractères minimum). */
+  search: (q: string) => (DEMO ? demo.search(q) : api<{ members: Member[] }>(`/api/club/search?q=${encodeURIComponent(q)}`)),
+  /** Un membre par son pseudo ou son identifiant. */
+  member: (key: string) => (DEMO ? demo.member(key) : api<{ member: Member }>(`/api/club/member/${encodeURIComponent(key)}`)),
+  follow: (id: string) => (DEMO ? demo.follow(id) : api<{ following: boolean; requested?: boolean }>(`/api/club/follow/${id}`, { body: {} })),
+  requests: () => (DEMO ? Promise.resolve({ members: [] as Member[] }) : api<{ members: Member[] }>('/api/club/requests')),
+  answer: (id: string, accept: boolean) => (DEMO ? Promise.resolve({ ok: true, accepted: accept }) : api<{ ok: boolean; accepted: boolean }>(`/api/club/requests/${id}`, { body: { accept } })),
+  removeFollower: (id: string) => (DEMO ? Promise.resolve({ ok: true }) : api<{ ok: boolean }>(`/api/club/followers/${id}`, { method: 'DELETE' })),
+  privacy: (on: boolean) => (DEMO ? Promise.resolve({ private: on }) : api<{ private: boolean }>('/api/club/privacy', { method: 'PUT', body: { private: on } })),
   notices: () => (DEMO ? demo.notices() : api<{ notices: Notice[]; unread: number; readAt: number }>('/api/club/notifications')),
   read: () => (DEMO ? demo.read() : api('/api/club/notifications/read', { body: {} })),
   avatar: (photo: string | null) => (DEMO ? demo.setAvatar(photo) : api<{ avatar: string | null }>('/api/club/avatar', { method: 'PUT', body: { photo } })),
@@ -455,12 +474,17 @@ const demo = (() => {
       p.comments = Math.max(0, p.comments - 1);
       return wait({ post: view(p) });
     },
-    members: () => wait({ members: members.map((m) => ({ ...m })) }),
+    members: () => wait({ members: members.map((m) => ({ ...m })), requests: 0 }),
+    search: (q: string) => wait({ members: members.filter((m) => m.handle?.startsWith(q.replace(/^@/, '').toLowerCase())).map((m) => ({ ...m })) }),
+    member: (key: string) => {
+      const m = members.find((x) => x.handle === key || x.id === key);
+      return m ? wait({ member: { ...m } }) : Promise.reject(new Error('Membre introuvable'));
+    },
     follow: (id: string) => {
       const m = members.find((x) => x.id === id)!;
       m.following = !m.following;
       m.followers += m.following ? 1 : -1;
-      return wait({ following: m.following });
+      return wait({ following: m.following, requested: false });
     },
     notices: () => wait({ notices: [...notices], unread: notices.filter((n) => n.at > readAt).length, readAt }),
     read: () => {

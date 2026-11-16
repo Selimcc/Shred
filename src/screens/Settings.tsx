@@ -40,6 +40,7 @@ import { isNative } from '../lib/native';
 import { MyProfilePage } from './MyProfile';
 import { MemberAvatar } from './Club';
 import { useMe } from '../lib/me';
+import { club } from '../lib/club';
 import { UsagePage } from './Usage';
 
 export type SettingsPage =
@@ -182,7 +183,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
           sub: session.account ? `${session.account.email}${session.account.expired ? ', session expirée' : ''}` : 'Sans compte, sur ce téléphone',
           show: !DEMO,
         },
-        { id: 'publicProfile', icon: 'users', sub: s.settings.profile.visible ? 'Profil visible par le club' : 'Profil privé', show: !DEMO },
+        { id: 'publicProfile', icon: 'users', sub: 'Compte privé, demandes, stats visibles', show: !DEMO },
         { id: 'report', icon: 'chart', sub: s.settings.reportEmail ? 'Par mail chaque lundi' : 'Dans l’app chaque lundi', show: !DEMO },
         { id: 'usage', icon: 'pulse', sub: 'Plan gratuit : écritures, lectures, mode économie', show: !DEMO && session.account?.role === 'admin' },
       ],
@@ -288,16 +289,46 @@ function PublicProfilePage() {
     void publishProfile(true).catch((e) => toast(errorText(e), true));
   };
   const preview = publicData(s, dayKey());
+  // Compte privé : réglage du club, gardé sur le serveur.
+  const [priv, setPriv] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (signedIn()) club.members().then((r) => setPriv(Boolean(r.members.find((m) => m.me)?.private)), () => undefined);
+  }, []);
+  const setPrivate = async (on: boolean) => {
+    if (!on && !(await ask('Repasser en compte public ? Les demandes en attente seront acceptées et tout le club verra tes séances « Tout le club ».', 'Passer en public'))) return;
+    setPriv(on);
+    try {
+      await club.privacy(on);
+      toast(on ? 'Compte privé : tu choisis qui te suit' : 'Compte public');
+    } catch (e) {
+      setPriv(!on);
+      toast(errorText(e), true);
+    }
+  };
   return (
     <div className="stack" style={{ gap: 18 }}>
+      {priv !== null && (
+        <div className="group">
+          <Toggle
+            title="Compte privé"
+            text={
+              priv
+                ? 'Tu acceptes ou refuses chaque demande d’abonnement. Tes séances ne se montrent qu’à tes abonnés.'
+                : 'Tout le monde peut s’abonner, et tes séances « Tout le club » sont visibles par tous.'
+            }
+            on={priv}
+            onChange={(v) => void setPrivate(v)}
+          />
+        </div>
+      )}
       <p className="small muted" style={{ margin: 0 }}>
         Seuls les comptes de cette app, sur invitation, peuvent voir ton profil, et seulement ce que tu coches. Tes séances, repas et poids ne sont
         jamais montrés.
       </p>
       <div className="group">
         <Toggle
-          title="Montrer mon profil"
-          text={p.visible ? 'Visible dans Fiche, Testeurs.' : 'Privé : personne ne te voit.'}
+          title="Montrer mes stats"
+          text={p.visible ? 'Série, niveau et fiche de force visibles sur ta fiche du club.' : 'Masquées : ta fiche ne montre que ton nom, ton pseudo et ta bio.'}
           on={p.visible}
           onChange={(v) => save((d) => void (d.settings.profile.visible = v))}
         />

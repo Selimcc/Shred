@@ -83,6 +83,11 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 - Changing the login email requires the password, refuses an email used by another account, keeps it encrypted at rest, closes the other sessions and is limited to 10 per day.
 - The live handle check is limited to 400 requests per member per day.
 
+## Club privacy (0.19.0)
+
+- The member directory is gone: a member only receives their own relations. Others are found by handle, with a daily search cap, so the whole club cannot be listed in one call.
+- Private accounts: posts, strength chart and stats only reach accepted followers; the check happens inside the Club Durable Object for every read (feed, post, photo, spark, comment).
+
 ## Accepted
 
 | Severity | Finding | Why |

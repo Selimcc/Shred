@@ -4556,5 +4556,68 @@ span.roll.roll {
 }
 
 .member-search {
-  margin-bottom: 10px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.member-search > svg {
+  position: absolute;
+  left: 14px;
+  color: var(--ink-3);
+  pointer-events: none;
+}
+
+.member-search .input {
+  padding-left: 40px;
+}
+
+.request-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.request-actions .btn.small:last-child {
+  padding-inline: 10px;
+}
+
+.follows-me {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: -6px;
+}
+
+.private-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.private-card > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--ink-2);
+}
+
+.notice-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notice-kind.request,
+.notice-kind.accepted {
+  background: var(--blue);
 }

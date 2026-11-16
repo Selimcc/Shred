@@ -221,7 +221,7 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
           </span>
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="title">Ce que le club voit</div>
-            <div className="small muted ellipsis">{s.settings.profile.visible ? 'Profil visible par le club' : 'Profil privé'}</div>
+            <div className="small muted ellipsis">Compte privé ou public, abonnés, stats visibles</div>
           </div>
           <Icon name="chevron" size={18} />
         </button>

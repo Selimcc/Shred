@@ -128,3 +128,11 @@ Each account has a first name, a unique `@handle`, and optionally a nickname (30
 - Changes: 2 per 14 days. The previous handle stays reserved for its former owner for 14 days (`hold:<handle>`), so nobody can take it right away to pose as them. Deleting the account frees the handle.
 - Profile link: `/?member=<handle>` opens the member's sheet in the club.
 - Login email: `POST /api/account/email` changes it (typo at sign-up). Keys derive from email and password, so the app sends the current key (old email) and the new one (new email), then re-encrypts the backup; other sessions are closed. An email already used by another account is refused. The sign-up and change forms suggest fixes for common domain typos (`gmial.com` → `gmail.com`, `shared/email-typo.ts`).
+
+## Privacy in the club
+
+- **No public member list.** `GET /api/club/members` returns only the member's relations: themselves, who they follow, who follows them, and pending requests. Anyone else is found by handle: `GET /api/club/search?q=` (prefix, then substring of the handle, 2 characters minimum, 10 results, 400 searches a day). `GET /api/club/member/<handle or id>` opens one sheet (profile links, authors in the feed).
+- **Private accounts** (`PUT /api/club/privacy`). Following one sends a request instead (notice `request` and a push); a second tap cancels it. The owner accepts or declines from the notifications or the Members tab (`POST /api/club/requests/<id>` with `accept`); acceptance is notified (`accepted`). Going back to public accepts the pending requests.
+- What a non-follower sees of a private account: name, handle, photo, nickname, bio and counters. Not its sessions (posts marked « Tout le club » behave as « Abonnés »), not its strength chart or stats, and no challenge can be sent.
+- A member can remove a follower (`DELETE /api/club/followers/<id>`), silently. Deleting an account removes it from everyone's following and follower lists.
+- Feed posts carry `authorHandle` and `authorAvatar`, since authors are no longer all in the member's list.
