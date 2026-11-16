@@ -1618,7 +1618,7 @@ input[type='time'].input {
 .sheet {
   width: 100%;
   max-width: 560px;
-  max-height: 92dvh;
+  max-height: var(--sheet-max, 92dvh);
   overflow-y: auto;
   background: #1a1c21;
   border-radius: 28px 28px 0 0;
@@ -3616,6 +3616,21 @@ span.roll.roll {
   gap: 12px;
   margin-bottom: 16px;
   border-color: color-mix(in srgb, var(--amber) 50%, var(--line));
+}
+.music-wrap {
+  margin-top: 10px;
+}
+.music-wrap .music-bar {
+  margin-top: 0;
+}
+.sc-player {
+  display: block;
+  width: 100%;
+  height: 120px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-2);
 }
 .music-bar {
   display: flex;

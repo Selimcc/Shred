@@ -1,8 +1,33 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useState } from 'react';
 import { loadPhoto } from '../lib/photos';
 import { Icon } from './Icon';
 
 let openSheets = 0;
+
+/**
+ * Clavier ouvert sur iPhone : la partie visible de l'écran rétrécit, mais les éléments « fixed » restent
+ * calés sur tout l'écran, et le clavier recouvre le bas de la feuille. On suit la zone visible pour que la
+ * feuille reste au-dessus du clavier.
+ */
+function useKeyboardView(): { top: number; height: number } | null {
+  const [view, setView] = useState<{ top: number; height: number } | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      const open = window.innerHeight - vv.height > 120;
+      setView(open ? { top: Math.round(vv.offsetTop), height: Math.round(vv.height) } : null);
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
+  return view;
+}
 
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
@@ -16,8 +41,9 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
       if (openSheets === 0) document.body.style.overflow = '';
     };
   }, [onClose]);
+  const view = useKeyboardView();
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
+    <div className="sheet-backdrop" onClick={onClose} style={view ? { top: view.top, height: view.height, bottom: 'auto', '--sheet-max': `${view.height - 12}px` } as CSSProperties : undefined}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="grip" />
         <div className="sheet-head">

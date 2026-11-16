@@ -2,7 +2,8 @@
 // sans écriture KV) :
 // - salles de sport autour d'un point, partout dans le monde, depuis OpenStreetMap (Overpass) ;
 // - une ville ou une adresse en position (Nominatim), pour qui refuse la localisation ;
-// - musiques pour les publications du club, depuis la recherche iTunes (extraits de 30 s, sans clé).
+// - musiques pour les publications du club : Apple Music et Deezer (extraits de 30 s, sans clé), et les liens
+//   SoundCloud collés (morceau entier dans le lecteur de SoundCloud).
 import { type Env, HttpError, json } from './env';
 
 export interface Place {
@@ -16,7 +17,11 @@ export interface Place {
   distance: number;
 }
 
+export type MusicSource = 'apple' | 'deezer' | 'soundcloud';
+
 export interface Track {
+  /** Absent sur les anciennes publications : Apple Music. */
+  source?: MusicSource;
   id: string;
   title: string;
   artist: string;
@@ -25,7 +30,7 @@ export interface Track {
   link: string;
 }
 
-const UA = 'Shred/1.0 (application privée de suivi sportif)';
+const UA = 'Shred/1.0 (private fitness app)';
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 
 export function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
@@ -91,6 +96,7 @@ export function toTracks(results: Record<string, unknown>[]): Track[] {
   return results
     .filter((r) => r.kind === 'song' && r.trackId && r.trackViewUrl)
     .map((r) => ({
+      source: 'apple' as const,
       id: String(r.trackId),
       title: String(r.trackName ?? '').slice(0, 100),
       artist: String(r.artistName ?? '').slice(0, 80),
@@ -100,24 +106,79 @@ export function toTracks(results: Record<string, unknown>[]): Track[] {
     }));
 }
 
-/** Seules les adresses d'Apple sont acceptées dans une publication (pas de lien arbitraire). */
+interface DeezerTrack {
+  id: number;
+  title?: string;
+  title_short?: string;
+  link?: string;
+  preview?: string;
+  artist?: { name?: string };
+  album?: { cover_medium?: string; cover_big?: string };
+}
+
+export function fromDeezer(data: DeezerTrack[]): Track[] {
+  return data
+    .filter((d) => d.id && d.link)
+    .map((d) => ({
+      source: 'deezer' as const,
+      id: String(d.id),
+      title: String(d.title_short || d.title || '').slice(0, 100),
+      artist: String(d.artist?.name ?? '').slice(0, 80),
+      artwork: String(d.album?.cover_medium ?? ''),
+      // L'extrait de Deezer expire au bout de quelques heures : il est redemandé au moment de l'écouter.
+      ...(d.preview ? { preview: d.preview } : {}),
+      link: String(d.link),
+    }));
+}
+
+/** Apple d'abord, puis Deezer, sans doublon (même titre et même artiste). */
+export function mergeTracks(lists: Track[][]): Track[] {
+  const seen = new Set<string>();
+  const out: Track[] = [];
+  for (const t of lists.flat()) {
+    const k = `${t.title}|${t.artist}`.toLowerCase().replace(/\s+/g, ' ');
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(t);
+  }
+  return out.slice(0, 20);
+}
+
+const safeUrl = (v: unknown, hosts: RegExp) => {
+  try {
+    const u = new URL(String(v));
+    return u.protocol === 'https:' && hosts.test(u.hostname) ? u.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/** Seules les adresses d'Apple, de Deezer et de SoundCloud sont acceptées dans une publication. */
 export function sanitizeTrack(raw: unknown): Track | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const t = raw as Record<string, unknown>;
-  const url = (v: unknown, hosts: RegExp) => {
-    try {
-      const u = new URL(String(v));
-      return u.protocol === 'https:' && hosts.test(u.hostname) ? u.toString() : undefined;
-    } catch {
-      return undefined;
-    }
-  };
+  const base = { title: String(t.title ?? '').slice(0, 100), artist: String(t.artist ?? '').slice(0, 80) };
+  if (t.source === 'deezer') {
+    const id = String(t.id ?? '');
+    const link = safeUrl(t.link, /^(www\.)?deezer\.com$/);
+    const artwork = safeUrl(t.artwork, /(^|\.)dzcdn\.net$/) ?? '';
+    if (!/^\d{1,15}$/.test(id) || !link) return undefined;
+    return { source: 'deezer', id, ...base, artwork, link };
+  }
+  if (t.source === 'soundcloud') {
+    const link = safeUrl(t.link, /^soundcloud\.com$/);
+    const artwork = safeUrl(t.artwork, /(^|\.)sndcdn\.com$/) ?? '';
+    if (!link) return undefined;
+    return { source: 'soundcloud', id: link, ...base, artwork, link };
+  }
+  const url = safeUrl;
   const id = String(t.id ?? '');
   const artwork = url(t.artwork, /(^|\.)mzstatic\.com$/);
   const link = url(t.link, /^(music|itunes)\.apple\.com$/);
   const preview = url(t.preview, /(^|\.)(apple\.com|mzstatic\.com)$/);
   if (!/^\d{1,15}$/.test(id) || !artwork || !link) return undefined;
   return {
+    source: 'apple',
     id,
     title: String(t.title ?? '').slice(0, 100),
     artist: String(t.artist ?? '').slice(0, 80),
@@ -185,14 +246,54 @@ export async function placeRoutes(req: Request, env: Env, pathname: string): Pro
     const q = (url.searchParams.get('q') ?? '').trim().slice(0, 80);
     if (q.length < 2) return json({ tracks: [] });
     const country = /^[A-Z]{2}$/.test(url.searchParams.get('country') ?? '') ? url.searchParams.get('country') : 'FR';
-    const tracks = await cached(`music:${country}:${q.toLowerCase()}`, 86_400, async () => {
-      const res = await fetcher(`https://itunes.apple.com/search?media=music&entity=song&limit=15&country=${country}&term=${encodeURIComponent(q)}`, {
-        headers: { 'user-agent': UA },
-      });
-      if (!res.ok) throw new HttpError(502, 'Recherche de musique indisponible');
-      return toTracks(((await res.json()) as { results: Record<string, unknown>[] }).results ?? []);
+    const result = await cached(`music2:${country}:${q.toLowerCase()}`, 3 * 3600, async () => {
+      const failed: string[] = [];
+      const [apple, deezer] = await Promise.all([
+        fetcher(`https://itunes.apple.com/search?media=music&entity=song&limit=12&country=${country}&term=${encodeURIComponent(q)}`, { headers: { 'user-agent': UA } })
+          .then(async (res) => (res.ok ? toTracks(((await res.json()) as { results: Record<string, unknown>[] }).results ?? []) : (failed.push(`Apple ${res.status}`), [])))
+          .catch(() => (failed.push('Apple réseau'), [] as Track[])),
+        fetcher(`https://api.deezer.com/search?limit=12&q=${encodeURIComponent(q)}`, { headers: { 'user-agent': UA } })
+          .then(async (res) => (res.ok ? fromDeezer(((await res.json()) as { data?: DeezerTrack[] }).data ?? []) : (failed.push(`Deezer ${res.status}`), [])))
+          .catch(() => (failed.push('Deezer réseau'), [] as Track[])),
+      ]);
+      if (failed.length === 2) throw new HttpError(502, `Recherche de musique indisponible (${failed.join(', ')})`);
+      return { tracks: mergeTracks([apple, deezer]) };
     });
-    return json({ tracks });
+    return json(result);
+  }
+
+  // Extrait Deezer frais, au moment de l'écouter (ceux de Deezer expirent).
+  const dz = pathname.match(/^\/api\/music\/deezer\/(\d{1,15})$/);
+  if (dz) {
+    const preview = await cached(`dz:${dz[1]}`, 1800, async () => {
+      const res = await fetcher(`https://api.deezer.com/track/${dz[1]}`, { headers: { 'user-agent': UA } });
+      const d = res.ok ? ((await res.json()) as { preview?: string }) : {};
+      return safeUrl(d.preview, /(^|\.)dzcdn\.net$/) ?? null;
+    });
+    if (!preview) throw new HttpError(404, 'Extrait indisponible');
+    return json({ preview });
+  }
+
+  // Lien SoundCloud collé : titre, artiste et pochette par l'oEmbed public de SoundCloud.
+  if (pathname === '/api/music/soundcloud') {
+    let link = safeUrl(url.searchParams.get('url'), /^(soundcloud\.com|on\.soundcloud\.com|m\.soundcloud\.com)$/);
+    if (!link) throw new HttpError(400, 'Colle un lien soundcloud.com');
+    const track = await cached(`sc:${link}`, 86_400, async () => {
+      if (new URL(link!).hostname !== 'soundcloud.com') {
+        // Lien court de l'app SoundCloud : on suit la redirection jusqu'au vrai morceau.
+        const r = await fetcher(link!, { redirect: 'follow', headers: { 'user-agent': UA } });
+        link = safeUrl(r.url.replace('://m.', '://'), /^soundcloud\.com$/);
+        if (!link) throw new HttpError(400, 'Lien SoundCloud introuvable');
+      }
+      const clean = link!.split('?')[0];
+      const res = await fetcher(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(clean)}`, { headers: { 'user-agent': UA } });
+      if (!res.ok) throw new HttpError(404, 'Morceau SoundCloud introuvable ou privé');
+      const o = (await res.json()) as { title?: string; author_name?: string; thumbnail_url?: string };
+      const title = String(o.title ?? '').replace(new RegExp(` by ${String(o.author_name ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`), '');
+      return sanitizeTrack({ source: 'soundcloud', title, artist: o.author_name, artwork: o.thumbnail_url, link: clean }) ?? null;
+    });
+    if (!track) throw new HttpError(404, 'Morceau SoundCloud introuvable');
+    return json({ track });
   }
 
   return null;

@@ -87,7 +87,20 @@ const env = {
       });
     }
     if (String(url).includes('nominatim')) return Response.json([{ lat: '36.8065', lon: '10.1815', display_name: 'Tunis, Gouvernorat de Tunis, Tunisie' }]);
+    if (String(url).includes('api.deezer.com/search')) {
+      return Response.json({
+        data: [
+          { id: 777, title: 'Titre', title_short: 'Titre', link: 'https://www.deezer.com/track/777', preview: 'https://cdnt-preview.dzcdn.net/a.mp3?hdnea=x', artist: { name: 'Artiste' }, album: { cover_medium: 'https://e-cdns-images.dzcdn.net/c.jpg' } },
+          { id: 778, title: 'Autre titre', link: 'https://www.deezer.com/track/778', preview: 'https://cdnt-preview.dzcdn.net/b.mp3', artist: { name: 'Adrian Mills' }, album: { cover_medium: 'https://e-cdns-images.dzcdn.net/d.jpg' } },
+        ],
+      });
+    }
+    if (String(url).includes('api.deezer.com/track/778')) return Response.json({ preview: 'https://cdnt-preview.dzcdn.net/frais.mp3' });
+    if (String(url).includes('soundcloud.com/oembed')) {
+      return Response.json({ title: 'Mon son by DJ Test', author_name: 'DJ Test', thumbnail_url: 'https://i1.sndcdn.com/artworks-x.jpg' });
+    }
     if (String(url).includes('itunes')) {
+      if (appleDown) return new Response('forbidden', { status: 403 });
       return Response.json({
         results: [
           { kind: 'song', trackId: 123, trackName: 'Titre', artistName: 'Artiste', artworkUrl100: 'https://is1-ssl.mzstatic.com/a/100x100bb.jpg', previewUrl: 'https://audio-ssl.itunes.apple.com/p.m4a', trackViewUrl: 'https://music.apple.com/fr/album/x?i=123' },
@@ -102,6 +115,7 @@ const env = {
 const waits = [];
 const fetched = [];
 const fetchedBodies = [];
+let appleDown = false;
 const ctx = { waitUntil: (p) => waits.push(p) };
 let ip = 1;
 async function call(path, { token, body, method } = {}) {
@@ -198,8 +212,20 @@ check('ville en position (sans localisation)', r.status === 200 && Math.abs(r.da
 /* ---------- Musique des publications ---------- */
 
 r = await call('/api/music/search?q=titre', { token });
-check('recherche de musique : seulement des chansons', r.status === 200 && r.data.tracks.length === 1 && r.data.tracks[0].artwork.includes('300x300bb'));
+check('recherche de musique : Apple puis Deezer, sans doublon', r.status === 200 && r.data.tracks.length === 2 && r.data.tracks[0].source === 'apple' && r.data.tracks[0].artwork.includes('300x300bb') && r.data.tracks[1].source === 'deezer' && r.data.tracks[1].artist === 'Adrian Mills', JSON.stringify(r.data.tracks?.map((x) => [x.source, x.title])));
 const t = r.data.tracks[0];
+appleDown = true;
+r = await call('/api/music/search?q=adrian', { token });
+check('Apple indisponible : Deezer prend le relais', r.status === 200 && r.data.tracks.every((x) => x.source === 'deezer') && r.data.tracks.length === 2);
+r = await call('/api/music/deezer/778', { token });
+check('extrait Deezer redemandé frais au moment d’écouter', r.data.preview === 'https://cdnt-preview.dzcdn.net/frais.mp3');
+r = await call('/api/music/soundcloud?url=' + encodeURIComponent('https://soundcloud.com/dj-test/mon-son?si=abc'), { token });
+check('lien SoundCloud : titre sans « by artiste », lien nettoyé', r.status === 200 && r.data.track.title === 'Mon son' && r.data.track.artist === 'DJ Test' && r.data.track.link === 'https://soundcloud.com/dj-test/mon-son', JSON.stringify(r.data));
+r = await call('/api/music/soundcloud?url=' + encodeURIComponent('https://evil.example/x'), { token });
+check('lien hors SoundCloud refusé', r.status === 400);
+check('Deezer accepté dans une publication, sans extrait stocké', places.sanitizeTrack({ source: 'deezer', id: '778', title: 'a', artist: 'b', artwork: 'https://e-cdns-images.dzcdn.net/d.jpg', link: 'https://www.deezer.com/track/778', preview: 'https://x' })?.preview === undefined);
+check('SoundCloud accepté dans une publication', places.sanitizeTrack({ source: 'soundcloud', title: 'a', artist: 'b', link: 'https://soundcloud.com/a/b' })?.id === 'https://soundcloud.com/a/b');
+check('faux lien Deezer refusé', places.sanitizeTrack({ source: 'deezer', id: '1', link: 'https://deezer.com.evil.example/1' }) === undefined);
 check('musique valide acceptée dans une publication', places.sanitizeTrack(t)?.id === '123');
 check('lien hors Apple refusé', places.sanitizeTrack({ ...t, link: 'https://evil.example/x' }) === undefined);
 check('extrait audio hors Apple retiré', places.sanitizeTrack({ ...t, preview: 'https://evil.example/a.mp3' })?.preview === undefined);

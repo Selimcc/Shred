@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react';
 import { api, DEMO } from './api';
 
+export type MusicSource = 'apple' | 'deezer' | 'soundcloud';
+
 export interface Track {
+  /** Absent sur les anciennes publications : Apple Music. */
+  source?: MusicSource;
   id: string;
   title: string;
   artist: string;
@@ -25,6 +29,16 @@ function country(): string {
   return r && /^[A-Z]{2}$/.test(r) ? r : 'FR';
 }
 
+export const SOURCE_NAME: Record<MusicSource, string> = { apple: 'Apple Music', deezer: 'Deezer', soundcloud: 'SoundCloud' };
+
+export const isSoundCloud = (q: string) => /^https?:\/\/(www\.|m\.|on\.)?soundcloud\.com\//i.test(q.trim());
+
+/** Lien SoundCloud collé : le morceau, avec titre, artiste et pochette. */
+export async function soundcloudTrack(link: string): Promise<Track> {
+  if (DEMO) return { source: 'soundcloud', id: link, title: 'Morceau SoundCloud', artist: 'Artiste', artwork: '', link };
+  return (await api<{ track: Track }>(`/api/music/soundcloud?url=${encodeURIComponent(link.trim())}`)).track;
+}
+
 export async function searchMusic(q: string): Promise<Track[]> {
   if (DEMO) {
     await new Promise((r) => setTimeout(r, 250));
@@ -42,8 +56,7 @@ let progress = 0;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 
-export function toggle(t: Track, key = t.id) {
-  if (!t.preview) return;
+function ensureAudio(): HTMLAudioElement {
   if (!audio) {
     audio = new Audio();
     audio.preload = 'none';
@@ -57,21 +70,49 @@ export function toggle(t: Track, key = t.id) {
       emit();
     });
   }
-  if (current === key && !audio.paused) {
-    audio.pause();
+  return audio;
+}
+
+/** Un extrait se joue-t-il dans l'app ? (SoundCloud passe par son propre lecteur) */
+export const playable = (t: Track) => t.source !== 'soundcloud' && (Boolean(t.preview) || t.source === 'deezer');
+
+export function toggle(t: Track, key = t.id) {
+  if (!playable(t)) return;
+  const a = ensureAudio();
+  if (current === key && !a.paused) {
+    a.pause();
     current = null;
-  } else {
-    if (current !== key) {
-      audio.src = t.preview;
-      progress = 0;
-    }
-    current = key;
-    void audio.play().catch(() => {
-      current = null;
-      emit();
-    });
+    return emit();
   }
+  if (current === key) {
+    current = key;
+    void a.play().catch(() => undefined);
+    return emit();
+  }
+  current = key;
+  progress = 0;
   emit();
+  if (t.source === 'deezer' && !t.preview && !DEMO) {
+    // L'extrait Deezer d'une publication a expiré : on en redemande un frais. Le lecteur est « débloqué »
+    // tout de suite, pendant le toucher, sinon l'iPhone refuserait de jouer après l'attente.
+    a.src = '';
+    void a.play().catch(() => undefined);
+    api<{ preview: string }>(`/api/music/deezer/${t.id}`).then(
+      (r) => {
+        if (current !== key) return;
+        a.src = r.preview;
+        void a.play().catch(() => ((current = null), emit()));
+      },
+      () => ((current = null), emit()),
+    );
+    return;
+  }
+  if (!t.preview) return;
+  a.src = t.preview;
+  void a.play().catch(() => {
+    current = null;
+    emit();
+  });
 }
 
 export function stopMusic() {
