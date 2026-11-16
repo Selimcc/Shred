@@ -3382,6 +3382,7 @@ span.roll.roll {
 .profile-part + .row::before {
   content: '';
   position: absolute;
+  top: 0;
   left: 16px;
   right: 0;
   border-top: 1px solid var(--line);
@@ -3486,6 +3487,27 @@ span.roll.roll {
   color: var(--green, #4ade80);
 }
 
+.settings-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  margin: -6px 0 16px;
+  padding: 0 16px 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.settings-back svg {
+  transform: rotate(180deg);
+  color: var(--amber);
+}
+.settings-back:active {
+  transform: scale(0.97);
+}
 .usage-mode {
   display: flex;
   flex-direction: column;

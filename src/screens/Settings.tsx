@@ -210,8 +210,8 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
   return (
     <Sheet title={TITLES[page]} onClose={onClose}>
       {page !== 'menu' && initialPage === 'menu' && (
-        <button className="link small" style={{ marginTop: -8, marginBottom: 14 }} onClick={leave}>
-          ← Réglages
+        <button className="settings-back" onClick={leave}>
+          <Icon name="chevron" size={18} /> Réglages
         </button>
       )}
 
