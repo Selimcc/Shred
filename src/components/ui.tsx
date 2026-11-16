@@ -1,4 +1,5 @@
-import { type CSSProperties, type ReactNode, useEffect, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { leave, leaveInPlace } from '../lib/leave';
 import { loadPhoto } from '../lib/photos';
 import { Icon } from './Icon';
 
@@ -42,9 +43,16 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     };
   }, [onClose]);
   const view = useKeyboardView();
+  const root = useRef<HTMLDivElement>(null);
+  const scroll = useRef(0);
+  // En partant, la feuille glisse vers le bas et le fond s'efface (même si c'est le programme qui la ferme).
+  useLayoutEffect(() => {
+    const el = root.current;
+    return () => leave(el, 'sheet-out', 220, [{ selector: '.sheet', top: scroll.current }]);
+  }, []);
   return (
-    <div className="sheet-backdrop" onClick={onClose} style={view ? { top: view.top, height: view.height, bottom: 'auto', '--sheet-max': `${view.height - 12}px` } as CSSProperties : undefined}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+    <div ref={root} className="sheet-backdrop" onClick={onClose} style={view ? { top: view.top, height: view.height, bottom: 'auto', '--sheet-max': `${view.height - 12}px` } as CSSProperties : undefined}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()} onScroll={(e) => (scroll.current = e.currentTarget.scrollTop)}>
         <div className="grip" />
         <div className="sheet-head">
           <h2>{title}</h2>
@@ -132,9 +140,15 @@ export function toast(text: string, error = false) {
 
 export function ToastHost() {
   const [msg, setMsg] = useState<ToastMsg | null>(null);
+  const el = useRef<HTMLDivElement>(null);
   useEffect(() => {
     pushToast = setMsg;
   }, []);
+  // Le toast qui s'en va glisse et s'efface au lieu de disparaître d'un coup.
+  useLayoutEffect(() => {
+    const node = el.current;
+    return () => leaveInPlace(node, 'toast-out');
+  }, [msg?.id]);
   useEffect(() => {
     if (!msg) return;
     const t = setTimeout(() => setMsg(null), msg.error ? 4500 : 2600);
@@ -142,7 +156,7 @@ export function ToastHost() {
   }, [msg]);
   if (!msg) return null;
   return (
-    <div className={`toast ${msg.error ? 'error' : ''}`} role="status" key={msg.id}>
+    <div ref={el} className={`toast ${msg.error ? 'error' : ''}`} role="status" key={msg.id}>
       {msg.text}
     </div>
   );

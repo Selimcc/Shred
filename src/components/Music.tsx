@@ -1,9 +1,9 @@
 // Musique d'une publication : la barre de lecture (pochette, titre, bouton lecture avec anneau d'avancement)
 // et le choix d'un morceau dans le composeur.
-import { useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { errorText, Sheet } from './ui';
 import { Icon } from './Icon';
-import { isSoundCloud, playable, searchMusic, soundcloudTrack, SOURCE_NAME, stopIf, stopMusic, toggle, type Track, usePlayer, warm } from '../lib/music';
+import { isSoundCloud, playable, searchMusic, seek, soundcloudTrack, SOURCE_NAME, stopIf, stopMusic, toggle, type Track, usePlayer, warm } from '../lib/music';
 
 function Artwork({ t, size }: { t: Track; size: number }) {
   return t.artwork ? (
@@ -96,6 +96,29 @@ function Eq({ on }: { on: boolean }) {
   ) : null;
 }
 
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+/** Barre pour avancer ou reculer dans l'extrait, avec le temps écoulé et la durée. */
+function Scrubber({ playKey, progress, duration, title }: { playKey: string; progress: number; duration: number; title: string }) {
+  const pct = Math.round(progress * 1000) / 10;
+  return (
+    <div className="music-scrub">
+      <span className="small faint num">{clock(progress * duration)}</span>
+      <input
+        type="range"
+        min={0}
+        max={1000}
+        step={1}
+        value={Math.round(progress * 1000)}
+        onChange={(e) => seek(playKey, Number(e.target.value) / 1000)}
+        aria-label={`Position dans ${title}`}
+        style={{ '--pct': `${pct}%` } as CSSProperties}
+      />
+      <span className="small faint num">{clock(duration)}</span>
+    </div>
+  );
+}
+
 /** Lecteur de SoundCloud (morceau entier), chargé seulement quand on le demande. */
 function SoundCloudPlayer({ t }: { t: Track }) {
   const src = `https://w.soundcloud.com/player/?url=${encodeURIComponent(t.link)}&color=%23ffb547&auto_play=true&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false`;
@@ -106,7 +129,7 @@ function SoundCloudPlayer({ t }: { t: Track }) {
 export function MusicBar({ t, playKey, onRemove }: { t: Track; playKey: string; onRemove?: () => void }) {
   const [sc, setSc] = useState(false);
   const source = t.source ?? 'apple';
-  const { playing } = usePlayer(playKey);
+  const { playing, loading, progress, duration } = usePlayer(playKey);
   const box = useRef<HTMLDivElement>(null);
   // Publication visible : on prépare déjà l'adresse de l'extrait. Elle disparaît : sa musique s'arrête.
   useEffect(() => {
@@ -158,6 +181,7 @@ export function MusicBar({ t, playKey, onRemove }: { t: Track; playKey: string; 
           </button>
         )}
       </div>
+      {playing && !loading && <Scrubber playKey={playKey} progress={progress} duration={duration} title={t.title} />}
       {sc && <SoundCloudPlayer t={t} />}
     </div>
   );

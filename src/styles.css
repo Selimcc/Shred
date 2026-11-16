@@ -1665,6 +1665,61 @@ input[type='time'].input {
   }
 }
 
+/* ---------- Sorties et changements de page ---------- */
+
+/* Copie de l'élément qui part (voir lib/leave.ts) : on la voit s'en aller, en 0,2 s. */
+.sheet-backdrop.leaving.sheet-out {
+  z-index: 45;
+  animation: fade-out 0.22s ease forwards;
+}
+.sheet-backdrop.leaving.sheet-out .sheet {
+  animation: sheet-down 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+.toast.leaving.toast-out {
+  animation: toast-away 0.2s ease forwards;
+}
+.leaving.moment-out {
+  animation: toast-away 0.24s ease forwards;
+}
+.leaving.moment-big-out {
+  animation: fade-out 0.26s ease forwards;
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes sheet-down {
+  to {
+    transform: translateY(70%);
+    opacity: 0.4;
+  }
+}
+@keyframes toast-away {
+  to {
+    transform: translateY(-10px) scale(0.97);
+    opacity: 0;
+  }
+}
+
+/* Nouvelle page ou nouvel onglet : le contenu arrive en fondu, à peine décalé. */
+.app > *,
+.sheet > :not(.grip):not(.sheet-head):not(.settings-back) {
+  animation: page-in 0.24s var(--ease) both;
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app > *,
+  .sheet > :not(.grip):not(.sheet-head):not(.settings-back) {
+    animation: none;
+  }
+}
+
 @keyframes drop {
   from {
     transform: translate(-50%, -14px);
@@ -3619,9 +3674,20 @@ span.roll.roll {
 }
 .music-wrap {
   margin-top: 10px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  overflow: hidden;
 }
 .music-wrap .music-bar {
   margin-top: 0;
+  background: transparent;
+}
+.music-wrap .music-scrub {
+  padding: 0 12px 8px;
+}
+.music-wrap .sc-player {
+  margin: 0;
+  border-radius: 0;
 }
 .sc-player {
   display: block;
@@ -3762,6 +3828,53 @@ span.roll.roll {
 }
 .music-play:not(.on) .music-ring-fg {
   stroke: transparent;
+}
+.music-scrub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 0;
+  animation: page-in 0.2s var(--ease) both;
+}
+.music-scrub input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: pan-y;
+}
+.music-scrub input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--amber) var(--pct), var(--surface-3) var(--pct));
+}
+.music-scrub input::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--amber) var(--pct), var(--surface-3) var(--pct));
+}
+.music-scrub input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+}
+.music-scrub input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.music-scrub .num {
+  min-width: 2.4em;
+  text-align: center;
 }
 .music-title {
   display: flex;

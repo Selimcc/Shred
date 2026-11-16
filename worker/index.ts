@@ -18,7 +18,7 @@ export { Club } from './club';
 export { Usage } from './usage';
 import { placeRoutes } from './places';
 
-const VERSION = '0.16.0';
+const VERSION = '0.16.1';
 
 function cors(res: Response): Response {
   const h = new Headers(res.headers);

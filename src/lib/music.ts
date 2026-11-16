@@ -152,7 +152,12 @@ export const playable = (t: Track) => t.source !== 'soundcloud' && (Boolean(t.pr
 
 function start(el: HTMLAudioElement, key: string) {
   active = el;
-  if (el.ended) el.currentTime = 0;
+  // Un extrait relancé repart toujours du début : 30 secondes, autant les réentendre en entier.
+  try {
+    el.currentTime = 0;
+  } catch {
+    // fichier pas encore prêt : il démarrera au début de toute façon
+  }
   void el.play().catch(() => {
     if (current !== key) return;
     current = null;
@@ -206,13 +211,21 @@ export function stopMusic() {
   emit();
 }
 
+/** Avancer ou reculer dans l'extrait en cours (0 à 1). */
+export function seek(key: string, ratio: number) {
+  if (current !== key || !active?.duration) return;
+  active.currentTime = Math.max(0, Math.min(1, ratio)) * active.duration;
+  progress = active.currentTime / active.duration;
+  emit();
+}
+
 /** Arrête l'extrait seulement si c'est celui-là qui joue (une publication qui disparaît de l'écran). */
 export function stopIf(key: string) {
   if (current === key) stopMusic();
 }
 
 /** État du lecteur pour un extrait : en cours, en chargement, et avancement (0 à 1). */
-export function usePlayer(key: string): { playing: boolean; loading: boolean; progress: number } {
+export function usePlayer(key: string): { playing: boolean; loading: boolean; progress: number; duration: number } {
   const [, force] = useState(0);
   useEffect(() => {
     const l = () => force((n) => n + 1);
@@ -220,5 +233,5 @@ export function usePlayer(key: string): { playing: boolean; loading: boolean; pr
     return () => void listeners.delete(l);
   }, []);
   const mine = current === key;
-  return { playing: mine, loading: mine && loading, progress: mine ? progress : 0 };
+  return { playing: mine, loading: mine && loading, progress: mine ? progress : 0, duration: mine && active?.duration && Number.isFinite(active.duration) ? active.duration : 30 };
 }

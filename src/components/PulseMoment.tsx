@@ -1,7 +1,8 @@
 // Pulse fête tes réussites. Séance validée : il bondit au centre de l'écran, onde de lumière et étincelles.
 // Record, habitudes, pas, publication, étincelles reçues : il surgit en haut de l'écran le temps d'un clin d'œil.
 // Si la grande fête de fin de journée s'affiche au même moment, c'est elle qui passe.
-import { type CSSProperties, useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { leave, leaveInPlace } from '../lib/leave';
 import { dayKey } from '../lib/date';
 import { celebrationFor, flameInfo } from '../lib/flames';
 import { type Moment, onMoment } from '../lib/moments';
@@ -61,13 +62,21 @@ export function PulseMoment() {
     return () => clearTimeout(t);
   }, [current?.id]);
 
+  // Le moment qui se termine s'efface au lieu de disparaître d'un coup.
+  const box = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = box.current;
+    const big = current ? BIG.includes(current.kind) : false;
+    return () => (big ? leave(el, 'moment-big-out', 260) : leaveInPlace(el, 'moment-out', 240));
+  }, [current?.id]);
+
   if (!current) return null;
   const close = () => setQueue((q) => q.slice(1));
   const style = { '--m-a': colors[0], '--m-b': colors[1], '--m-c': colors[2] } as CSSProperties;
 
   if (BIG.includes(current.kind)) {
     return (
-      <div key={current.id} className="moment-big" role="status" aria-live="polite" onClick={close} style={style}>
+      <div ref={box} key={current.id} className="moment-big" role="status" aria-live="polite" onClick={close} style={style}>
         <div className="moment-stage">
           <span className="moment-ring" aria-hidden="true" />
           <span className="moment-ring two" aria-hidden="true" />
@@ -84,7 +93,7 @@ export function PulseMoment() {
   }
 
   return (
-    <div key={current.id} className={`moment-small kind-${current.kind}`} role="status" aria-live="polite" onClick={close} style={style}>
+    <div ref={box} key={current.id} className={`moment-small kind-${current.kind}`} role="status" aria-live="polite" onClick={close} style={style}>
       <span className="moment-mini">
         <Sparks n={8} colors={colors} />
         <Pulse mood="cheer" tier={tier} size={46} />
