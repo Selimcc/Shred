@@ -162,15 +162,15 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
       rows: [
         { id: 'mealplan', icon: 'utensils', sub: s.prep ? 'Plan, préparation et courses' : 'Générer un plan adapté', show: mod.nutrition },
         { id: 'habits', icon: 'check', sub: s.habits.map((h) => h.name).join(', ') || 'Aucune', show: mod.habits },
-        { id: 'notifications', icon: 'bell', sub: s.settings.pushEnabled ? 'Activés' : 'Désactivés' },
+        { id: 'notifications', icon: 'bell', sub: s.settings.pushEnabled ? 'Activés' : 'Désactivés', show: !DEMO },
       ],
     },
     {
       title: 'Connexions',
       rows: [
-        { id: 'strava', icon: 'route', sub: strava?.athlete ? `Relié à ${strava.athlete}` : 'Importer tes sorties automatiquement' },
-        { id: 'health', icon: 'steps', sub: isNative() ? 'Directement depuis l’app iPhone' : 'Pas, sommeil, cœur, salle' },
-        { id: 'ai', icon: 'bolt', sub: AI_MODES.find((m) => m.id === s.settings.ai)!.title },
+        { id: 'strava', icon: 'route', sub: strava?.athlete ? `Relié à ${strava.athlete}` : 'Importer tes sorties automatiquement', show: !DEMO },
+        { id: 'health', icon: 'steps', sub: isNative() ? 'Directement depuis l’app iPhone' : 'Pas, sommeil, cœur, salle', show: !DEMO },
+        { id: 'ai', icon: 'bolt', sub: AI_MODES.find((m) => m.id === s.settings.ai)!.title, show: !DEMO },
       ],
     },
     {
@@ -182,9 +182,9 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
           sub: session.account ? `${session.account.email}${session.account.expired ? ', session expirée' : ''}` : 'Sans compte, sur ce téléphone',
           show: !DEMO,
         },
-        { id: 'publicProfile', icon: 'users', sub: s.settings.profile.visible ? 'Profil visible par le club' : 'Profil privé' },
+        { id: 'publicProfile', icon: 'users', sub: s.settings.profile.visible ? 'Profil visible par le club' : 'Profil privé', show: !DEMO },
         { id: 'report', icon: 'chart', sub: s.settings.reportEmail ? 'Par mail chaque lundi' : 'Dans l’app chaque lundi', show: !DEMO },
-        { id: 'usage', icon: 'pulse', sub: 'Plan gratuit : écritures, lectures, mode économie', show: DEMO || session.account?.role === 'admin' },
+        { id: 'usage', icon: 'pulse', sub: 'Plan gratuit : écritures, lectures, mode économie', show: !DEMO && session.account?.role === 'admin' },
       ],
     },
   ];
@@ -192,7 +192,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
     { id: 'modules', icon: 'list', sub: `${Object.values(mod).filter(Boolean).length} sur ${MODULES.length} actifs` },
     { id: 'meals', icon: 'utensils', sub: `${s.mealPlan.length} repas`, show: mod.nutrition },
     { id: 'testers', icon: 'users', sub: 'Inviter, réinitialiser, retirer', show: !DEMO && session.account?.role === 'admin' },
-    { id: 'data', icon: 'scale', sub: 'Export, import, remise à zéro' },
+    { id: 'data', icon: 'scale', sub: 'Export, import, remise à zéro', show: !DEMO },
   ];
   const rowButton = (r: Row) => (
     <button key={r.id} className="row settings-row" onClick={() => setPage(r.id)}>
