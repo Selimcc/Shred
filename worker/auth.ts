@@ -25,6 +25,35 @@ import {
 
 const SESSION_TTL = 180 * 86400;
 const INVITE_TTL = 7 * 86400;
+/** Lien de groupe : nombre d'inscriptions et durée proposés. */
+const GROUP_USES = [5, 10, 25, 50];
+const INVITE_DAYS = [7, 30];
+
+/** Une invitation : personnelle (une inscription) ou de groupe (plusieurs, jusqu'à `max`). */
+interface Invite {
+  by: string;
+  note: string;
+  created: string;
+  max: number;
+  uses: number;
+  /** Prénoms des personnes inscrites avec ce code. */
+  joined: string[];
+  /** Fin de validité, en secondes depuis 1970 (KV la veut pour chaque réécriture). */
+  exp: number;
+}
+
+function readInvite(raw: string | null): Invite | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as Partial<Invite>;
+    // Anciennes invitations : une seule inscription, 7 jours.
+    return { by: v.by ?? '', note: v.note ?? '', created: v.created ?? '', max: v.max ?? 1, uses: v.uses ?? 0, joined: v.joined ?? [], exp: v.exp ?? 0 };
+  } catch {
+    return { by: '', note: '', created: '', max: 1, uses: 0, joined: [], exp: 0 };
+  }
+}
+
+const inviteMeta = (i: Invite) => ({ note: i.note, created: i.created, max: i.max, uses: i.uses });
 const RESET_TTL = 2 * 86400;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -197,14 +226,16 @@ export async function authRoutes(req: Request, env: Env, pathname: string): Prom
     const raw = String(b.invite ?? '').trim();
     let role: Role = 'member';
     let inviteKey: string | null = null;
+    let invite: Invite | null = null;
     if (env.ADMIN_CODE && raw && (await sameText(raw, env.ADMIN_CODE))) {
       role = 'admin';
     } else {
       const code = normCode(raw);
       inviteKey = code ? `inv:${code}` : null;
-      if (!inviteKey || !(await env.KV.get(inviteKey))) {
+      invite = inviteKey ? readInvite(await env.KV.get(inviteKey)) : null;
+      if (!invite || invite.uses >= invite.max) {
         await strike(env, [`reg:${ip(req)}`]);
-        throw new HttpError(403, 'Code d’invitation invalide ou expiré');
+        throw new HttpError(403, 'Code d’invitation invalide, expiré ou complet');
       }
     }
     if (await accountByEmail(env, email)) throw new HttpError(409, 'Un compte existe déjà avec cet email. Connecte-toi.');
@@ -223,7 +254,14 @@ export async function authRoutes(req: Request, env: Env, pathname: string): Prom
     await saveAccount(env, acct);
     await env.KV.put(`email:${await sha256hex(email)}`, acct.id);
     await saveIndex(env, [...(await listAccounts(env)), indexEntry(acct)]);
-    if (inviteKey) await env.KV.delete(inviteKey);
+    if (inviteKey && invite) {
+      // Personnelle : elle disparaît. De groupe : une place de moins, jusqu'à la dernière.
+      invite.uses += 1;
+      invite.joined = [...invite.joined, name].slice(-60);
+      const left = invite.exp ? invite.exp - Math.floor(Date.now() / 1000) : 0;
+      if (invite.uses >= invite.max || (invite.exp && left < 60)) await env.KV.delete(inviteKey);
+      else await env.KV.put(inviteKey, JSON.stringify(invite), { ...(invite.exp ? { expiration: invite.exp } : {}), metadata: inviteMeta(invite) });
+    }
     return json(await openSession(env, acct));
   }
 
@@ -333,26 +371,35 @@ export async function adminRoutes(req: Request, env: Env, user: User, url: URL):
         return { ...a, lastDay: state?.date ?? null, me: a.id === user.id };
       }),
     );
-    const list = await env.KV.list<{ note?: string; created?: string }>({ prefix: 'inv:' });
+    const list = await env.KV.list<{ note?: string; created?: string; max?: number; uses?: number }>({ prefix: 'inv:' });
     const invites = list.keys.map((k) => ({
       code: prettyCode(k.name.slice(4)),
       note: k.metadata?.note ?? '',
       created: k.metadata?.created ?? null,
       expires: k.expiration ? new Date(k.expiration * 1000).toISOString() : null,
+      max: k.metadata?.max ?? 1,
+      uses: k.metadata?.uses ?? 0,
     }));
     return json({ users, invites });
   }
 
   if (pathname === '/api/admin/invites' && method === 'POST') {
-    const b = await readJson<{ note?: string }>(req, 2_000);
+    const b = await readJson<{ note?: string; uses?: number; days?: number }>(req, 2_000);
     const note = String(b.note ?? '').trim().slice(0, 40);
+    const max = GROUP_USES.includes(Number(b.uses)) ? Number(b.uses) : 1;
+    const days = INVITE_DAYS.includes(Number(b.days)) ? Number(b.days) : 7;
     const code = readableCode();
     const created = new Date().toISOString();
-    await env.KV.put(`inv:${normCode(code)}`, JSON.stringify({ by: user.id, note, created }), {
-      expirationTtl: INVITE_TTL,
-      metadata: { note, created },
-    });
-    return json({ code, note, expires: new Date(Date.now() + INVITE_TTL * 1000).toISOString() });
+    const exp = Math.floor(Date.now() / 1000) + days * 86400;
+    const inv: Invite = { by: user.id, note, created, max, uses: 0, joined: [], exp };
+    await env.KV.put(`inv:${normCode(code)}`, JSON.stringify(inv), { expiration: exp, metadata: inviteMeta(inv) });
+    return json({ code, note, max, uses: 0, expires: new Date(exp * 1000).toISOString() });
+  }
+
+  const joined = pathname.match(/^\/api\/admin\/invites\/([A-Za-z0-9-]+)\/joined$/);
+  if (joined && method === 'GET') {
+    const inv = readInvite(await env.KV.get(`inv:${normCode(joined[1])}`));
+    return json({ joined: inv?.joined ?? [] });
   }
 
   if (pathname === '/api/admin/shortcuts' && method === 'PUT') {

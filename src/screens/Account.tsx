@@ -219,14 +219,16 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
 
 interface Overview {
   users: { id: string; name: string; email: string; role: 'admin' | 'member'; createdAt: string; lastDay: string | null; me: boolean }[];
-  invites: { code: string; note: string; created: string | null; expires: string | null }[];
+  invites: { code: string; note: string; created: string | null; expires: string | null; max?: number; uses?: number }[];
 }
 
-function inviteMessage(code: string, expires: string) {
+function inviteMessage(code: string, expires: string, group = false) {
   const link = `${location.origin}/?invite=${encodeURIComponent(code)}`;
   return [
-    'Salut ! Je te fais tester Shred, mon app de muscu (séances, repas, série du jour).',
-    `Crée ton compte ici : ${link}`,
+    group
+      ? 'Salut tout le monde ! Je vous fais tester Shred, mon app de muscu (séances, repas, série du jour, club entre nous).'
+      : 'Salut ! Je te fais tester Shred, mon app de muscu (séances, repas, série du jour).',
+    `${group ? 'Créez votre compte' : 'Crée ton compte'} ici : ${link}`,
     `Code d’invitation : ${code} (valable jusqu’au ${until(expires)})`,
     'iPhone : ouvre le lien dans Safari, touche ⋯ (ou Partager), puis Partager, « Sur l’écran d’accueil » et Ajouter. Ouvre Shred depuis l’icône : ton code est déjà rempli.',
     'Android : ouvre-le dans Chrome et touche « Installer l’app » (ou menu ⋮, « Installer l’application »).',
@@ -249,8 +251,12 @@ export function TestersPage() {
   const [data, setData] = useState<Overview | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-  const [fresh, setFresh] = useState<{ code: string; expires: string; note: string } | null>(null);
+  const [fresh, setFresh] = useState<{ code: string; expires: string; note: string; max: number } | null>(null);
+  const [kind, setKind] = useState<'one' | 'group'>('one');
+  const [places, setPlaces] = useState(10);
+  const [days, setDays] = useState(30);
   const [reset, setReset] = useState<{ name: string; email: string; code: string; expires: string } | null>(null);
+  const [joined, setJoined] = useState<{ code: string; names: string[] } | null>(null);
 
   const load = () =>
     api<Overview>('/api/admin/overview').then(setData, (e) => {
@@ -272,23 +278,60 @@ export function TestersPage() {
   };
 
   const today = dayKey();
+  const group = kind === 'group';
 
   return (
     <div className="stack" style={{ gap: 22 }}>
       <section className="stack">
-        <h2>Inviter quelqu’un</h2>
+        <h2>Inviter</h2>
+        <div className="seg" role="group" aria-label="Type d’invitation">
+          <button type="button" className={!group ? 'on' : ''} onClick={() => setKind('one')}>
+            Une personne
+          </button>
+          <button type="button" className={group ? 'on' : ''} onClick={() => setKind('group')}>
+            Un groupe
+          </button>
+        </div>
         <p className="small muted" style={{ margin: 0 }}>
-          Chaque invitation sert une seule fois et expire au bout de 7 jours. La personne crée son compte avec son email et son mot de passe :
-          elle a son espace à elle, sans accès au tien.
+          {group
+            ? 'Un seul lien pour plusieurs personnes (un groupe WhatsApp, une salle) : chacune crée son propre compte, jusqu’au nombre de places choisi.'
+            : 'Un code pour une seule personne, valable 7 jours.'}{' '}
+          Chacun a son espace à lui, sans accès au tien.
         </p>
+        {group && (
+          <div className="stack" style={{ gap: 10 }}>
+            <div className="chips" role="group" aria-label="Nombre de places">
+              {[5, 10, 25, 50].map((n) => (
+                <button key={n} type="button" className={`chip ${places === n ? 'on' : ''}`} onClick={() => setPlaces(n)}>
+                  {n} places
+                </button>
+              ))}
+            </div>
+            <div className="chips" role="group" aria-label="Durée">
+              {[7, 30].map((n) => (
+                <button key={n} type="button" className={`chip ${days === n ? 'on' : ''}`} onClick={() => setDays(n)}>
+                  {n} jours
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 10 }}>
-          <input className="input" placeholder="Pour qui ? (facultatif)" aria-label="Pour qui" value={note} onChange={(e) => setNote(e.target.value)} />
+          <input
+            className="input"
+            placeholder={group ? 'Nom du groupe (facultatif)' : 'Pour qui ? (facultatif)'}
+            aria-label={group ? 'Nom du groupe' : 'Pour qui'}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
           <button
             className="btn primary"
             disabled={busy}
             onClick={() =>
               act(async () => {
-                const r = await api<{ code: string; expires: string; note: string }>('/api/admin/invites', { body: { note } });
+                const r = await api<{ code: string; expires: string; note: string; max: number }>('/api/admin/invites', {
+                  body: group ? { note, uses: places, days } : { note },
+                });
                 setFresh(r);
                 setNote('');
                 await load();
@@ -300,12 +343,15 @@ export function TestersPage() {
         </div>
         {fresh && (
           <div className="card stack" style={{ border: '2px solid var(--blue)' }}>
-            <div className="small muted">Invitation{fresh.note ? ` pour ${fresh.note}` : ''}</div>
+            <div className="small muted">
+              {fresh.max > 1 ? `Lien de groupe, ${fresh.max} places` : 'Invitation'}
+              {fresh.note ? ` : ${fresh.note}` : ''}, jusqu’au {until(fresh.expires)}
+            </div>
             <div className="display num" style={{ fontSize: '1.6rem', userSelect: 'all' }}>
               {fresh.code}
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button className="btn primary" style={{ flex: 1 }} onClick={() => shareText(inviteMessage(fresh.code, fresh.expires))}>
+              <button className="btn primary" style={{ flex: 1 }} onClick={() => shareText(inviteMessage(fresh.code, fresh.expires, fresh.max > 1))}>
                 <Icon name="share" size={18} /> Envoyer
               </button>
               <button className="btn" onClick={async () => (await copyText(`${location.origin}/?invite=${fresh.code}`)) && toast('Lien copié')}>
@@ -318,16 +364,33 @@ export function TestersPage() {
 
       {data && data.invites.length > 0 && (
         <section className="stack">
-          <h2>En attente</h2>
+          <h2>Invitations en cours</h2>
           <div className="group">
             {data.invites.map((i) => (
               <div className="row" key={i.code}>
                 <div className="grow">
                   <div className="title num">{i.code}</div>
                   <div className="small muted">
-                    {i.note || 'Sans nom'}, expire le {until(i.expires)}
+                    {(i.max ?? 1) > 1 ? `${i.note || 'Groupe'}, ${i.uses ?? 0} / ${i.max} inscrits` : i.note || 'Sans nom'}, expire le {until(i.expires)}
                   </div>
+                  {(i.max ?? 1) > 1 && (i.uses ?? 0) > 0 && (
+                    <button
+                      className="link small"
+                      onClick={async () => {
+                        if (joined?.code === i.code) return setJoined(null);
+                        const r = await api<{ joined: string[] }>(`/api/admin/invites/${encodeURIComponent(i.code)}/joined`).catch(() => ({ joined: [] }));
+                        setJoined({ code: i.code, names: r.joined });
+                      }}
+                    >
+                      {joined?.code === i.code ? joined.names.join(', ') || 'Personne pour l’instant' : 'Voir qui'}
+                    </button>
+                  )}
                 </div>
+                {(i.max ?? 1) > 1 && (
+                  <button className="btn small" onClick={() => shareText(inviteMessage(i.code, i.expires ?? '', true))} aria-label="Renvoyer le lien">
+                    <Icon name="share" size={16} />
+                  </button>
+                )}
                 <button
                   className="btn small"
                   disabled={busy}

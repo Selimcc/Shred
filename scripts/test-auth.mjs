@@ -40,7 +40,7 @@ const KV = {
     kv.set(k, {
       value,
       metadata: opts.metadata ?? null,
-      expiration: opts.expirationTtl ? Math.floor(Date.now() / 1000) + opts.expirationTtl : undefined,
+      expiration: opts.expiration ?? (opts.expirationTtl ? Math.floor(Date.now() / 1000) + opts.expirationTtl : undefined),
     });
   },
   async delete(k) {
@@ -235,8 +235,33 @@ r = await call('/api/admin/overview', { token: selim });
 check('l’admin voit les comptes et les invitations', r.data.users.length === 2 && r.data.invites.length === 1, `${r.data.users.length} comptes, ${r.data.invites.length} invitation(s)`);
 check('les emails n’apparaissent pas dans les clés', [...kv.keys()].every((k) => !k.includes('@')));
 
+/* ---------- Lien de groupe : plusieurs inscriptions ---------- */
+
+r = await call('/api/admin/invites', { token: selim, body: { note: 'Potes de Tunis', uses: 5, days: 30 } });
+const group = r.data.code;
+check('lien de groupe créé : 5 places, 30 jours', r.data.max === 5 && Math.abs(new Date(r.data.expires) - Date.now() - 30 * 86400_000) < 60_000);
+for (const [i, who] of ['Yanis', 'Inès', 'Karim', 'Sami', 'Lina'].entries()) {
+  const k = await kdf.deriveKeys(`g${i}@exemple.com`, 'mot-de-passe-solide');
+  r = await call('/api/auth/register', { body: { email: `g${i}@exemple.com`, name: who, invite: group, key: k.auth } });
+  if (i === 1) {
+    const o = await call('/api/admin/overview', { token: selim });
+    const g = o.data.invites.find((x) => x.code === group);
+    check('le même code sert à plusieurs personnes', r.status === 200 && g?.uses === 2 && g.max === 5, JSON.stringify(g));
+    const j = await call(`/api/admin/invites/${group}/joined`, { token: selim });
+    check('l’admin voit qui s’est inscrit avec le lien', j.data.joined.join() === 'Yanis,Inès');
+  }
+}
+check('cinquième inscription acceptée', r.status === 200);
+const k6 = await kdf.deriveKeys('g6@exemple.com', 'mot-de-passe-solide');
+r = await call('/api/auth/register', { body: { email: 'g6@exemple.com', name: 'Trop tard', invite: group, key: k6.auth } });
+check('lien complet : la sixième est refusée', r.status === 403 && /complet/.test(r.data.error), r.data.error);
+check('lien complet : il disparaît de la liste', !(await call('/api/admin/overview', { token: selim })).data.invites.some((x) => x.code === group));
+r = await call('/api/admin/invites', { token: selim, body: { uses: 999 } });
+check('nombre de places inconnu : invitation personnelle', r.data.max === 1);
+await call(`/api/admin/invites/${r.data.code}`, { token: selim, method: 'DELETE' });
+
 const cron = await users.allUsers(env);
-check('le cron voit les deux comptes', cron.length === 2);
+check('le cron voit tous les comptes', cron.length === 7);
 
 r = await call(`/api/admin/users/${mehdiId}`, { token: selim, method: 'DELETE' });
 check('l’admin retire un compte', r.status === 200);
