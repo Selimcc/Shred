@@ -615,6 +615,53 @@ export function runnerStrength(input: GenInput): SessionDef {
   return { id: 'run-strength', name: 'Renfo', focus: 'Jambes, hanches et gainage, plus le haut du corps que tu veux développer', type: 'lifting', exercises };
 }
 
+/**
+ * Renfo des sports d'endurance. Course et triathlon : jambes, hanches, gainage (le renfo coureur).
+ * Natation : dos, épaules protégées, gainage, un peu de jambes pour les départs et les virages.
+ * Vélo : jambes unilatérales, chaîne postérieure, gainage et dos pour la position.
+ */
+export function enduranceStrength(input: GenInput, kind: 'run' | 'swim' | 'bike' | 'tri'): SessionDef {
+  if (kind === 'run') return runnerStrength(input);
+  const a = input.athlete;
+  const physique = a.physique ?? 'athletic';
+  const taken = new Set<string>();
+  const exercises: ExerciseSlot[] = [];
+  const add = (pid: PatternId, sets: number, reps?: string) => {
+    const key = pick(pid, 0, taken, input);
+    if (!key) return;
+    taken.add(key);
+    const pat = PATTERNS[pid] as Pattern;
+    exercises.push({ key, sets, reps: reps ?? repsFor(pat.role, key, physique), rest: restFor(pat.role === 'compound' ? 'compound' : pat.role, physique) });
+  };
+  if (kind === 'swim') {
+    add('vpull', 3, '6–10');
+    add('hpull', 3, '8–10');
+    add('latIso', 2, '12–15');
+    add('rear', 2, '15');
+    exercises.push({ key: 'external-rotation', sets: 2, reps: '15', rest: 45 });
+    add('squat', 3, '8–10');
+    add('obliques', 2);
+    add('abs', 2);
+    return { id: 'swim-strength', name: 'Renfo nageur', focus: 'Dos, épaules protégées et gainage : plus de puissance dans l’eau', type: 'lifting', exercises };
+  }
+  if (kind === 'bike') {
+    add('squat', 3, '6–8');
+    add('quad2', 3, '8–10');
+    add('hinge', 3, '8–10');
+    add('glute', 2, '10–12');
+    add('hpull', 2, '10–12');
+    add('calves', 2, '12–15');
+    add('obliques', 2);
+    return { id: 'bike-strength', name: 'Renfo cycliste', focus: 'Jambes une par une, fessiers et gainage : plus de watts, moins de douleurs de dos', type: 'lifting', exercises };
+  }
+  const tri = runnerStrength(input);
+  if (!tri.exercises.some((x) => (PATTERNS.vpull as Pattern).keys.includes(x.key))) {
+    const key = pick('vpull', 0, new Set(tri.exercises.map((x) => x.key)), input);
+    if (key) tri.exercises.splice(3, 0, { key, sets: 3, reps: '6–10', rest: 120 });
+  }
+  return { ...tri, id: 'tri-strength', name: 'Renfo triathlète', focus: 'Jambes, hanches, dos et gainage : tenir la position sur les trois sports' };
+}
+
 /** Le volume hebdomadaire par zone d'un programme quelconque (semaine type). */
 export function programVolume(program: Program, custom: Record<string, CatalogEntry> = {}): Record<Region, number> {
   const v = Object.fromEntries(REGIONS.map((r) => [r.id, 0])) as Record<Region, number>;

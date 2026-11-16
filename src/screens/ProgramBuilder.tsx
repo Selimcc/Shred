@@ -1,19 +1,24 @@
 // Constructeur de programme : physique visé, priorités, rythme, sport. L'aperçu se met à jour en direct
 // (séances, exercices, volume par muscle) et rien ne change tant que tu n'as pas appliqué.
 import { useMemo, useState } from 'react';
-import type { Athlete, Experience, RaceDistance, Sport } from '../../shared/athlete';
-import { catalogEntry } from '../../shared/catalog';
+import { type Athlete, type Experience, isEndurance, type Sport } from '../../shared/athlete';
+import { catalogEntry, DISCIPLINE_NAMES } from '../../shared/catalog';
+import { disciplinesOf } from '../../shared/effort';
 import { PHYSIQUES, programVolume, regionName, targetsFor } from '../../shared/generator';
-import { scheduleFor } from '../../shared/program';
+import { resolveSession, scheduleFor } from '../../shared/program';
+import { SessionProfile } from '../components/SessionProfile';
 import { Pulse } from '../components/Pulse';
-import { Field } from '../components/form';
-import { Icon } from '../components/Icon';
+import { DISCIPLINE_ICON, Icon } from '../components/Icon';
 import { ask, toast } from '../components/ui';
 import { applyProgram, programFor } from '../lib/coaching';
-import { addDays, dayKey } from '../lib/date';
+import { dayKey } from '../lib/date';
 import { setState, useApp } from '../lib/store';
 import { suggestPriorities } from '../lib/tweaks';
-import { PhysiqueForm } from './AthleteForms';
+import { EventForm, PhysiqueForm, withSport } from './AthleteForms';
+import type { SessionDef } from '../../shared/types';
+
+/** Les sports d'une séance d'endurance, sans la marche. */
+const sportsOf = (def: SessionDef) => disciplinesOf(resolveSession(def).exercises).filter((d) => d !== 'walk');
 
 const SHORT = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -22,9 +27,12 @@ const chip = (on: boolean) => `chip ${on ? 'on' : ''}`;
 const SPORT_CHOICES: { id: Sport; label: string }[] = [
   { id: 'strength', label: 'Muscu' },
   { id: 'mixed', label: 'Muscu + cardio' },
-  { id: 'combat', label: 'Combat' },
   { id: 'running', label: 'Course' },
+  { id: 'triathlon', label: 'Triathlon' },
+  { id: 'swimming', label: 'Natation' },
+  { id: 'cycling', label: 'Vélo' },
   { id: 'hyrox', label: 'Hyrox' },
+  { id: 'combat', label: 'Combat' },
 ];
 
 export function ProgramBuilder({ onDone }: { onDone: () => void }) {
@@ -38,20 +46,9 @@ export function ProgramBuilder({ onDone }: { onDone: () => void }) {
   const volume = programVolume({ ...p, schedule: week }, s.customExercises);
   const targets = targetsFor(draft);
   const regions = (Object.keys(targets) as (keyof typeof targets)[]).filter((r) => targets[r] > 0 || volume[r] > 0);
-  const race = draft.race;
-  const dated = (draft.sport === 'running' || draft.sport === 'hyrox') && race?.date;
-
-  const setSport = (sport: Sport) =>
-    setDraft({
-      ...draft,
-      sport,
-      race:
-        sport === 'running'
-          ? { ...race, distance: race?.distance && race.distance !== 'hyrox' ? race.distance : 'half', date: race?.date ?? addDays(today, 84) }
-          : sport === 'hyrox'
-            ? { ...race, distance: 'hyrox', date: race?.date ?? addDays(today, 84) }
-            : race,
-    });
+  const dated = Boolean(p.event);
+  const endurance = isEndurance(draft.sport);
+  const setSport = (sport: Sport) => setDraft(withSport(draft, sport));
 
   const apply = async () => {
     if (!(await ask(`Remplacer ton programme par « ${p.name} » ? Tes séances passées sont conservées, et l’ancien programme reste disponible pour revenir en arrière.`, 'Appliquer'))) return;
@@ -61,7 +58,7 @@ export function ProgramBuilder({ onDone }: { onDone: () => void }) {
     onDone();
   };
 
-  const lifting = week.map((id, i) => ({ id, i })).filter(({ id }) => p.sessions.find((x) => x.id === id)?.type !== 'rest');
+  const lifting = WEEK_ORDER.map((i) => ({ id: week[i], i })).filter(({ id }) => p.sessions.find((x) => x.id === id)?.type !== 'rest');
   const uniqueIds = [...new Set(lifting.map((x) => x.id))];
 
   return (
@@ -69,12 +66,14 @@ export function ProgramBuilder({ onDone }: { onDone: () => void }) {
       <div className="builder-hero">
         <Pulse mood="think" size={64} />
         <p className="muted" style={{ margin: 0 }}>
-          Dis-moi le physique que tu vises et ton rythme : je construis le split, les exercices et le volume par muscle. Tu vois tout avant d’appliquer.
+          {endurance
+            ? 'Dis-moi ton sport, ton objectif et ton rythme : je construis chaque semaine, les intensités et le renfo. Tu vois tout avant d’appliquer.'
+            : 'Dis-moi le physique que tu vises et ton rythme : je construis le split, les exercices et le volume par muscle. Tu vois tout avant d’appliquer.'}
         </p>
       </div>
 
       <section className="stack">
-        <h2>Le physique que tu vises</h2>
+        <h2>{endurance ? 'Ton renfo : le physique visé' : 'Le physique que tu vises'}</h2>
         <PhysiqueForm athlete={draft} onAthlete={setDraft} suggested={suggested} />
       </section>
 
@@ -87,30 +86,11 @@ export function ProgramBuilder({ onDone }: { onDone: () => void }) {
             </button>
           ))}
         </div>
-        {draft.sport === 'running' && (
-          <div className="chips" role="group" aria-label="Distance">
-            {(
-              [
-                ['10k', '10 km'],
-                ['half', 'Semi'],
-                ['marathon', 'Marathon'],
-              ] as [RaceDistance, string][]
-            ).map(([id, label]) => (
-              <button key={id} type="button" className={chip(race?.distance === id)} onClick={() => setDraft({ ...draft, race: { ...race!, distance: id } })}>
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
-        {(draft.sport === 'running' || draft.sport === 'hyrox') && (
-          <Field label="Date de la course">
-            <input className="input" type="date" min={today} value={race?.date ?? ''} onChange={(e) => setDraft({ ...draft, race: { ...race!, date: e.target.value } })} />
-          </Field>
-        )}
+        <EventForm athlete={draft} onAthlete={setDraft} compact />
         <div className="builder-row">
           <span className="small muted">Séances par semaine</span>
           <div className="chips">
-            {[2, 3, 4, 5, 6].map((n) => (
+            {(draft.sport === 'triathlon' ? [3, 4, 5, 6, 7] : [2, 3, 4, 5, 6]).map((n) => (
               <button key={n} type="button" className={chip(draft.days === n)} onClick={() => setDraft({ ...draft, days: n })}>
                 {n}
               </button>
@@ -118,7 +98,7 @@ export function ProgramBuilder({ onDone }: { onDone: () => void }) {
           </div>
         </div>
         <div className="builder-row">
-          <span className="small muted">Minutes par séance</span>
+          <span className="small muted">{endurance ? 'Minutes en semaine' : 'Minutes par séance'}</span>
           <div className="chips">
             {[45, 60, 75, 90].map((n) => (
               <button key={n} type="button" className={chip(draft.minutes === n)} onClick={() => setDraft({ ...draft, minutes: n })}>
@@ -151,13 +131,22 @@ export function ProgramBuilder({ onDone }: { onDone: () => void }) {
           <span className="tag">{p.name}</span>
         </div>
         {dated && <p className="small muted" style={{ margin: 0 }}>Plan daté jusqu’au jour J. Voici la semaine en cours ; le renfo suit ton physique visé.</p>}
+        {!dated && endurance && <p className="small muted" style={{ margin: 0 }}>Semaine 1 du bloc. Les séances changent chaque semaine : la charge monte, puis une semaine allégée.</p>}
         <div className="week-strip">
           {WEEK_ORDER.map((d) => {
             const def = p.sessions.find((x) => x.id === week[d]);
             return (
-              <div key={d} className={`week-cell ${def?.type ?? 'rest'}`}>
+              <div key={d} className={`week-cell ${def?.type ?? 'rest'}`} title={def?.name}>
                 <span className="faint">{SHORT[d]}</span>
-                <b>{def?.type === 'rest' || !def ? '·' : def.name.split(' ')[0].slice(0, 5)}</b>
+                {def?.type === 'cardio' && sportsOf(def).length ? (
+                  <span className="week-icons" aria-label={def.name}>
+                    {sportsOf(def).slice(0, 2).map((x) => (
+                      <Icon key={x} name={DISCIPLINE_ICON[x]} size={sportsOf(def).length > 1 ? 13 : 17} />
+                    ))}
+                  </span>
+                ) : (
+                  <b>{def?.type === 'rest' || !def ? '·' : def.type === 'lifting' && endurance ? 'Renfo' : def.name.split(' ')[0].slice(0, 5)}</b>
+                )}
               </div>
             );
           })}
@@ -165,13 +154,16 @@ export function ProgramBuilder({ onDone }: { onDone: () => void }) {
 
         {uniqueIds.map((id) => {
           const def = p.sessions.find((x) => x.id === id)!;
+          const resolved = resolveSession(def, s.customExercises);
+          const sports = disciplinesOf(resolved.exercises).map((d) => DISCIPLINE_NAMES[d]);
           return (
             <div key={id} className="card stack preview-session" style={{ gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
                 <div style={{ fontWeight: 850 }}>{def.name}</div>
-                <span className="small faint">{def.type === 'lifting' ? 'Muscu' : 'Cardio'}</span>
+                <span className="small faint">{def.type === 'lifting' ? 'Muscu' : sports.length ? `${sports.join(' + ')}, ${resolved.duration}` : 'Cardio'}</span>
               </div>
               <div className="small muted">{def.focus}</div>
+              {def.type === 'cardio' && <SessionProfile exercises={resolved.exercises} compact />}
               <ol className="preview-list">
                 {def.exercises.map((x) => (
                   <li key={x.key}>

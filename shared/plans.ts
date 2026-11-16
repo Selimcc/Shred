@@ -5,17 +5,18 @@ import type { ExerciseSlot, Program, SessionDef } from './types';
 
 /* ---------- Dates ---------- */
 
-const DAY = 86_400_000;
-const parse = (d: string) => Date.parse(`${d}T12:00:00Z`);
+export const DAY = 86_400_000;
+export const parse = (d: string) => Date.parse(`${d}T12:00:00Z`);
 const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
-const addDays = (d: string, n: number) => iso(parse(d) + n * DAY);
-const weekday = (d: string) => new Date(parse(d)).getUTCDay();
+export const addDays = (d: string, n: number) => iso(parse(d) + n * DAY);
+export const weekday = (d: string) => new Date(parse(d)).getUTCDay();
 export const mondayOf = (d: string) => addDays(d, -((weekday(d) + 6) % 7));
 
 /* ---------- Allures ---------- */
 
-export const RACE_KM: Record<RaceDistance, number> = { '10k': 10, half: 21.0975, marathon: 42.195 };
-const RACE_NAME: Record<RaceDistance, string> = { '10k': '10 km', half: 'Semi-marathon', marathon: 'Marathon' };
+export const RACE_KM: Record<RaceDistance, number> = { '5k': 5, '10k': 10, half: 21.0975, marathon: 42.195 };
+const RACE_NAME: Record<RaceDistance, string> = { '5k': '5 km', '10k': '10 km', half: 'Semi-marathon', marathon: 'Marathon' };
+export const isRoadRace = (d?: string): d is RaceDistance => d === '5k' || d === '10k' || d === 'half' || d === 'marathon';
 
 /** Prédiction de Riegel : temps sur une autre distance, à partir d'un temps de référence. */
 export function riegel(sec: number, fromKm: number, toKm: number): number {
@@ -61,12 +62,13 @@ export function paces(distance: RaceDistance, experience: Experience, ref?: { se
 
 /** Durée conseillée du plan, et sortie longue de départ et de pointe (km). */
 const RACE_SPEC: Record<RaceDistance, { weeks: number; longStart: number; longPeak: number; taper: number }> = {
+  '5k': { weeks: 6, longStart: 6, longPeak: 10, taper: 1 },
   '10k': { weeks: 8, longStart: 7, longPeak: 13, taper: 1 },
   half: { weeks: 12, longStart: 9, longPeak: 19, taper: 2 },
   marathon: { weeks: 16, longStart: 14, longPeak: 32, taper: 3 },
 };
 
-interface WeekPlan {
+export interface WeekPlan {
   phase: string;
   /** 0 → 1 dans le plan, hors affûtage. */
   progress: number;
@@ -74,7 +76,7 @@ interface WeekPlan {
   taper: number;
 }
 
-function weekPlans(n: number, taper: number): WeekPlan[] {
+export function weekPlans(n: number, taper: number): WeekPlan[] {
   return Array.from({ length: n }, (_, i) => {
     const taperIdx = i - (n - taper);
     const build = n - taper;
@@ -183,7 +185,7 @@ export function runningPlan(input: RaceInput): Program {
           { key: 'run-intervals', sets: Math.round(reps.sets * scale), reps: reps.reps, rest: 90, note: `Allure : ${fmtPace(p.interval)}. 15 min d’échauffement, 10 min de retour au calme.` },
         ],
       };
-    } else if (w.progress >= 0.5 && distance !== '10k') {
+    } else if (w.progress >= 0.5 && distance !== '10k' && distance !== '5k') {
       const blocks = distance === 'marathon' ? { sets: 2, reps: `${Math.round(4 + 4 * w.progress)} km` } : { sets: 3, reps: `${w.progress > 0.8 ? 3 : 2} km` };
       quality = {
         id: `${k}-q`,
@@ -497,8 +499,15 @@ export function missingEquipment(program: Program, gym: Gym): Equipment[] {
 }
 
 export function planSummary(program: Program, today: string): string | null {
-  if (!program.start || !program.weeks || !program.event) return null;
+  if (!program.start || !program.weeks) return null;
   const d = Math.floor((parse(today) - parse(program.start)) / DAY);
+  if (!program.event) {
+    // Bloc de progression sans course : la semaine et la phase, puis l'invitation à enchaîner.
+    if (d < 0) return null;
+    const w = Math.floor(d / 7);
+    if (w >= program.weeks.length) return `Bloc de ${program.weeks.length} semaines terminé. Lance le suivant depuis Programme pour continuer à progresser.`;
+    return `Semaine ${w + 1} sur ${program.weeks.length} du bloc${program.phases?.[w] ? `, ${program.phases[w].toLowerCase()}` : ''}.`;
+  }
   const days = Math.round((parse(program.event.date) - parse(today)) / DAY);
   if (d < 0) return `${program.event.name} : le plan commence le ${new Date(parse(program.start)).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`;
   const w = Math.floor(d / 7);

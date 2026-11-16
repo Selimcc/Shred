@@ -5,6 +5,12 @@ export type ExerciseKind = 'compound' | 'isolation' | 'core' | 'neck' | 'power' 
 
 export type MuscleGroup = 'chest' | 'back' | 'shoulders' | 'arms' | 'legs' | 'core' | 'neck' | 'cardio' | 'other';
 
+/** Le sport d'un exercice d'endurance : sert aux allures, aux durées et aux stats par discipline. */
+export type Discipline = 'run' | 'bike' | 'swim' | 'row' | 'ski' | 'walk' | 'combat';
+
+/** Intensité d'un bloc, de 1 (récupération) à 5 (maximal). */
+export type Zone = 1 | 2 | 3 | 4 | 5;
+
 /** Un exercice de la bibliothèque (ou créé par l'utilisateur). */
 export interface CatalogEntry {
   key: string;
@@ -22,6 +28,10 @@ export interface CatalogEntry {
   noLoad?: boolean;
   /** Créé par l'utilisateur dans l'app. */
   custom?: boolean;
+  /** Endurance : le sport (course, vélo, natation…). */
+  discipline?: Discipline;
+  /** Intensité habituelle, de 1 à 5. */
+  zone?: Zone;
 }
 
 /** Un exercice placé dans une séance, avec ses réglages propres. */
@@ -31,6 +41,12 @@ export interface ExerciseSlot {
   reps?: string;
   rest?: number;
   note?: string;
+  /** Endurance : durée estimée d'une répétition, en secondes (calculée avec tes allures). */
+  sec?: number;
+  /** Endurance : intensité de ce bloc, si elle diffère de celle de l'exercice. */
+  zone?: Zone;
+  /** Endurance : l'allure ou la zone visée, en clair (« 4:35/km », « 88–94 % FTP »). */
+  target?: string;
 }
 
 export type SessionType = 'lifting' | 'cardio' | 'rest';
@@ -60,7 +76,7 @@ export interface Program {
   /** La course visée. */
   event?: { name: string; date: string };
   /** Programme construit par le générateur : avec quels choix. */
-  meta?: { physique: string; priorities: string[]; generatedAt: string };
+  meta?: { physique: string; priorities: string[]; generatedAt: string; /** Bloc d'endurance sans course : son numéro. */ block?: number };
 }
 
 /** Exercice prêt à l'emploi : entrée de la bibliothèque + réglages de la séance. */
@@ -80,6 +96,10 @@ export interface Exercise {
   slotKey?: string;
   /** Pourquoi il a changé : remplacé à la main, machine en panne, ou ajouté pour la séance. */
   change?: 'swap' | 'broken' | 'extra';
+  discipline?: Discipline;
+  zone?: Zone;
+  sec?: number;
+  target?: string;
 }
 
 export interface Session {

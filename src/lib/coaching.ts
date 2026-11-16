@@ -1,9 +1,10 @@
 // Ce qui transforme le profil en programme, en calories et en repas, et applique les conseils du bilan.
-import { type Athlete, type Gym, nutritionPlan, type RaceDistance, type WeightGoal } from '../../shared/athlete';
+import { type Athlete, type Gym, isEndurance, nutritionPlan, type WeightGoal } from '../../shared/athlete';
+import { endurancePlan } from '../../shared/endurance';
 import { catalogEntry } from '../../shared/catalog';
 import { generateMealPlan } from '../../shared/meals';
 import { generateProgram, runnerStrength } from '../../shared/generator';
-import { adaptToGym, hyroxPlan, runningPlan } from '../../shared/plans';
+import { adaptToGym, hyroxPlan, isRoadRace, runningPlan } from '../../shared/plans';
 import type { Program } from '../../shared/types';
 import { dayKey } from './date';
 import type { Advice } from './report';
@@ -39,27 +40,49 @@ export function knownExercises(s: AppState): string[] {
 
 /**
  * Programme adapté au profil : préparation de course ou Hyrox (avec un renfo selon le physique visé),
- * sinon un split construit sur mesure (physique, priorités, jours, temps, matériel).
+ * plan d'endurance (natation, vélo, triathlon, course sans date), sinon un split construit sur mesure.
+ * `block` : numéro du prochain bloc d'endurance quand on enchaîne.
  */
-export function programFor(a: Athlete, gym: Gym, today = dayKey(), s: AppState = getState()): { program: Program; swaps: ReturnType<typeof adaptToGym>['swaps']; notes: string[] } {
+export function programFor(
+  a: Athlete,
+  gym: Gym,
+  today = dayKey(),
+  s: AppState = getState(),
+  block?: number,
+): { program: Program; swaps: ReturnType<typeof adaptToGym>['swaps']; notes: string[] } {
   const ref = a.race?.refSec ? { sec: a.race.refSec, km: a.race.refKm ?? 10 } : undefined;
   const input = { athlete: a, gym, known: knownExercises(s), custom: s.customExercises };
   let program: Program;
   let notes: string[] = [];
-  if ((a.sport === 'running' && a.race?.date && a.race.distance !== 'hyrox') || (a.sport === 'hyrox' && a.race?.date)) {
+  const date = a.race?.date;
+  if ((a.sport === 'running' && date && isRoadRace(a.race?.distance)) || (a.sport === 'hyrox' && date)) {
     program =
       a.sport === 'running'
-        ? runningPlan({ distance: a.race!.distance as RaceDistance, date: a.race!.date, athlete: a, ref, today })
-        : hyroxPlan({ date: a.race!.date, athlete: a, ref, today });
+        ? runningPlan({ distance: a.race!.distance as Parameters<typeof runningPlan>[0]['distance'], date: date!, athlete: a, ref, today })
+        : hyroxPlan({ date: date!, athlete: a, ref, today });
     const renfo = runnerStrength(input);
     program.sessions = program.sessions.map((x) => (x.id === renfo.id ? renfo : x));
     program.meta = { physique: a.physique ?? 'athletic', priorities: a.priorities ?? [], generatedAt: today };
+  } else if (isEndurance(a.sport)) {
+    program = endurancePlan({ ...input, today, block });
+    notes = enduranceNotes(a, program);
   } else {
     const r = generateProgram(input);
     program = r.program;
     notes = r.notes;
   }
   return { ...adaptToGym(program, gym, nameOf), notes };
+}
+
+/** Ce que le plan d'endurance a pris en compte, en clair. */
+function enduranceNotes(a: Athlete, p: Program): string[] {
+  const out: string[] = [];
+  if (p.event) out.push(`${p.weeks?.length ?? 0} semaines jusqu’au ${p.event.name.toLowerCase()} : fondamental, développement, spécifique puis affûtage. Une semaine sur quatre est allégée.`);
+  else out.push(`Un bloc de ${p.weeks?.length ?? 8} semaines : la charge monte par paliers, les semaines 4 et 8 sont allégées. À la fin, Pulse te propose le bloc suivant, un cran plus fort.`);
+  if ((a.sport === 'swimming' || a.sport === 'triathlon') && !a.swimPace) out.push('Natation : sans chrono, les allures partent d’une estimation selon ton niveau. Note ton temps sur 400 m dans ton profil pour les affiner.');
+  if ((a.sport === 'cycling' || a.sport === 'triathlon') && !a.ftp) out.push('Vélo : sans FTP, les intensités sont données en sensations et en % de FTP. Ajoute ta FTP pour avoir des watts.');
+  if ((a.sport === 'running' || a.sport === 'triathlon') && !a.race?.refSec) out.push('Course : sans chrono récent, les allures partent d’une estimation selon ton niveau.');
+  return out;
 }
 
 /** Applique un programme en gardant l'ancien de côté (5 derniers), pour pouvoir revenir en arrière. */

@@ -1,4 +1,9 @@
 const PATHS: Record<string, string> = {
+  run: 'M15 6.2a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4ZM7.5 10.5 10.5 8h3.2l1.8 3.2 2.8 1.1M13.6 8.1l-2.4 6.1M11.2 14.2l3.1 2.4-1 4.6M11.2 14.2l-2.7 3.1H5',
+  bike: 'M2.5 16.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 1 0-7 0ZM14.5 16.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 1 0-7 0ZM6 16.5 9.2 9.5h6.3L18 16.5M9.2 9.5l3.3 7h-6.5M12.8 6H15.4l.9 3.5',
+  swim: 'M16.8 8.4a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4ZM4.5 13.2 9.4 9l3.4 2.9 3-1.6M2.5 17.2c1.6 0 1.6 1.1 3.2 1.1s1.6-1.1 3.2-1.1 1.6 1.1 3.2 1.1 1.6-1.1 3.2-1.1 1.6 1.1 3.2 1.1 1.6-1.1 3.2-1.1',
+  route: 'M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM18 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM6 15V9.5A2.5 2.5 0 0 1 8.5 7h1A2.5 2.5 0 0 1 12 9.5v5a2.5 2.5 0 0 0 2.5 2.5h1A2.5 2.5 0 0 0 18 14.5V9',
+  pulse: 'M3 12h4l2-5 4 10 2-5h6',
   barcode: 'M4 6v12M7 6v12M10.5 6v12M13 6v12M16.5 6v12M20 6v12',
   image: 'M4 5h16v14H4V5ZM4 16l5-5 4 4 3-3 4 4M15 9.5h.01',
   home: 'M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1v-8.5Z',
@@ -44,6 +49,9 @@ const PATHS: Record<string, string> = {
   share: 'M12 15V3M8 7l4-4 4 4M5 12v8h14v-8',
   book: 'M5 4h9a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4Zm0 13a3 3 0 0 1 3-3h9M9 8h4',
 };
+
+/** L'icône de chaque sport d'endurance. */
+export const DISCIPLINE_ICON: Record<string, string> = { run: 'run', bike: 'bike', swim: 'swim', row: 'pulse', ski: 'pulse', walk: 'steps', combat: 'bolt' };
 
 export function Icon({ name, size = 22, filled = false }: { name: keyof typeof PATHS | string; size?: number; filled?: boolean }) {
   const d = PATHS[name] ?? PATHS.plus;

@@ -43,6 +43,21 @@
   --ice: var(--glacier);
   --ice-soft: var(--glacier-soft);
   --purple: #b79bff;
+
+  /* Zones d'intensité : une seule teinte, de plus en plus claire (rampe séquentielle validée sur --surface). */
+  --z1: #886c4a;
+  --z2: #ae834c;
+  --z3: #d69a4a;
+  --z4: #fab048;
+  --z5: #ffc852;
+
+  /* Sports, pour les stats par discipline. Ordre fixe, validé (daltonisme, contraste) sur --surface :
+     natation, course, vélo, muscu, autre. Toujours avec une légende. */
+  --d-swim: #3987e5;
+  --d-run: #d95926;
+  --d-bike: #199e70;
+  --d-lift: #c98500;
+  --d-other: #d55181;
   --on-accent: #15171b;
   --veil: rgba(21, 23, 27, 0.96);
 
@@ -2405,6 +2420,11 @@ input[type='time'].input {
 }
 
 .mini-col {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -2416,8 +2436,9 @@ input[type='time'].input {
 .mini-col b {
   width: 100%;
   max-width: 14px;
-  border-radius: 4px;
+  border-radius: 4px 4px 0 0;
   display: block;
+  transition: opacity 0.2s var(--ease);
 }
 
 .mini-col em {
@@ -2432,7 +2453,8 @@ input[type='time'].input {
   left: 0;
   right: 0;
   margin-bottom: 12px;
-  border-top: 1px dashed var(--line-2);
+  border-top: 1px solid var(--ink-3);
+  opacity: 0.6;
   pointer-events: none;
 }
 
@@ -2442,4 +2464,330 @@ input[type='time'].input {
 
 .trend-bad {
   color: var(--amber);
+}
+
+
+/* ---------- Profil de séance d'endurance ---------- */
+
+.profile {
+  margin: 0;
+}
+.profile-head {
+  min-height: 22px;
+  margin-bottom: 8px;
+}
+.profile-readout {
+  font-size: 0.9rem;
+}
+.profile-plot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 84px;
+  touch-action: pan-y;
+}
+.profile.compact .profile-plot {
+  height: 40px;
+}
+.profile-grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.profile-col {
+  position: relative;
+  min-width: 2px;
+  flex-basis: 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--z2);
+  transition: opacity 0.2s var(--ease), filter 0.2s var(--ease);
+}
+.profile-col.z1 { background: var(--z1); }
+.profile-col.z2 { background: var(--z2); }
+.profile-col.z3 { background: var(--z3); }
+.profile-col.z4 { background: var(--z4); }
+.profile-col.z5 { background: var(--z5); }
+.profile-col.is-rest {
+  opacity: 0.55;
+}
+.profile-col.is-todo {
+  opacity: 0.3;
+}
+.profile-col.is-hot {
+  opacity: 1;
+  filter: brightness(1.15);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+.profile-axis {
+  position: relative;
+  height: 18px;
+  margin-top: 6px;
+  border-top: 1px solid var(--line-2);
+}
+.profile-axis span {
+  position: absolute;
+  top: 3px;
+  transform: translateX(-50%);
+}
+.profile-axis span:first-child {
+  transform: none;
+}
+.profile-legend {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.profile-key {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+.profile-key i {
+  display: inline-block;
+  width: 8px;
+  border-radius: 2px 2px 0 0;
+}
+.profile-key i.z1 { background: var(--z1); }
+.profile-key i.z2 { background: var(--z2); }
+.profile-key i.z3 { background: var(--z3); }
+.profile-key i.z4 { background: var(--z4); }
+.profile-key i.z5 { background: var(--z5); }
+
+.workout-profile {
+  padding: 16px 16px 12px;
+  margin-bottom: 14px;
+}
+
+.cardio-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px 10px;
+  align-items: center;
+}
+.cardio-units {
+  text-align: center;
+  margin-top: -4px;
+}
+.zone-tag {
+  gap: 6px;
+  font-weight: 750;
+}
+.zone-tag::before {
+  content: '';
+  width: 6px;
+  border-radius: 2px 2px 0 0;
+  align-self: flex-end;
+  margin-bottom: 2px;
+}
+.zone-tag.z1::before { background: var(--z1); height: 5px; }
+.zone-tag.z2::before { background: var(--z2); height: 7px; }
+.zone-tag.z3::before { background: var(--z3); height: 9px; }
+.zone-tag.z4::before { background: var(--z4); height: 11px; }
+.zone-tag.z5::before { background: var(--z5); height: 13px; }
+
+.hero-profile {
+  margin: 14px 0 2px;
+}
+.chip.live {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.chip.live::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: var(--p);
+  background: var(--amber-soft);
+  z-index: -1;
+  transition: width 0.8s var(--ease);
+}
+.chip.live::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: var(--p);
+  background: var(--amber);
+  border-radius: 0 3px 3px 0;
+}
+.chip-pct {
+  color: var(--ink-2);
+  font-weight: 700;
+}
+
+/* ---------- Graphiques ---------- */
+
+.chart {
+  position: relative;
+  width: 100%;
+}
+.chart-plot {
+  position: relative;
+  touch-action: pan-y;
+}
+.chart svg {
+  display: block;
+  overflow: visible;
+}
+.chart .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.chart .crosshair {
+  stroke: var(--line-2);
+  stroke-width: 1;
+}
+.chart .tick {
+  fill: var(--ink-3);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+.chart .tick.strong {
+  fill: var(--ink-2);
+  font-weight: 700;
+}
+.chart .value {
+  fill: var(--ink);
+  font-size: 12px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.chart g.dim path {
+  opacity: 0.4;
+}
+.chart path {
+  transition: opacity 0.15s var(--ease);
+}
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 10px;
+}
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+.chart-tip {
+  position: absolute;
+  top: -6px;
+  width: 168px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface-3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  pointer-events: none;
+  z-index: 3;
+  transform: translateY(-100%);
+}
+.chart-tip b {
+  display: block;
+  margin-bottom: 2px;
+}
+.tip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.tip-pr {
+  margin-top: 4px;
+  color: var(--mint);
+  font-weight: 750;
+}
+
+.week-hero {
+  padding: 18px 14px 12px;
+}
+.week-hero-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 4px 14px;
+}
+.week-hero-figure b {
+  font-size: 3rem;
+  line-height: 1;
+  font-stretch: 72%;
+  letter-spacing: -0.01em;
+}
+
+.endurance-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.distance-tile {
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.distance-value {
+  font-size: 1.9rem;
+  font-weight: 780;
+  font-stretch: 72%;
+  line-height: 1;
+}
+.distance-value small {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--ink-2);
+  margin-left: 4px;
+  font-stretch: 100%;
+}
+.sparkline {
+  width: 100%;
+}
+.sparkline svg {
+  display: block;
+  overflow: visible;
+}
+.lift-chips {
+  margin-bottom: 10px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.lift-chips::-webkit-scrollbar {
+  display: none;
+}
+.lift-chips .chip {
+  flex: none;
+}
+
+.mini-col em.on {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.endurance-tiles.odd .distance-tile:last-child {
+  grid-column: 1 / -1;
+}
+
+.week-icons {
+  display: inline-flex;
+  gap: 1px;
+  color: var(--glacier);
+  height: 17px;
+  align-items: center;
 }

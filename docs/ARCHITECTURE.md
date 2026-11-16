@@ -70,7 +70,10 @@ A web app cannot schedule a local notification on iOS. When a set is checked, th
 - **Load progression**: when every set reaches the top of the rep range, the app suggests the next load (+2.5 kg, +5 kg on squats and deadlifts). A load typed on one set is copied to the following sets not yet done.
 - **Strength profile** (`src/lib/strength.ts`): best set of the last 8 weeks on reference lifts, estimated 1RM (Epley, reps capped at 15), relative to body weight, graded A to E against beginner-to-advanced standards.
 - **Needs** (`shared/athlete.ts`): Mifflin-St Jeor BMR, daily activity and training sessions; cut, recomp, maintenance or bulk; protein relative to lean mass when body fat is known.
-- **Race plans** (`shared/plans.ts`): 10K, half and full marathon dated to race day (8, 12 or 16 weeks, shortened if the date is close), base, build, specific and taper phases, a deload week every 4 weeks, paces from a recent time (Riegel). Hyrox: 12 weeks.
+- **Race plans** (`shared/plans.ts`): 5K, 10K, half and full marathon dated to race day (6, 8, 12 or 16 weeks, shortened if the date is close), base, build, specific and taper phases, a deload week every 4 weeks, paces from a recent time (Riegel). Hyrox: 12 weeks.
+- **Endurance plans** (`shared/endurance.ts`): swimming, cycling, triathlon and running without a race date. A weekly layout per sport and number of days (2 to 6, 3 to 7 for triathlon) places quality, long, easy and strength sessions; each week is built from its phase (base, build, specific, taper), a recovery week every 4 weeks, the athlete's level and, for 8-week blocks, the block number (+6 % volume per block). Paces come from a recent run time (Riegel), the swim CSS (from a 400 m time) and the bike FTP when known (otherwise % FTP and perceived effort). Weekday sessions are capped by the available minutes before recovery and taper scaling, so those weeks always get lighter.
+- **Effort model** (`shared/effort.ts`): every endurance block has a sport and a zone (1 to 5) and an estimated duration (from the plan's paces, or default paces per sport and zone). It draws the session profile, computes the session length and estimates distances for the stats.
+- **Training stats** (`src/lib/training.ts`): minutes per sport from the checked sets (lifting at 40 s per set plus rest, endurance from the logged time or the block's estimate), distances per sport, calendar weeks for the load chart and rolling 7-day windows for the distance tiles, best set per session as an estimated 1RM curve with records.
 - **Gyms**: equipment is ticked per gym; each impossible exercise is replaced by the best available equivalent.
 - **Meal plan** (`shared/meals.ts`): about thirty recipes built from common foods, portions scaled to macros, two batch-cooking days, a shopping list by aisle, dietary filters.
 - **Weekly report** (`src/lib/report.ts`): sessions done vs planned, completed days, average calories and protein, weight trend vs target, records and stalling lifts, with one-tap adjustments. Computed on the phone (the server only holds encrypted data) and optionally emailed through Resend.
@@ -79,7 +82,8 @@ A web app cannot schedule a local notification on iOS. When a set is checked, th
 
 | To add… | Where |
 | --- | --- |
-| an exercise | one line in `shared/catalog.ts` (+ `src/assets/exercises/<key>-0.jpg` and `-1.jpg`) |
+| an exercise | one line in `shared/catalog.ts` (+ `src/assets/exercises/<key>-0.jpg` and `-1.jpg`); endurance blocks use `e(...)` with a sport and a zone |
+| an endurance event | an entry in `EVENTS` (`shared/endurance.ts`) and in `EVENT_CHOICES` (`src/screens/AthleteForms.tsx`) |
 | a program template | an object in `TEMPLATES`, `shared/templates.ts` |
 | a strength standard | `STANDARDS` and `GROUPS`, `src/lib/strength.ts` |
 | a toggleable module | a field in `Modules` (`src/lib/store.ts`) and a line in `MODULES` (`src/screens/Settings.tsx`) |

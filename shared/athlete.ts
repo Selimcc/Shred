@@ -6,8 +6,15 @@ import type { Macros } from './types';
 export type Sex = 'male' | 'female';
 export type Activity = 'sedentary' | 'light' | 'moderate' | 'active';
 export type Experience = 'beginner' | 'intermediate' | 'advanced';
-export type Sport = 'strength' | 'running' | 'hyrox' | 'mixed' | 'combat';
-export type RaceDistance = '10k' | 'half' | 'marathon';
+export type Sport = 'strength' | 'running' | 'hyrox' | 'mixed' | 'combat' | 'swimming' | 'cycling' | 'triathlon';
+export type RaceDistance = '5k' | '10k' | 'half' | 'marathon';
+/** Objectifs datés hors course à pied : triathlons, natation, cyclosportives. */
+export type EnduranceEvent = 'tri-sprint' | 'tri-olympic' | 'tri-half' | 'tri-full' | 'swim-1500' | 'swim-5k' | 'bike-100' | 'bike-160';
+export type EventDistance = RaceDistance | 'hyrox' | EnduranceEvent;
+
+/** Les sports d'endurance : programme bâti autour des sorties, la muscu en complément. */
+export const ENDURANCE_SPORTS: Sport[] = ['running', 'swimming', 'cycling', 'triathlon'];
+export const isEndurance = (s: Sport) => ENDURANCE_SPORTS.includes(s);
 
 export interface DietPrefs {
   vegetarian: boolean;
@@ -35,7 +42,12 @@ export interface Athlete {
   days: number;
   /** Minutes par séance. */
   minutes: number;
-  race?: { distance: RaceDistance | 'hyrox'; date: string; /** Temps de référence récent, en secondes, sur refKm. */ refSec?: number; refKm?: number };
+  /** Objectif daté. Sans date : un bloc de progression de 8 semaines, renouvelable. */
+  race?: { distance: EventDistance; date?: string; /** Chrono récent en course à pied, en secondes, sur refKm. */ refSec?: number; refKm?: number };
+  /** Natation : allure seuil (CSS), en secondes aux 100 m. */
+  swimPace?: number;
+  /** Vélo : puissance seuil (FTP), en watts, si tu la connais. */
+  ftp?: number;
   diet: DietPrefs;
   /** Le physique visé : oriente le split et le volume par muscle. */
   physique?: Physique;
@@ -154,7 +166,7 @@ export function bmr(weight: number, height: number, age: number, sex?: Sex): num
 
 /** Les séances ajoutent à l'activité quotidienne : ~5 % par séance hebdomadaire au-delà de 2, plafonné. */
 export function tdee(weight: number, height: number, age: number, a: Pick<Athlete, 'sex' | 'activity' | 'days' | 'sport'>): number {
-  const training = Math.min(0.2, Math.max(0, a.days - 2) * (a.sport === 'running' || a.sport === 'hyrox' || a.sport === 'combat' ? 0.05 : 0.035));
+  const training = Math.min(0.24, Math.max(0, a.days - 2) * (isEndurance(a.sport) || a.sport === 'hyrox' || a.sport === 'combat' ? 0.05 : 0.035));
   return bmr(weight, height, age, a.sex) * (ACTIVITY[a.activity].factor + training);
 }
 
@@ -181,7 +193,7 @@ export function nutritionPlan(p: { weight: number; height: number; age: number; 
   const delta = goal === 'recomp' ? -maintenance * 0.08 : (rate * 7700) / 7;
   const kcal = round(Math.max(p.athlete.sex === 'female' ? 1300 : 1500, maintenance + delta), 50);
 
-  const endurance = athlete.sport === 'running' || athlete.sport === 'hyrox';
+  const endurance = isEndurance(athlete.sport) || athlete.sport === 'hyrox';
   // Protéines rapportées à la masse maigre si on la connaît, sinon au poids.
   const lean = athlete.bodyFat ? weight * (1 - athlete.bodyFat / 100) : undefined;
   const perKg = goal === 'cut' || goal === 'recomp' ? 2.2 : endurance ? 1.7 : 1.9;
@@ -222,8 +234,28 @@ export const BODY_FAT_HINTS: Record<Sex, { bf: number; text: string }[]> = {
   ],
 };
 
+export const EVENT_NAMES: Record<EventDistance, string> = {
+  '5k': '5 km',
+  '10k': '10 km',
+  half: 'Semi-marathon',
+  marathon: 'Marathon',
+  hyrox: 'Hyrox',
+  'tri-sprint': 'Triathlon S',
+  'tri-olympic': 'Triathlon M (olympique)',
+  'tri-half': 'Half Ironman (70.3)',
+  'tri-full': 'Ironman',
+  'swim-1500': '1 500 m nage',
+  'swim-5k': '5 km en eau libre',
+  'bike-100': 'Cyclosportive 100 km',
+  'bike-160': 'Cyclosportive 160 km',
+};
+
 export function sportLabel(a: Athlete): string {
-  if (a.sport === 'running') return a.race?.distance === 'marathon' ? 'Marathon' : a.race?.distance === '10k' ? '10 km' : 'Semi-marathon';
+  const dated = a.race?.date ? EVENT_NAMES[a.race.distance] : null;
+  if (a.sport === 'running') return a.race?.date ? (dated ?? 'Course à pied') : 'Course à pied';
+  if (a.sport === 'swimming') return a.race?.date && a.race.distance.startsWith('swim') ? dated! : 'Natation';
+  if (a.sport === 'cycling') return a.race?.date && a.race.distance.startsWith('bike') ? dated! : 'Vélo';
+  if (a.sport === 'triathlon') return a.race?.date && a.race.distance.startsWith('tri') ? dated! : 'Triathlon';
   if (a.sport === 'hyrox') return 'Hyrox';
   if (a.sport === 'mixed') return 'Muscu et cardio';
   if (a.sport === 'combat') return 'Sport de combat';

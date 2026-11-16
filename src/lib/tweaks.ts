@@ -3,7 +3,7 @@
 import { catalogEntry } from '../../shared/catalog';
 import { PATTERNS, type PatternId, programVolume, type Region, regionName, regionOf, targetsFor } from '../../shared/generator';
 import { usable } from '../../shared/plans';
-import { scheduleFor } from '../../shared/program';
+import { planWeek, scheduleFor } from '../../shared/program';
 import { history } from './advisor';
 import { strengthProfile } from './strength';
 import { applyProgram, programFor } from './coaching';
@@ -17,7 +17,8 @@ export type TweakAction =
   | { kind: 'add-exercise'; session: string; key: string }
   | { kind: 'swap'; from: string; to: string }
   | { kind: 'days'; days: number }
-  | { kind: 'deload' };
+  | { kind: 'deload' }
+  | { kind: 'next-block'; block: number };
 
 export interface Tweak {
   id: string;
@@ -153,8 +154,8 @@ export function programTweaks(s: AppState, today: string): Tweak[] {
     });
   }
 
-  // 4. Une semaine de décharge après 6 à 8 semaines d'entraînement.
-  if (!isDeload(s, today)) {
+  // 4. Une semaine de décharge après 6 à 8 semaines d'entraînement (les plans d'endurance ont déjà leurs semaines allégées).
+  if (!isDeload(s, today) && !s.program.weeks?.length) {
     const weeks = weeksInBlock(s, today);
     const stalls = [...inProgram].filter((key) => {
       const h = history(s, key, today, 4);
@@ -171,6 +172,19 @@ export function programTweaks(s: AppState, today: string): Tweak[] {
     }
   }
 
+  // 5. Bloc d'endurance terminé : on enchaîne sur le suivant, un cran plus fort.
+  const p = s.program;
+  if (p.start && p.weeks?.length && !p.event && p.meta?.block && planWeek(p, today) === null && today >= addDays(p.start, p.weeks.length * 7)) {
+    const next = p.meta.block + 1;
+    out.unshift({
+      id: `block-${next}-${p.start}`,
+      title: `Bloc ${p.meta.block} terminé`,
+      text: `${p.weeks.length} semaines bouclées. Le bloc ${next} reprend la même structure avec un peu plus de volume : c’est comme ça qu’on progresse sans se blesser.`,
+      cta: `Lancer le bloc ${next}`,
+      action: { kind: 'next-block', block: next },
+    });
+  }
+
   const dismissed = s.ui.dismissedTweaks ?? {};
   return out.filter((t) => !dismissed[t.id] || dismissed[t.id] < addDays(today, -14)).slice(0, 3);
 }
@@ -180,6 +194,11 @@ export function applyTweak(t: Tweak, today = dayKey()): string {
   if (action.kind === 'deload') {
     startDeload(today);
     return 'Semaine de décharge lancée jusqu’à dimanche';
+  }
+  if (action.kind === 'next-block') {
+    const s = getState();
+    applyProgram(programFor(s.settings.athlete, s.settings.gym, today, s, action.block).program);
+    return `Bloc ${action.block} lancé : 8 nouvelles semaines`;
   }
   if (action.kind === 'days') {
     setState((d) => void (d.settings.athlete.days = action.days));

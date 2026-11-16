@@ -43,7 +43,9 @@ export function ReportSheet({ monday, onClose, openCoach }: { monday: string; on
 
   const stats: [string, string][] = [
     [`${r.sessions.done}/${r.sessions.planned}`, 'séances'],
-    [`${r.validated}/${r.days}`, 'jours validés'],
+    r.training.minutes >= 30
+      ? [r.training.minutes >= 60 ? `${Math.floor(r.training.minutes / 60)}h${String(r.training.minutes % 60).padStart(2, '0')}` : `${r.training.minutes}′`, 'd’entraînement']
+      : [`${r.validated}/${r.days}`, 'jours validés'],
     [String(r.streak), 'série'],
   ];
 
@@ -63,6 +65,11 @@ export function ReportSheet({ monday, onClose, openCoach }: { monday: string; on
     <Sheet title={`Semaine du ${formatShort(r.monday)}`} onClose={onClose}>
       <div className="stack" style={{ gap: 18 }}>
         <p style={{ margin: 0, fontWeight: 700 }}>{r.headline}</p>
+        {r.training.km.length > 0 && (
+          <p className="small muted" style={{ margin: '-8px 0 0' }}>
+            {r.training.km.map((x) => `${x.name} : ${x.km.toLocaleString('fr-FR')} km`).join(', ')}.
+          </p>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           {stats.map(([v, label]) => (
             <div key={label} className="card" style={{ padding: '12px 8px', textAlign: 'center', background: 'var(--surface-2)' }}>

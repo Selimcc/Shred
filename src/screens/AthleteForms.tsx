@@ -6,19 +6,23 @@ import {
   BODY_FAT_HINTS,
   type DietPrefs,
   EQUIPMENT,
+  type EventDistance,
+  EVENT_NAMES,
   type Experience,
   type Gym,
   type GymChain,
   gymDefaults,
   GYMS,
   type Plan,
+  isEndurance,
   type Sex,
   type Sport,
   WEIGHT_GOALS,
   type WeightGoal,
 } from '../../shared/athlete';
 import { PHYSIQUES, type Physique, type Region, REGIONS } from '../../shared/generator';
-import { fmtDuration, fmtPace, paces } from '../../shared/plans';
+import { cssFrom400, fmtSwim, zonesFor } from '../../shared/endurance';
+import { fmtDuration, fmtPace, isRoadRace, paces } from '../../shared/plans';
 import { ChoiceCard, Field, NumberSetting, Toggle } from '../components/form';
 import { addDays, dayKey, formatNumber } from '../lib/date';
 import { STREAK_GOALS } from '../lib/flames';
@@ -159,11 +163,50 @@ export function GoalForm({
 
 const SPORTS: { id: Sport; title: string; text: string }[] = [
   { id: 'strength', title: 'Musculation', text: 'Prendre du muscle et de la force.' },
-  { id: 'running', title: 'Course à pied', text: '10 km, semi-marathon ou marathon, avec un plan daté jusqu’à la course.' },
+  { id: 'running', title: 'Course à pied', text: 'Footings, sorties longues, fractionné, côtes : du 5 km au marathon, ou pour progresser sans date.' },
+  { id: 'triathlon', title: 'Triathlon', text: 'Natation, vélo, course et enchaînements : du format S à l’Ironman.' },
+  { id: 'swimming', title: 'Natation', text: 'Éducatifs, séries au seuil, vitesse et nage continue, en piscine ou en eau libre.' },
+  { id: 'cycling', title: 'Vélo', text: 'Sorties longues, sweet spot, seuil et PMA, avec ou sans capteur de puissance.' },
   { id: 'hyrox', title: 'Hyrox', text: '8 × 1 km de course et 8 stations : un plan hybride force et cardio.' },
   { id: 'mixed', title: 'Muscu et cardio', text: 'Physique et cardio dans la même semaine, sans objectif de course.' },
   { id: 'combat', title: 'Sport de combat', text: 'MMA, boxe, grappling : force, puissance et cardio de combat, à côté de tes entraînements au club.' },
 ];
+
+/** Les objectifs datés proposés pour chaque sport, avec la durée de préparation conseillée (semaines). */
+export const EVENT_CHOICES: Partial<Record<Sport, { id: EventDistance; label: string; weeks: number }[]>> = {
+  running: [
+    { id: '5k', label: '5 km', weeks: 6 },
+    { id: '10k', label: '10 km', weeks: 8 },
+    { id: 'half', label: 'Semi', weeks: 12 },
+    { id: 'marathon', label: 'Marathon', weeks: 16 },
+  ],
+  triathlon: [
+    { id: 'tri-sprint', label: 'S (sprint)', weeks: 10 },
+    { id: 'tri-olympic', label: 'M (olympique)', weeks: 12 },
+    { id: 'tri-half', label: '70.3', weeks: 16 },
+    { id: 'tri-full', label: 'Ironman', weeks: 20 },
+  ],
+  swimming: [
+    { id: 'swim-1500', label: '1 500 m', weeks: 8 },
+    { id: 'swim-5k', label: '5 km eau libre', weeks: 12 },
+  ],
+  cycling: [
+    { id: 'bike-100', label: '100 km', weeks: 10 },
+    { id: 'bike-160', label: '160 km', weeks: 14 },
+  ],
+  hyrox: [{ id: 'hyrox', label: 'Hyrox', weeks: 12 }],
+};
+
+/** Le sport change : on garde la date si l'objectif reste valable, sinon on propose le format le plus courant. */
+export function withSport(a: Athlete, sport: Sport): Athlete {
+  const choices = EVENT_CHOICES[sport];
+  if (!choices) return { ...a, sport };
+  const keep = choices.some((c) => c.id === a.race?.distance);
+  const distance = keep ? a.race!.distance : (choices[Math.min(1, choices.length - 1)].id as EventDistance);
+  // Hyrox se prépare toujours pour une date ; les autres peuvent partir en bloc sans date.
+  const date = keep ? a.race?.date : sport === 'hyrox' ? addDays(dayKey(), 84) : undefined;
+  return { ...a, sport, days: isEndurance(sport) ? Math.max(a.days, sport === 'triathlon' ? 4 : 3) : Math.min(a.days, 6), race: { ...a.race, distance, date } };
+}
 
 function parseTime(text: string): number | undefined {
   const parts = text.trim().split(/[:h' ]+/).filter(Boolean).map(Number);
@@ -181,88 +224,137 @@ const fmtTime = (sec?: number) => {
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
 };
 
-export function SportForm({ athlete, onAthlete }: { athlete: Athlete; onAthlete: (a: Athlete) => void }) {
+/** Objectif daté ou bloc sans date, distance, date et chronos de référence. */
+export function EventForm({ athlete, onAthlete, compact = false }: { athlete: Athlete; onAthlete: (a: Athlete) => void; compact?: boolean }) {
+  const choices = EVENT_CHOICES[athlete.sport];
+  if (!choices) return null;
   const race = athlete.race;
-  const isRun = athlete.sport === 'running';
-  const isHyrox = athlete.sport === 'hyrox';
-  const distance = isRun ? (race?.distance && race.distance !== 'hyrox' ? race.distance : 'half') : 'hyrox';
-  const setRace = (patch: Partial<NonNullable<Athlete['race']>>) =>
-    onAthlete({ ...athlete, race: { distance, date: race?.date ?? addDays(dayKey(), 7 * 12), ...race, ...patch } });
-  const ref = race?.refSec ? { sec: race.refSec, km: race.refKm ?? 10 } : undefined;
-  const p = isRun ? paces(distance === 'hyrox' ? 'half' : distance, athlete.experience, ref) : null;
+  const distance = race?.distance ?? choices[0].id;
+  const dated = athlete.sport === 'hyrox' || Boolean(race?.date);
+  const setRace = (patch: Partial<NonNullable<Athlete['race']>>) => onAthlete({ ...athlete, race: { distance, ...race, ...patch } });
+  const spec = choices.find((c) => c.id === distance) ?? choices[0];
   const weeksLeft = race?.date ? Math.round((Date.parse(race.date) - Date.parse(dayKey())) / (7 * 86_400_000)) : null;
+  const sport = athlete.sport;
+  const runs = sport === 'running' || sport === 'triathlon' || sport === 'hyrox';
+  const swims = sport === 'swimming' || sport === 'triathlon';
+  const rides = sport === 'cycling' || sport === 'triathlon';
+  const z = zonesFor(athlete);
+  const ref = race?.refSec ? { sec: race.refSec, km: race.refKm ?? 10 } : undefined;
+  const p = isRoadRace(distance) ? paces(distance, athlete.experience, ref) : null;
 
   return (
-    <div className="stack">
-      {SPORTS.map((x) => (
-        <ChoiceCard
-          key={x.id}
-          on={athlete.sport === x.id}
-          title={x.title}
-          text={x.text}
-          onClick={() =>
-            onAthlete({
-              ...athlete,
-              sport: x.id,
-              race: x.id === 'running' ? { ...race, distance: race?.distance && race.distance !== 'hyrox' ? race.distance : 'half', date: race?.date ?? addDays(dayKey(), 84) } : x.id === 'hyrox' ? { ...race, distance: 'hyrox', date: race?.date ?? addDays(dayKey(), 84) } : race,
-            })
-          }
-        />
-      ))}
-
-      {(isRun || isHyrox) && (
-        <div className="card stack">
-          {isRun && (
-            <div className="chips" role="group" aria-label="Distance">
-              {(
-                [
-                  ['10k', '10 km'],
-                  ['half', 'Semi-marathon'],
-                  ['marathon', 'Marathon'],
-                ] as const
-              ).map(([id, label]) => (
-                <button key={id} type="button" className={chip(distance === id)} onClick={() => setRace({ distance: id })}>
-                  {label}
+    <div className={compact ? 'stack' : 'card stack'}>
+      {sport !== 'hyrox' && (
+        <div className="seg" role="group" aria-label="Objectif">
+          <button type="button" className={dated ? 'on' : ''} onClick={() => setRace({ date: race?.date ?? addDays(dayKey(), spec.weeks * 7) })}>
+            Une course en vue
+          </button>
+          <button type="button" className={!dated ? 'on' : ''} onClick={() => setRace({ date: undefined })}>
+            Progresser sans date
+          </button>
+        </div>
+      )}
+      {dated ? (
+        <>
+          {choices.length > 1 && (
+            <div className="chips" role="group" aria-label="Format">
+              {choices.map((c) => (
+                <button key={c.id} type="button" className={chip(distance === c.id)} onClick={() => setRace({ distance: c.id })}>
+                  {c.label}
                 </button>
               ))}
             </div>
           )}
-          <Field label="Date de la course">
-            <input className="input" type="date" min={dayKey()} value={race?.date ?? ''} onChange={(e) => setRace({ date: e.target.value })} />
+          <Field label="Date de l’objectif">
+            <input className="input" type="date" min={dayKey()} value={race?.date ?? ''} onChange={(e) => setRace({ date: e.target.value || undefined })} />
           </Field>
-          {weeksLeft !== null && weeksLeft < (distance === 'marathon' ? 12 : 8) && weeksLeft >= 0 && (
+          {weeksLeft !== null && weeksLeft >= 0 && weeksLeft < spec.weeks - 2 && (
             <p className="small" style={{ margin: 0, color: 'var(--gold)' }}>
-              {weeksLeft} semaines seulement : le plan sera raccourci. Pour un {distance === 'marathon' ? 'marathon' : 'objectif'} serein, compte {distance === 'marathon' ? '16' : '10 à 12'} semaines.
+              {weeksLeft} semaines seulement : le plan sera raccourci. Pour {EVENT_NAMES[distance].toLowerCase()}, compte {spec.weeks} semaines de préparation.
             </p>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label="Chrono récent" hint="Ex. 52:30">
-              <input
-                className="input num"
-                inputMode="numeric"
-                placeholder="mm:ss"
-                defaultValue={fmtTime(race?.refSec)}
-                onBlur={(e) => setRace({ refSec: parseTime(e.target.value), refKm: race?.refKm ?? 10 })}
-              />
-            </Field>
-            <Field label="Sur (km)">
-              <select className="input" value={race?.refKm ?? 10} onChange={(e) => setRace({ refKm: Number(e.target.value) })}>
-                {[5, 10, 21.1, 42.2].map((k) => (
-                  <option key={k} value={k}>
-                    {k === 21.1 ? 'Semi' : k === 42.2 ? 'Marathon' : `${k} km`}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          {p && (
-            <p className="small muted" style={{ margin: 0 }}>
-              Objectif estimé : {fmtDuration(p.predicted)} ({fmtPace(p.race)}). Endurance à {fmtPace(p.easy[0])}–{fmtPace(p.easy[1])}, fractionné à {fmtPace(p.interval)}.
-              {!ref && ' Sans chrono, on part d’une estimation selon ton niveau.'}
-            </p>
-          )}
+        </>
+      ) : (
+        <p className="small muted" style={{ margin: 0 }}>
+          Un bloc de 8 semaines qui monte par paliers, avec une semaine allégée toutes les 4. À la fin, Pulse te propose le suivant, un cran plus fort.
+        </p>
+      )}
+
+      {!compact && runs && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <Field label="Chrono récent en course" hint="Ex. 52:30">
+            <input
+              className="input num"
+              inputMode="numeric"
+              placeholder="mm:ss"
+              defaultValue={fmtTime(race?.refSec)}
+              onBlur={(e) => setRace({ refSec: parseTime(e.target.value), refKm: race?.refKm ?? 10 })}
+            />
+          </Field>
+          <Field label="Sur">
+            <select className="input" value={race?.refKm ?? 10} onChange={(e) => setRace({ refKm: Number(e.target.value) })}>
+              {[5, 10, 21.1, 42.2].map((k) => (
+                <option key={k} value={k}>
+                  {k === 21.1 ? 'Semi' : k === 42.2 ? 'Marathon' : `${k} km`}
+                </option>
+              ))}
+            </select>
+          </Field>
         </div>
       )}
+      {!compact && swims && (
+        <Field label="Ton temps sur 400 m nage libre" hint="Facultatif. Ex. 8:20 : sert à calculer ton allure seuil (CSS).">
+          <input
+            className="input num"
+            inputMode="numeric"
+            placeholder="mm:ss"
+            defaultValue={athlete.swimPace ? fmtTime((athlete.swimPace - 3) * 4) : ''}
+            onBlur={(e) => {
+              const t = parseTime(e.target.value);
+              onAthlete({ ...athlete, swimPace: t && t > 200 && t < 1200 ? cssFrom400(t) : undefined });
+            }}
+          />
+        </Field>
+      )}
+      {!compact && rides && (
+        <Field label="Ta FTP (watts)" hint="Facultatif : la puissance que tu tiens une heure. Sans capteur, laisse vide.">
+          <input
+            className="input num"
+            inputMode="numeric"
+            placeholder="ex. 230"
+            defaultValue={athlete.ftp ?? ''}
+            onBlur={(e) => {
+              const n = Number(e.target.value.replace(/\D/g, ''));
+              onAthlete({ ...athlete, ftp: n >= 60 && n <= 600 ? n : undefined });
+            }}
+          />
+        </Field>
+      )}
+      {!compact && (
+        <p className="small muted" style={{ margin: 0 }}>
+          {[
+            p && dated ? `Objectif estimé : ${fmtDuration(p.predicted)} (${fmtPace(p.race)}).` : '',
+            runs ? `Course : endurance ${fmtPace(z.run.easy[0])}–${fmtPace(z.run.easy[1])}, seuil ${fmtPace(z.run.tempo)}, fractionné ${fmtPace(z.run.interval)}.` : '',
+            swims ? `Natation : seuil à ${fmtSwim(z.swim.css)}${athlete.swimPace ? '' : ' (estimé)'}.` : '',
+            rides ? (z.bike.ftp ? `Vélo : endurance ${Math.round(z.bike.ftp * 0.56)}–${Math.round(z.bike.ftp * 0.75)} W, seuil ${Math.round(z.bike.ftp * 0.95)}–${Math.round(z.bike.ftp * 1.05)} W.` : 'Vélo : intensités en sensations et en % de FTP.') : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function SportForm({ athlete, onAthlete }: { athlete: Athlete; onAthlete: (a: Athlete) => void }) {
+  const maxDays = athlete.sport === 'triathlon' ? 7 : 6;
+  return (
+    <div className="stack">
+      {SPORTS.map((x) => (
+        <ChoiceCard key={x.id} on={athlete.sport === x.id} title={x.title} text={x.text} onClick={() => onAthlete(withSport(athlete, x.id))} />
+      ))}
+
+      <EventForm athlete={athlete} onAthlete={onAthlete} />
 
       <h2 style={{ marginTop: 6 }}>Ton niveau</h2>
       <div className="chips">
@@ -282,15 +374,15 @@ export function SportForm({ athlete, onAthlete }: { athlete: Athlete; onAthlete:
       <h2 style={{ marginTop: 6 }}>Tes disponibilités</h2>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <Field label="Séances par semaine">
-          <select className="input" value={athlete.days} onChange={(e) => onAthlete({ ...athlete, days: Number(e.target.value) })}>
-            {[2, 3, 4, 5, 6].map((n) => (
+          <select className="input" value={Math.min(athlete.days, maxDays)} onChange={(e) => onAthlete({ ...athlete, days: Number(e.target.value) })}>
+            {Array.from({ length: maxDays - 1 }, (_, i) => i + 2).map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Minutes par séance">
+        <Field label={isEndurance(athlete.sport) ? 'Minutes en semaine' : 'Minutes par séance'} hint={isEndurance(athlete.sport) ? 'Les sorties longues du week-end vont au-delà.' : undefined}>
           <select className="input" value={athlete.minutes} onChange={(e) => onAthlete({ ...athlete, minutes: Number(e.target.value) })}>
             {[30, 45, 60, 75, 90].map((n) => (
               <option key={n} value={n}>

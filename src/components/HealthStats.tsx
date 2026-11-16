@@ -1,5 +1,7 @@
 // Les chiffres d'Apple Santé sur 7 jours : sommeil, pas, minutes d'exercice, cœur au repos, VFC.
-import { addDays, formatNumber, WEEKDAY_LETTERS, weekdayOf } from '../lib/date';
+import { useState } from 'react';
+import { addDays, formatNumber, WEEKDAY_LETTERS, WEEKDAY_NAMES, weekdayOf } from '../lib/date';
+import { useCountUp } from './Charts';
 import type { AppState, HealthDay } from '../lib/store';
 
 type Key = 'sleepMin' | 'steps' | 'exerciseMin' | 'restingHr' | 'hrv' | 'distanceKm';
@@ -31,17 +33,65 @@ function avg(v: number[]): number | null {
   return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
 }
 
-function MiniBars({ days, values, color, goal }: { days: string[]; values: (number | undefined)[]; color: string; goal?: number }) {
+function MiniBars({
+  days,
+  values,
+  color,
+  goal,
+  pick,
+  onPick,
+}: {
+  days: string[];
+  values: (number | undefined)[];
+  color: string;
+  goal?: number;
+  pick: number | null;
+  onPick: (i: number | null) => void;
+}) {
   const max = Math.max(goal ?? 0, ...values.map((v) => v ?? 0)) || 1;
+  const focus = pick ?? values.length - 1;
   return (
-    <div className="mini-bars" aria-hidden="true">
-      {goal && <i className="mini-goal" style={{ bottom: `${(goal / max) * 100}%` }} />}
+    <div className="mini-bars" onPointerLeave={() => onPick(null)}>
+      {goal && <i className="mini-goal" style={{ bottom: `${(goal / max) * 100}%` }} aria-hidden="true" />}
       {values.map((v, i) => (
-        <span key={days[i]} className="mini-col">
-          <b style={{ height: `${v ? Math.max(4, (v / max) * 100) : 0}%`, background: v ? color : 'transparent', opacity: i === values.length - 1 ? 1 : 0.55 }} />
-          <em>{WEEKDAY_LETTERS[weekdayOf(days[i])]}</em>
-        </span>
+        <button
+          type="button"
+          key={days[i]}
+          className="mini-col"
+          aria-label={WEEKDAY_NAMES[weekdayOf(days[i])]}
+          onPointerEnter={() => onPick(i)}
+          onFocus={() => onPick(i)}
+          onClick={() => onPick(i)}
+        >
+          <b style={{ height: `${v ? Math.max(4, (v / max) * 100) : 0}%`, background: v ? color : 'transparent', opacity: i === focus ? 1 : 0.45 }} />
+          <em className={i === focus ? 'on' : ''}>{WEEKDAY_LETTERS[weekdayOf(days[i])]}</em>
+        </button>
       ))}
+    </div>
+  );
+}
+
+function HealthCard({ m, days, values, now, trend, good }: { m: Metric; days: string[]; values: (number | undefined)[]; now: number | null; trend: string; good: boolean | null }) {
+  const [pick, setPick] = useState<number | null>(null);
+  const latestIdx = values.map((v, i) => (v !== undefined ? i : -1)).filter((i) => i >= 0).pop() ?? -1;
+  const idx = pick ?? latestIdx;
+  const value = idx >= 0 ? values[idx] : undefined;
+  const counted = useCountUp(value ?? 0, 500);
+  const label = pick === null ? (idx === days.length - 1 ? 'aujourd’hui' : WEEKDAY_NAMES[weekdayOf(days[idx] ?? days[0])].toLowerCase()) : WEEKDAY_NAMES[weekdayOf(days[idx])].toLowerCase();
+  return (
+    <div className="card health-card">
+      <div className="small muted">
+        {m.name}
+        {value !== undefined && <span className="faint">, {label}</span>}
+      </div>
+      <div className="health-value">
+        {value !== undefined ? m.format(pick === null ? counted : value) : '–'}
+        {m.unit && <small>{m.unit}</small>}
+      </div>
+      <MiniBars days={days} values={values} color={m.color} goal={m.goal} pick={pick} onPick={setPick} />
+      <div className={`small ${good === null ? 'faint' : good ? 'trend-good' : 'trend-bad'}`}>
+        {now !== null ? `Moy. ${m.format(now)}${m.unit ? ` ${m.unit}` : ''}, ${trend}` : 'Pas assez de données'}
+      </div>
     </div>
   );
 }
@@ -56,7 +106,6 @@ export function HealthStats({ s, today }: { s: AppState; today: string }) {
     <div className="health-grid">
       {shown.map((m) => {
         const values = days.map((d) => get(d, m.key));
-        const latest = [...values].reverse().find((v) => v !== undefined);
         const now = avg(values.filter((v): v is number => v !== undefined));
         const before = avg(prev.map((d) => get(d, m.key)).filter((v): v is number => v !== undefined));
         const delta = now !== null && before !== null && before > 0 ? (now - before) / before : null;
@@ -65,19 +114,7 @@ export function HealthStats({ s, today }: { s: AppState; today: string }) {
             ? 'stable sur 2 semaines'
             : `${delta > 0 ? 'en hausse' : 'en baisse'} (${delta > 0 ? '+' : ''}${Math.round(delta * 100)} %)`;
         const good = delta === null || Math.abs(delta) < 0.05 ? null : (delta > 0) === m.higherIsBetter;
-        return (
-          <div key={m.key} className="card health-card">
-            <div className="small muted">{m.name}</div>
-            <div className="health-value">
-              {latest !== undefined ? m.format(latest) : '–'}
-              {m.unit && <small>{m.unit}</small>}
-            </div>
-            <MiniBars days={days} values={values} color={m.color} goal={m.goal} />
-            <div className={`small ${good === null ? 'faint' : good ? 'trend-good' : 'trend-bad'}`}>
-              {now !== null ? `Moy. ${m.format(now)}${m.unit ? ` ${m.unit}` : ''}, ${trend}` : 'Pas assez de données'}
-            </div>
-          </div>
-        );
+        return <HealthCard key={m.key} m={m} days={days} values={values} now={now} trend={trend} good={good} />;
       })}
     </div>
   );

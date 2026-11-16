@@ -1,6 +1,7 @@
 // Interprète un programme (donnée modifiable) en séances prêtes à l'emploi,
 // et fournit les valeurs par défaut de la nutrition et des habitudes.
 import { catalogEntry } from './catalog';
+import { blocksSeconds, fmtClock, sessionBlocks } from './effort';
 import { DEFAULT_PROGRAM } from './templates';
 import type { CatalogEntry, Exercise, HabitDef, Macros, MealSlot, PlannedMeal, Program, Session, SessionDef } from './types';
 
@@ -30,6 +31,10 @@ export function resolveExercise(slot: SessionDef['exercises'][number], custom: R
     note: slot.note ?? e?.note,
     step: e?.step ?? 2.5,
     noLoad: e?.noLoad ?? false,
+    ...(e?.discipline ? { discipline: e.discipline } : {}),
+    ...((slot.zone ?? e?.zone) ? { zone: slot.zone ?? e?.zone } : {}),
+    ...(slot.sec ? { sec: slot.sec } : {}),
+    ...(slot.target ? { target: slot.target } : {}),
   };
 }
 
@@ -40,6 +45,15 @@ export function estimateDuration(exercises: Exercise[]): string {
   return min >= 60 ? `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}` : `${min} min`;
 }
 
+/** Durée d'une séance : les blocs d'endurance au temps près, le reste à 40 s par série plus le repos. */
+export function sessionDuration(exercises: Exercise[]): string {
+  const blocks = sessionBlocks(exercises);
+  if (!blocks.length) return estimateDuration(exercises);
+  const others = exercises.filter((x) => !x.discipline || !x.zone).filter((x) => x.kind !== 'task');
+  const sec = blocksSeconds(blocks) + others.reduce((n, e) => n + e.sets * (40 + e.rest), 0);
+  return fmtClock(Math.round(sec / 300) * 300 || sec);
+}
+
 export function resolveSession(def: SessionDef, custom: Record<string, CatalogEntry> = {}): Session {
   const exercises = def.exercises.map((x) => resolveExercise(x, custom));
   return {
@@ -47,7 +61,7 @@ export function resolveSession(def: SessionDef, custom: Record<string, CatalogEn
     name: def.name,
     focus: def.focus,
     type: def.type,
-    duration: estimateDuration(exercises),
+    duration: sessionDuration(exercises),
     completeWhen: def.type === 'lifting' ? 'all' : def.type === 'rest' ? 'first' : 'any',
     lifting: def.type === 'lifting',
     exercises,

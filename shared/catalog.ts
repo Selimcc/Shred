@@ -1,6 +1,6 @@
 // Bibliothèque d'exercices. Pour en ajouter un : une ligne ici (+ deux images
 // src/assets/exercises/<key>-0.jpg et -1.jpg si tu veux une démo). Rien d'autre à toucher.
-import type { CatalogEntry, ExerciseKind, MuscleGroup } from './types';
+import type { CatalogEntry, Discipline, ExerciseKind, MuscleGroup, Zone } from './types';
 
 const c = (
   key: string,
@@ -23,6 +23,18 @@ const c = (
   noLoad: kind === 'core' || kind === 'power' || kind === 'cardio' || kind === 'task',
   ...extra,
 });
+
+/** Un bloc d'endurance : sport et intensité habituelle. */
+const e = (
+  key: string,
+  name: string,
+  discipline: Discipline,
+  zone: Zone,
+  muscles: string[],
+  cue: string,
+  dflt: [number, string, number],
+  extra: Partial<CatalogEntry> = {},
+): CatalogEntry => c(key, name, 'cardio', 'cardio', muscles, cue, dflt, { discipline, zone, ...extra });
 
 export const CATALOG: CatalogEntry[] = [
   // Pectoraux
@@ -125,6 +137,46 @@ export const CATALOG: CatalogEntry[] = [
   c('run-race', 'Blocs à allure course', 'cardio', 'cardio', ['Allure spécifique'], 'L’allure exacte que tu viseras le jour J. Ni plus vite, ni plus lent.', [2, '3 km', 120]),
   c('strides', 'Lignes droites', 'cardio', 'cardio', ['Foulée'], 'Accélère progressivement jusqu’à 90 % puis relâche. Récupère en marchant.', [6, '80 m', 60]),
   c('race-day', 'Jour de course', 'task', 'cardio', ['Course'], 'Pars prudemment, accélère dans la deuxième moitié.', [1, '1', 0]),
+  c('transition', 'Répétition des transitions', 'task', 'cardio', ['Transitions'], 'Combinaison, casque, chaussures : place tout comme le jour J et chronomètre-toi.', [1, '1', 0], { note: 'Chaque seconde gagnée ici est gratuite.' }),
+  c('external-rotation', 'Rotation externe à l’élastique', 'isolation', 'shoulders', ['Coiffe des rotateurs'], 'Coude collé au corps, ouvre l’avant-bras vers l’extérieur, lentement.', [2, '15', 45], { step: 1, note: 'Protège les épaules des nageurs.' }),
+
+
+  // Course à pied : footings, qualité, éducatifs
+  e('run-warmup', 'Échauffement en footing', 'run', 1, ['Échauffement'], 'Très facile, puis 3 ou 4 accélérations progressives sur la fin.', [1, '15 min', 0]),
+  e('run-cooldown', 'Retour au calme', 'run', 1, ['Récupération'], 'Trottine très lentement, puis marche quelques minutes.', [1, '10 min', 0]),
+  e('run-recovery', 'Footing de récupération', 'run', 1, ['Récupération'], 'Presque trop lent : le but est de faire circuler le sang, pas de travailler.', [1, '30 min', 0]),
+  e('run-progressive', 'Sortie progressive', 'run', 3, ['Endurance', 'Seuil'], 'Pars en endurance et accélère par paliers : les 10 dernières minutes à allure seuil.', [1, '45 min', 0]),
+  e('run-hills', 'Côtes', 'run', 5, ['Puissance', 'VMA'], 'Monte fort, buste droit, bras actifs, petits pas. Redescends en trottinant.', [8, '45 s', 90], { note: 'Une pente de 5 à 8 %. 15 min d’échauffement avant.' }),
+  e('run-fartlek', 'Fartlek', 'run', 4, ['VMA', 'Endurance'], 'Jeu d’allures : vite sur la durée prévue, récupère en trottinant, au feeling.', [10, '1 min', 60]),
+  e('run-drills', 'Gammes de course', 'run', 2, ['Foulée', 'Pied'], 'Montées de genoux, talons-fesses, foulées bondissantes : 2 × 20 m de chaque.', [1, '8 min', 0]),
+  e('brick-run', 'Course enchaînée après le vélo', 'run', 3, ['Enchaînement', 'Jambes'], 'Pose le vélo et pars tout de suite. Jambes lourdes les 5 premières minutes : c’est normal, garde une foulée courte.', [1, '15 min', 0]),
+
+  // Natation
+  e('swim-warmup', 'Échauffement nage', 'swim', 1, ['Échauffement'], 'Crawl souple, quelques longueurs de dos ou de brasse pour délier les épaules.', [1, '300 m', 0]),
+  e('swim-drill-catchup', 'Éducatif : rattrapé', 'swim', 2, ['Technique', 'Allonge'], 'Une main attend l’autre devant toi avant de tirer : tu allonges la coulée et tu places mieux la main.', [4, '50 m', 20]),
+  e('swim-drill-fist', 'Éducatif : poings fermés', 'swim', 2, ['Technique', 'Appui'], 'Nage poings fermés : tu sens l’avant-bras tirer l’eau. Rouvre les mains sur la dernière longueur.', [4, '50 m', 20]),
+  e('swim-drill-side', 'Éducatif : 6 battements sur le côté', 'swim', 2, ['Rotation', 'Respiration'], 'Six battements sur le côté, un bras devant, puis un mouvement de bras et change de côté.', [4, '50 m', 20]),
+  e('swim-drill-scull', 'Éducatif : godille', 'swim', 2, ['Appui', 'Sensations'], 'Bras devant, petits mouvements en 8 avec les mains : sens l’appui de l’eau.', [4, '25 m', 20]),
+  e('swim-kick', 'Battements avec planche', 'swim', 3, ['Jambes', 'Gainage'], 'Jambes presque tendues, battements qui partent de la hanche, chevilles souples.', [4, '50 m', 20]),
+  e('swim-pull', 'Pull buoy', 'swim', 3, ['Bras', 'Dos'], 'Pull buoy entre les cuisses : tout le travail aux bras, bassin haut, gainage serré.', [4, '100 m', 20]),
+  e('swim-css', 'Série au seuil (CSS)', 'swim', 4, ['Seuil'], 'La même allure sur toutes les répétitions, 15 s de repos. Si tu ralentis, c’était trop vite au départ.', [8, '100 m', 15]),
+  e('swim-intervals', 'Série rapide', 'swim', 5, ['VMA nage', 'Vitesse'], 'Vite mais propre : dès que ta nage se dégrade, ralentis un peu.', [8, '50 m', 30]),
+  e('swim-sprint', 'Sprints', 'swim', 5, ['Vitesse'], 'À fond sur 25 m, récupération complète.', [6, '25 m', 45]),
+  e('swim-endurance', 'Nage continue', 'swim', 2, ['Endurance'], 'Allure régulière, respiration tous les 3 temps si tu peux. Compte tes longueurs, pas tes minutes.', [1, '1000 m', 0]),
+  e('swim-openwater', 'Nage en eau libre', 'swim', 2, ['Endurance', 'Orientation'], 'Lève les yeux toutes les 6 à 8 brassées pour viser une bouée. Jamais seul : toujours accompagné ou en zone surveillée.', [1, '1500 m', 0]),
+  e('swim-cooldown', 'Retour au calme nage', 'swim', 1, ['Récupération'], 'Dos ou brasse très souple.', [1, '200 m', 0]),
+
+  // Vélo
+  e('bike-warmup', 'Échauffement vélo', 'bike', 1, ['Échauffement'], 'Petit braquet, cadence qui monte doucement.', [1, '15 min', 0]),
+  e('bike-cooldown', 'Retour au calme vélo', 'bike', 1, ['Récupération'], 'Petit braquet, jambes qui tournent sans forcer.', [1, '10 min', 0]),
+  e('bike-endurance', 'Sortie endurance vélo', 'bike', 2, ['Endurance'], 'Zone 2 : tu peux parler. Cadence 85 à 95 tours par minute.', [1, '1 h 30', 0]),
+  e('bike-long', 'Sortie longue vélo', 'bike', 2, ['Endurance', 'Nutrition'], 'Régulier, mange toutes les 30 à 45 minutes et bois souvent. La sortie de la semaine.', [1, '3 h', 0]),
+  e('bike-recovery', 'Vélo récupération', 'bike', 1, ['Récupération'], 'Tout à gauche, cadence fluide, aucun effort.', [1, '45 min', 0]),
+  e('bike-sweetspot', 'Sweet spot', 'bike', 3, ['Seuil', 'Endurance'], 'Entre tempo et seuil : dur mais tenable longtemps. Cadence 85 à 95.', [3, '12 min', 300]),
+  e('bike-threshold', 'Seuil vélo (FTP)', 'bike', 4, ['Seuil'], 'Autour de ta FTP : ce que tu tiendrais une heure à fond. Assis, respiration contrôlée.', [2, '15 min', 300]),
+  e('bike-vo2', 'Intervalles PMA', 'bike', 5, ['VO2max'], 'Fort et régulier du début à la fin de chaque bloc. Récupère en pédalant tout doux.', [5, '3 min', 180]),
+  e('bike-cadence', 'Vélocité', 'bike', 2, ['Coup de pédale'], 'Cadence très haute (110 tours et plus), résistance faible, bassin immobile sur la selle.', [6, '1 min', 60]),
+  e('bike-force', 'Force sur le vélo', 'bike', 3, ['Force', 'Quadriceps'], 'Gros braquet, 50 à 60 tours par minute, assis, gainage serré.', [5, '4 min', 180], { note: 'En côte ou sur home trainer. Arrête si tu sens les genoux.' }),
 
   // Hyrox
   c('ski-erg', 'SkiErg', 'cardio', 'cardio', ['Dos', 'Triceps', 'Cardio'], 'Bras tendus, la force vient des hanches et du gainage.', [4, '500 m', 90]),
@@ -141,6 +193,18 @@ export const CATALOG: CatalogEntry[] = [
   c('incline-walk', 'Marche inclinée sur tapis', 'task', 'cardio', ['Cardio'], 'Pente 10 à 12 %, 5 à 6 km/h, sans te tenir aux barres.', [1, '25 min', 0]),
   c('zone2', 'Zone 2, 30 min', 'task', 'cardio', ['Cardio'], 'Un rythme où tu peux encore parler.', [1, '1', 0]),
 ];
+
+/** Sport et intensité des exercices de cardio historiques. */
+const TAGS: Record<string, [Discipline, Zone]> = {
+  'rope-shadow': ['combat', 3], intervals: ['bike', 5], running: ['run', 2], 'rowing-erg': ['row', 2], bike: ['bike', 2],
+  'run-easy': ['run', 2], 'run-long': ['run', 2], 'run-tempo': ['run', 4], 'run-intervals': ['run', 5], 'run-race': ['run', 4], strides: ['run', 5],
+  'ski-erg': ['ski', 4], 'incline-walk': ['walk', 2], walk: ['walk', 1], 'mountain-climber': ['combat', 4],
+};
+for (const x of CATALOG) if (TAGS[x.key]) [x.discipline, x.zone] = TAGS[x.key];
+
+export const DISCIPLINE_NAMES: Record<Discipline, string> = {
+  run: 'Course', bike: 'Vélo', swim: 'Natation', row: 'Rameur', ski: 'SkiErg', walk: 'Marche', combat: 'Combat',
+};
 
 export const GROUP_NAMES: Record<MuscleGroup, string> = {
   chest: 'Pecs',

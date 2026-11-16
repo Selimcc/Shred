@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { type Exercise, findSession, scheduleFor } from '../../shared/program';
-import { Icon } from '../components/Icon';
+import { DISCIPLINE_ICON, Icon } from '../components/Icon';
 import { Ring } from '../components/Ring';
 import { ask, Bar, Check, Sheet, toast } from '../components/ui';
 import { chooseSession, finishSession, parseDecimal, previousWeight, toggleSet, updateSet } from '../lib/actions';
@@ -15,6 +15,9 @@ import { formHint, isDeload, stopDeload } from '../lib/recovery';
 import { addExtra, alternatives, BROKEN_DAYS, isBroken, markRepaired, removeExtra, setExpress, setForm, skipExercise, swapExercise, SWAP_REASONS, type SwapReason, undoSwap } from '../lib/dynamic';
 import { applyTweak, dismissTweak, programTweaks } from '../lib/tweaks';
 import { catalogEntry } from '../../shared/catalog';
+import { planWeek } from '../../shared/program';
+import { repMeters } from '../../shared/effort';
+import { hasProfile, SessionProfile } from '../components/SessionProfile';
 import { ExercisePicker } from './ProgramEditor';
 
 const fmtRest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60}` : ''}` : `${sec} s`);
@@ -33,6 +36,11 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
   const broken = Object.entries(s.settings.broken ?? {}).filter(([key]) => isBroken(s, key, today));
   const hint = formHint(s, today);
   const planned = scheduleFor(s.program, today)[weekdayOf(today)];
+  const endurance = hasProfile(session.exercises);
+  // Le choix de séance : celles de la semaine en cours et celles qu'on peut faire n'importe quand.
+  const thisWeek = new Set(scheduleFor(s.program, today));
+  const inPlan = planWeek(s.program, today) !== null;
+  const choices = s.program.sessions.filter((x) => !x.generated || thisWeek.has(x.id) || (!inPlan && s.program.schedule.includes(x.id)));
 
   const onSet = (ex: Exercise, i: number) => {
     const done = toggleSet(today, ex, i);
@@ -66,8 +74,8 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
             {session.focus}
           </p>
         </div>
-        {session.lifting && (
-          <Ring value={day.mainDone ? 1 : prog.done} max={day.mainDone ? 1 : prog.total} color={day.mainDone ? 'var(--mint)' : 'var(--ink)'} size={76} stroke={6} label="Séries faites">
+        {session.type !== 'rest' && prog.total > 0 && (
+          <Ring value={day.mainDone ? 1 : prog.done} max={day.mainDone ? 1 : prog.total} color={day.mainDone ? 'var(--mint)' : 'var(--ink)'} size={76} stroke={6} label={session.lifting ? 'Séries faites' : 'Blocs faits'}>
             <div>
               <div className="num" style={{ fontWeight: 760, fontStretch: '72%', fontSize: '1.35rem', lineHeight: 1 }}>
                 {prog.done}
@@ -90,6 +98,11 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
                 : 'Commence la séance et ta flamme du jour est assurée.'
               : 'Termine la séance pour ta flamme du jour.'}
         </p>
+      )}
+      {endurance && (
+        <div className="card workout-profile">
+          <SessionProfile exercises={session.exercises} done={Object.fromEntries(Object.entries(day.sets).map(([k, l]) => [k, l.filter((x) => x.done).length]))} />
+        </div>
       )}
       <div className="workout-actions">
         <button className="btn small" onClick={() => setPicker(true)}>
@@ -289,7 +302,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
             Ton emploi du temps a bougé ? Garde l’ordre Push, Pull, Legs, Upper, Lower.
           </p>
           <div className="group">
-            {s.program.sessions.map(({ id, name, focus }) => (
+            {choices.map(({ id, name, focus }) => (
               <button
                 key={id}
                 className="row"
@@ -342,12 +355,16 @@ function ExerciseCard({
   const rounds = ex.kind === 'cardio';
   const frames = exerciseFrames(ex.key);
   const loaded = !isTask && !ex.noLoad && !rounds;
+  // Un bloc continu (footing, sortie longue, nage continue) : on note la distance et le temps.
+  const continuous = rounds && ex.sets === 1 && !!ex.discipline && ex.discipline !== 'combat';
+  const swim = ex.discipline === 'swim';
+  const planned = ex.discipline ? repMeters(ex) : 0;
 
   return (
     <article className={`ex-card ${complete ? 'complete' : ''}`}>
       <div className="ex-head">
         <button className="thumb" onClick={onDemo} aria-label={`Voir la démo : ${ex.name}`}>
-          {frames ? <img src={frames[0]} alt="" loading="lazy" /> : <Icon name="dumbbell" size={28} />}
+          {frames ? <img src={frames[0]} alt="" loading="lazy" /> : <Icon name={ex.discipline ? DISCIPLINE_ICON[ex.discipline] : 'dumbbell'} size={28} />}
           <span className="play">
             <Icon name="play" size={12} filled />
           </span>
@@ -380,9 +397,9 @@ function ExerciseCard({
           <div style={{ fontWeight: 800, lineHeight: 1.25 }}>{ex.name}</div>
           {!isTask && (
             <div className="chips" style={{ gap: 6, marginTop: 8 }}>
-              <span className="tag num">
-                {ex.sets} × {ex.reps}
-              </span>
+              <span className="tag num">{ex.sets > 1 ? `${ex.sets} × ${ex.reps}` : ex.reps}</span>
+              {ex.target && <span className="tag num blue">{ex.target}</span>}
+              {ex.zone && ex.discipline && <span className={`tag zone-tag z${ex.zone}`}>Z{ex.zone}</span>}
               {ex.rest > 0 && (
                 <span className="tag">
                   <Icon name="clock" size={13} /> {fmtRest(ex.rest)}
@@ -427,7 +444,28 @@ function ExerciseCard({
         </p>
       )}
 
-      <div style={{ marginTop: 10 }}>
+      {continuous && (
+        <div className="cardio-row" style={{ marginTop: 10 }}>
+          <NumInput
+            value={logs[0]?.km !== undefined ? (swim ? Math.round(logs[0].km! * 1000) : logs[0].km) : undefined}
+            placeholder={planned ? (swim ? `${Math.round(planned)} m` : `${(Math.round(planned / 100) / 10).toLocaleString('fr-FR')} km`) : swim ? 'mètres' : 'km'}
+            label={swim ? 'Distance nagée en mètres' : 'Distance en km'}
+            decimals={swim ? 0 : 2}
+            onCommit={(v) => updateSet(date, ex.key, 0, { km: v === undefined ? undefined : swim ? v / 1000 : v, ...(v ? { done: true } : {}) }, 1)}
+          />
+          <NumInput
+            value={logs[0]?.min}
+            placeholder={`${ex.reps.match(/min|h/) ? ex.reps : 'min'}`}
+            label="Durée en minutes"
+            onCommit={(v) => updateSet(date, ex.key, 0, { min: v, ...(v ? { done: true } : {}) }, 1)}
+          />
+          <Check on={!!logs[0]?.done} onClick={() => onSet(ex, 0)} label="Bloc fait" tone="blue" />
+          <span className="small faint cardio-units">{swim ? 'mètres' : 'km'}</span>
+          <span className="small faint cardio-units">minutes</span>
+        </div>
+      )}
+
+      {!continuous && <div style={{ marginTop: 10 }}>
         {Array.from({ length: ex.sets }, (_, i) => {
           const log = logs[i] ?? { done: false };
           const prevW = previousWeight(logs, i) ?? aim.weight ?? last?.sets[i]?.w;
@@ -459,7 +497,7 @@ function ExerciseCard({
             </div>
           );
         })}
-      </div>
+      </div>}
     </article>
   );
 }
@@ -692,13 +730,15 @@ function NumInput({
   placeholder,
   label,
   onCommit,
+  decimals = 0,
 }: {
   value?: number;
   placeholder: string;
   label: string;
   onCommit: (v: number | undefined) => void;
+  decimals?: number;
 }) {
-  const fmt = (v?: number) => (v === undefined ? '' : String(v));
+  const fmt = (v?: number) => (v === undefined ? '' : decimals ? String(v).replace('.', ',') : String(v));
   const [text, setText] = useState(fmt(value));
   const focused = useRef(false);
   useEffect(() => {
@@ -710,7 +750,7 @@ function NumInput({
       <input
         className="input center num"
         style={{ minHeight: 46, padding: '10px 4px', fontWeight: 750 }}
-        inputMode="numeric"
+        inputMode={decimals ? 'decimal' : 'numeric'}
         placeholder={placeholder}
         value={text}
         onFocus={() => (focused.current = true)}
@@ -718,7 +758,8 @@ function NumInput({
         onBlur={() => {
           focused.current = false;
           const n = parseDecimal(text);
-          const v = n === undefined ? undefined : Math.round(n);
+          const f = 10 ** decimals;
+          const v = n === undefined ? undefined : Math.round(n * f) / f;
           if (v !== value) onCommit(v);
           setText(fmt(v));
         }}

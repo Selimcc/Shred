@@ -18,6 +18,10 @@ import { Community } from './Community';
 import type { SettingsPage } from './Settings';
 import { ReportSheet } from '../components/ReportSheet';
 import { weeklyReport } from '../lib/report';
+import { fmtHours, LiftChart, Sparkline, useCountUp, WeekLoadChart } from '../components/Charts';
+import { liftSeries, recentRecords, rollingWeeks, totalMinutes, trackedLifts, trainingWeeks } from '../lib/training';
+import { DISCIPLINE_NAMES } from '../../shared/catalog';
+import type { Discipline } from '../../shared/types';
 
 const WEEKS = 12;
 
@@ -69,18 +73,16 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
             [lvl.level, 'niveau', 'var(--gold)'],
           ] as const
         ).map(([v, label, color]) => (
-          <div key={label} className="card" style={{ padding: '12px 10px', textAlign: 'center' }}>
-            <div className="display num" style={{ fontSize: '1.8rem', color }}>
-              {v}
-            </div>
-            <div className="small muted" style={{ marginTop: 4 }}>
-              {label}
-            </div>
-          </div>
+          <Tile key={label} value={v} label={label} color={color} />
         ))}
       </div>
 
+      <WeekHero today={today} />
+      <EnduranceTiles today={today} />
+
       <Flames today={today} openGoals={() => openSettings('goals')} />
+
+      {mod.strength && <Lifts today={today} />}
 
       <Reports today={today} openCoach={openCoach} />
 
@@ -134,12 +136,16 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
           <h2>Records</h2>
         </div>
         <div className="group">
-          {bestLifts(s).map(({ key, name, best }) => (
-            <div className="row" key={key}>
-              <span className="grow">{name}</span>
-              <span className="num muted">{best ? `${fmtKg(best.w)} × ${best.r}` : 'à venir'}</span>
-            </div>
-          ))}
+          {bestLifts(s).map(({ key, name, best }) => {
+            const fresh = best && best.date >= addDays(today, -14);
+            return (
+              <div className="row" key={key}>
+                <span className="grow">{name}</span>
+                {fresh && <span className="tag up">Nouveau</span>}
+                <span className="num muted">{best ? `${fmtKg(best.w)} × ${best.r}` : 'à venir'}</span>
+              </div>
+            );
+          })}
         </div>
       </section>
         </>
@@ -450,6 +456,156 @@ function Reports({ today, openCoach }: { today: string; openCoach: () => void })
         ))}
       </div>
       {open && <ReportSheet monday={open} onClose={() => setOpen(null)} openCoach={openCoach} />}
+    </section>
+  );
+}
+
+function Tile({ value, label, color }: { value: number; label: string; color: string }) {
+  const v = useCountUp(value);
+  return (
+    <div className="card" style={{ padding: '12px 10px', textAlign: 'center' }}>
+      <div className="display num" style={{ fontSize: '1.8rem', color }}>
+        {Math.round(v)}
+      </div>
+      <div className="small muted" style={{ marginTop: 4 }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+/** La semaine en cours : le temps d'entraînement, comparé aux 4 précédentes, et 8 semaines en colonnes. */
+function WeekHero({ today }: { today: string }) {
+  const s = useApp();
+  // Pas de colonnes vides avant tes débuts : 4 semaines au moins, 8 au plus.
+  const all = trainingWeeks(s, today, 8);
+  const firstUsed = all.findIndex((w) => totalMinutes(w) > 0);
+  const weeks = all.slice(Math.max(0, Math.min(firstUsed < 0 ? 4 : firstUsed, all.length - 4)));
+  const now = weeks[weeks.length - 1];
+  const prev = weeks.slice(-5, -1).filter((w) => w.monday >= mondayOf(s.createdAt));
+  const avg = prev.length ? prev.reduce((n, w) => n + totalMinutes(w), 0) / prev.length : null;
+  const total = totalMinutes(now);
+  const shown = useCountUp(total);
+  if (!weeks.some((w) => totalMinutes(w) > 0)) return null;
+  const delta = avg && avg > 10 ? (total - avg) / avg : null;
+  const dayIndex = (new Date(`${today}T12:00:00`).getDay() + 6) % 7;
+  return (
+    <section className="section">
+      <div className="section-head">
+        <h2>Ta semaine</h2>
+        <span className="small muted num">
+          {now.sessions} séance{now.sessions > 1 ? 's' : ''}
+          {now.planned ? ` sur ${now.planned}` : ''}
+        </span>
+      </div>
+      <div className="card week-hero">
+        <div className="week-hero-figure">
+          <b className="display num">{fmtHours(shown)}</b>
+          <span className={`small ${delta === null ? 'muted' : delta >= 0 ? 'trend-good' : 'muted'}`}>
+            {delta === null
+              ? 'd’entraînement cette semaine'
+              : delta >= 0
+                ? `+${Math.round(delta * 100)} % sur ta moyenne des 4 dernières semaines`
+                : dayIndex <= 1
+                  ? `Ta moyenne : ${fmtHours(avg!)} par semaine. La semaine ne fait que commencer.`
+                  : dayIndex < 6
+                    ? `Encore ${fmtHours(Math.max(0, avg! - total))} pour rejoindre ta moyenne de ${fmtHours(avg!)}`
+                    : `${Math.round(-delta * 100)} % sous ta moyenne : semaine plus calme`}
+          </span>
+        </div>
+        <WeekLoadChart weeks={weeks} />
+      </div>
+    </section>
+  );
+}
+
+const DISC_VAR: Partial<Record<Discipline, string>> = { run: 'var(--d-run)', bike: 'var(--d-bike)', swim: 'var(--d-swim)', row: 'var(--d-other)', ski: 'var(--d-other)' };
+
+/** Une tuile par sport d'endurance pratiqué : les km de la semaine, l'écart, 8 semaines en courbe. */
+function EnduranceTiles({ today }: { today: string }) {
+  const s = useApp();
+  const weeks = rollingWeeks(s, today, 8);
+  const sports = (['run', 'bike', 'swim', 'row', 'ski'] as Discipline[]).filter((d) => weeks.some((w) => (w.km[d] ?? 0) > 0.05));
+  if (!sports.length) return null;
+  return (
+    <section className="section">
+      <div className="section-head">
+        <h2>Endurance</h2>
+        <span className="small muted">7 derniers jours</span>
+      </div>
+      <div className={`endurance-tiles ${sports.length % 2 ? 'odd' : ''}`}>
+        {sports.map((d) => (
+          <DistanceTile key={d} d={d} values={weeks.map((w) => w.km[d] ?? 0)} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DistanceTile({ d, values }: { d: Discipline; values: number[] }) {
+  const now = values[values.length - 1];
+  const before = values[values.length - 2] ?? 0;
+  const swim = d === 'swim';
+  const v = useCountUp(swim ? now * 1000 : now);
+  const diff = swim ? (now - before) * 1000 : now - before;
+  return (
+    <div className="card distance-tile">
+      <div className="small muted">{DISCIPLINE_NAMES[d]}</div>
+      <div className="distance-value num">
+        {swim ? formatNumber(Math.round(v / 50) * 50) : formatNumber(v, v >= 100 ? 0 : 1)}
+        <small>{swim ? 'm' : 'km'}</small>
+      </div>
+      <Sparkline values={values} color={DISC_VAR[d] ?? 'var(--d-other)'} label={`${DISCIPLINE_NAMES[d]} : 8 dernières semaines`} />
+      <div className={`small ${Math.abs(diff) < (swim ? 50 : 0.5) ? 'faint' : diff > 0 ? 'trend-good' : 'muted'} num`}>
+        {Math.abs(diff) < (swim ? 50 : 0.5) ? 'comme les 7 jours d’avant' : `${diff > 0 ? '+' : '−'}${swim ? formatNumber(Math.round(Math.abs(diff) / 50) * 50) : formatNumber(Math.abs(diff), 1)} ${swim ? 'm' : 'km'} vs les 7 jours d’avant`}
+      </div>
+    </div>
+  );
+}
+
+/** Progression du 1RM estimé sur les exercices les plus suivis. */
+function Lifts({ today }: { today: string }) {
+  const s = useApp();
+  const lifts = trackedLifts(s, today);
+  const [key, setKey] = useState<string | null>(null);
+  const current = lifts.find((l) => l.key === key) ?? lifts[0];
+  if (!current) return null;
+  const points = liftSeries(s, current.key, today);
+  const first = points[0];
+  const last = points[points.length - 1];
+  const gain = first && last ? last.e1rm - first.e1rm : 0;
+  const weeks = first && last ? Math.max(1, Math.round((Date.parse(last.date) - Date.parse(first.date)) / (7 * 86_400_000))) : 0;
+  const prs = recentRecords(s, today).length;
+  return (
+    <section className="section">
+      <div className="section-head">
+        <h2>Tes charges</h2>
+        {prs > 0 && (
+          <span className="tag up">
+            {prs} record{prs > 1 ? 's' : ''} en 2 semaines
+          </span>
+        )}
+      </div>
+      <div className="chips lift-chips" role="tablist" aria-label="Exercice">
+        {lifts.map((l) => (
+          <button key={l.key} role="tab" aria-selected={l.key === current.key} className={`chip ${l.key === current.key ? 'on' : ''}`} onClick={() => setKey(l.key)}>
+            {l.name.replace(/ \(.*\)$/, '')}
+          </button>
+        ))}
+      </div>
+      <div className="card" style={{ padding: '14px 12px 10px' }}>
+        <p style={{ margin: '0 4px 10px', fontWeight: 700 }}>
+          {gain > 0.5
+            ? `+${formatNumber(gain, 1)} kg de 1RM estimé en ${weeks} semaine${weeks > 1 ? 's' : ''}`
+            : gain < -0.5
+              ? `${formatNumber(gain, 1)} kg sur ${weeks} semaine${weeks > 1 ? 's' : ''} : fatigue ou décharge ?`
+              : 'Stable : tes prochaines séances diront la suite'}
+        </p>
+        <LiftChart points={points} />
+        <p className="small faint" style={{ margin: '6px 4px 0' }}>
+          1RM estimé de ta meilleure série à chaque séance (formule d’Epley). Les points marquent tes records.
+        </p>
+      </div>
     </section>
   );
 }

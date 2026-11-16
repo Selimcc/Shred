@@ -19,6 +19,9 @@ import { demoState } from './demo-seed';
 export interface SetLog {
   w?: number;
   r?: number;
+  /** Endurance : distance faite (km) et durée (minutes). */
+  km?: number;
+  min?: number;
   done: boolean;
 }
 

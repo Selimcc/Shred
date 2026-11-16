@@ -59,7 +59,7 @@ export function ProgramEditor() {
         <input className="input" value={p.name} onChange={(e) => renameProgram(e.target.value)} id="program-name" />
       </label>
 
-      {p.event && p.weeks && <PlanWeeks />}
+      {p.weeks && p.start && <PlanWeeks />}
 
       <section className="card stack builder-card" style={{ gap: 10 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -524,8 +524,12 @@ function PlanWeeks() {
   return (
     <section className="stack">
       <div className="section-head" style={{ marginBottom: 0 }}>
-        <h2>{p.event!.name}</h2>
-        <span className="small muted">{new Date(`${p.event!.date}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</span>
+        <h2>{p.event ? p.event.name : `Bloc de ${p.weeks!.length} semaines`}</h2>
+        <span className="small muted">
+          {p.event
+            ? new Date(`${p.event.date}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+            : `jusqu’au ${formatShort(addDays(p.start!, p.weeks!.length * 7 - 1))}`}
+        </span>
       </div>
       <p className="small muted" style={{ margin: 0 }}>
         {planSummary(p, today)} Le plan change chaque semaine ; la semaine type ci-dessous sert avant et après.

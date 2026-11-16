@@ -10,7 +10,11 @@ import { lastWeekMonday, reportPending } from '../lib/report';
 import { planSummary } from '../../shared/plans';
 import { ReportSheet } from '../components/ReportSheet';
 import { photoDue } from '../components/BodyPhotos';
-import { gymDuration, runShortcut, timeOf } from '../lib/health';
+import { gymDuration, runShortcut, STEP_GOAL, timeOf } from '../lib/health';
+import { SessionProfile } from '../components/SessionProfile';
+import { blocksSeconds, hardSeconds, repMeters, sessionBlocks } from '../../shared/effort';
+import { DISCIPLINE_NAMES } from '../../shared/catalog';
+import { disciplinesOf } from '../../shared/effort';
 import {
   dayStatus,
   mealsCount,
@@ -94,6 +98,14 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
   const step = nextStep(s, today);
   const habitsDone = s.habits.filter((h) => day.habits[h.id]).length;
 
+  const blocks = sessionBlocks(session.exercises);
+  const endurance = blocks.length > 0;
+  const meters = session.exercises.reduce((n, x) => n + (x.discipline && x.discipline !== 'combat' ? repMeters(x) * x.sets : 0), 0);
+  const hard = hardSeconds(blocks);
+  const sports = disciplinesOf(session.exercises).filter((d) => d !== 'walk');
+  const swimOnly = sports.length === 1 && sports[0] === 'swim';
+  const steps = s.health[today]?.steps;
+
   const remaining = Math.max(0, s.settings.targets.kcal - t.kcal);
   const tier = flames.tierInfo.colors[1];
 
@@ -126,7 +138,30 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
         </button>
         <h2 className="hero-title display">{session.name}</h2>
         <p className="hero-focus">{session.focus}</p>
-        {session.type !== 'rest' && (
+        {endurance && (
+          <div className="hero-profile">
+            <SessionProfile exercises={session.exercises} compact />
+          </div>
+        )}
+        {endurance && (
+          <div className="hero-stats">
+            <div>
+              <b>{blocksSeconds(blocks) >= 3600 ? `${Math.floor(blocksSeconds(blocks) / 3600)}h${String(Math.round((blocksSeconds(blocks) % 3600) / 60)).padStart(2, '0')}` : Math.round(blocksSeconds(blocks) / 60)}</b>
+              <span>{blocksSeconds(blocks) >= 3600 ? 'durée' : 'minutes'}</span>
+            </div>
+            {meters > 0 && (
+              <div>
+                <b>{swimOnly ? formatNumber(Math.round(meters / 100) * 100) : formatNumber(Math.round(meters / 100) / 10, 1)}</b>
+                <span>{swimOnly ? 'mètres' : `km${sports.length > 1 ? '' : sports[0] === 'bike' ? ' à vélo' : ''}`}</span>
+              </div>
+            )}
+            <div>
+              <b>{hard >= 60 ? Math.round(hard / 60) : sports.length > 1 ? sports.length : '–'}</b>
+              <span>{hard >= 60 ? 'min intenses' : sports.length > 1 ? sports.map((d) => DISCIPLINE_NAMES[d].toLowerCase()).join(' + ') : 'tout en aisance'}</span>
+            </div>
+          </div>
+        )}
+        {session.type !== 'rest' && !endurance && !session.exercises.some((x) => x.key === 'race-day') && (
           <div className="hero-stats">
             {session.lifting && (
               <div>
@@ -228,10 +263,27 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
           <div className="chips">
             {s.habits.map((h) => {
               const on = !!day.habits[h.id];
+              // Les pas arrivent d'Apple Santé : la puce se remplit au fil de la journée.
+              const live = h.id === 'steps' && steps !== undefined && !on;
+              const pct = live ? Math.min(99, Math.floor((steps! / STEP_GOAL) * 100)) : 0;
               return (
-                <button key={h.id} className={`chip ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => toggleHabit(today, h.id)}>
+                <button
+                  key={h.id}
+                  className={`chip ${on ? 'on' : ''} ${live ? 'live' : ''}`}
+                  style={live ? ({ '--p': `${pct}%` } as CSSProperties) : undefined}
+                  aria-pressed={on}
+                  aria-label={live ? `${h.name} : ${formatNumber(steps!)} pas, ${pct} %` : undefined}
+                  onClick={() => toggleHabit(today, h.id)}
+                >
                   <Icon name={on ? 'check' : h.icon} size={16} />
-                  {h.name}
+                  {live ? (
+                    <>
+                      <span className="num">{formatNumber(steps!)} pas</span>
+                      <span className="chip-pct num">{pct} %</span>
+                    </>
+                  ) : (
+                    h.name
+                  )}
                 </button>
               );
             })}

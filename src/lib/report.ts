@@ -1,13 +1,15 @@
 // Bilan de la semaine : ce qui a été fait, ce qui a bougé, et ce qu'on ajuste.
 // Tout se calcule sur le téléphone ; seul le mail (si la personne l'active) passe par le serveur.
 import { athleteSummary, sportLabel, WEIGHT_GOALS } from '../../shared/athlete';
-import { catalogEntry } from '../../shared/catalog';
+import { catalogEntry, DISCIPLINE_NAMES } from '../../shared/catalog';
+import type { Discipline } from '../../shared/types';
 import { findSession, scheduleFor } from '../../shared/program';
 import { usable } from '../../shared/plans';
 import { addDays, dayKey, formatNumber, formatShort, mondayOf, weekdayOf } from './date';
 import { dayValidated, mealsCount, ruleOf, sessionFor, streakInfo, totals } from './logic';
 import type { AppState } from './store';
 import { e1rm, GROUPS, strengthProfile } from './strength';
+import { addTraining, dayTraining, empty, totalMinutes } from './training';
 
 export interface Advice {
   id: string;
@@ -29,6 +31,8 @@ export interface WeeklyReport {
   nutrition: { days: number; kcal: number | null; protein: number | null; target: { kcal: number; protein: number }; proteinDays: number };
   weight: { avg: number | null; prev: number | null; change: number | null; goal: { label: string; min: number; max: number } };
   steps: number | null;
+  /** Temps d'entraînement et distances par sport d'endurance. */
+  training: { minutes: number; km: { name: string; km: number }[] };
   prs: { name: string; text: string }[];
   stalls: { key: string; name: string }[];
   advice: Advice[];
@@ -94,6 +98,13 @@ export function weeklyReport(s: AppState, monday: string, today = dayKey()): Wee
   const doneDays = dates.filter((d) => s.days[d]?.mainDone && sessionFor(s, d).type !== 'rest');
   const sessions = { planned: planned.length, done: doneDays.length, names: doneDays.map((d) => sessionFor(s, d).name) };
   const validated = dates.filter((d) => dayValidated(s, d, rule)).length;
+  const load = dates.reduce((t, d) => addTraining(t, dayTraining(s, d)), empty());
+  const training = {
+    minutes: Math.round(totalMinutes(load)),
+    km: (Object.entries(load.km) as [Discipline, number][])
+      .filter(([d, km]) => km >= 0.1 && d !== 'walk' && d !== 'combat')
+      .map(([d, km]) => ({ name: DISCIPLINE_NAMES[d], km: Math.round(km * 10) / 10 })),
+  };
 
   // Nutrition
   const fed = dates.filter((d) => (s.days[d]?.meals.length ?? 0) > 0 && mealsCount(s.days[d]) >= 2);
@@ -146,6 +157,7 @@ export function weeklyReport(s: AppState, monday: string, today = dayKey()): Wee
     nutrition: { days: fed.length, kcal: kcal && Math.round(kcal), protein: protein && Math.round(protein), target: { kcal: p.targets.kcal, protein: p.targets.protein }, proteinDays },
     weight: { avg: wAvg && Math.round(wAvg * 10) / 10, prev: wPrev && Math.round(wPrev * 10) / 10, change, goal },
     steps: steps && Math.round(steps),
+    training,
     prs: prs.slice(0, 5),
     stalls,
     advice,
@@ -297,6 +309,10 @@ export function reportText(s: AppState, r: WeeklyReport): string {
     r.headline,
     `Séances : ${r.sessions.done}/${r.sessions.planned}. Journées validées : ${r.validated}/${r.days}. Série : ${r.streak} jours.`,
   ];
+  if (r.training.minutes > 0)
+    lines.push(
+      `Entraînement : ${Math.floor(r.training.minutes / 60)} h ${String(r.training.minutes % 60).padStart(2, '0')}${r.training.km.length ? `, dont ${r.training.km.map((x) => `${x.name.toLowerCase()} ${formatNumber(x.km, 1)} km`).join(', ')}` : ''}.`,
+    );
   if (r.nutrition.kcal !== null) lines.push(`Nutrition : ${r.nutrition.kcal} kcal et ${r.nutrition.protein} g de protéines par jour en moyenne (objectif ${r.nutrition.target.kcal} kcal, ${r.nutrition.target.protein} g).`);
   if (r.weight.avg !== null) lines.push(`Poids moyen : ${formatNumber(r.weight.avg, 1)} kg${r.weight.change !== null ? ` (${r.weight.change > 0 ? '+' : ''}${formatNumber(r.weight.change, 2)} kg)` : ''}.`);
   if (r.steps !== null) lines.push(`Pas : ${formatNumber(r.steps)} par jour.`);
