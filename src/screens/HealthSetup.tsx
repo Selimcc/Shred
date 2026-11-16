@@ -111,7 +111,11 @@ export function HealthPage() {
       )}
       <section className="stack">
         <p className="small" style={{ margin: 0 }}>
-          {today?.at ? `Dernière synchro Santé aujourd’hui à ${timeOf(today.at)}.` : Object.keys(s.health).length ? 'Pas encore de synchro aujourd’hui.' : 'Jamais synchronisé.'}
+          {today?.at
+            ? `Chiffres Santé enregistrés aujourd’hui à ${timeOf(today.at)}. Un petit changement (moins de 1 000 pas) attend le quart d’heure suivant pour être enregistré.`
+            : Object.keys(s.health).length
+              ? 'Pas encore de synchro aujourd’hui.'
+              : 'Jamais synchronisé.'}
         </p>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn primary" style={{ flex: 1 }} disabled={DEMO} onClick={runShortcut}>
