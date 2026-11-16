@@ -203,6 +203,33 @@ const page2 = await call(`/api/club/feed?before=${encodeURIComponent(r.data.next
 check('fil paginé, sans doublon', r.data.posts.length === 20 && r.data.next && page2.data.posts.length === 6 && !page2.data.posts.some((p) => r.data.posts.some((q) => q.id === p.id)), `${r.data.posts.length} + ${page2.data.posts.length}`);
 check('le plus récent en premier', r.data.posts[0].text === 'Séance 24');
 
+/* ---------- Défis ---------- */
+
+r = await call('/api/club/challenges', { token: selim.token, body: { to: ines.id, hours: 48, text: 'Jambes avant jeudi ?' } });
+const ch = r.data.challenge;
+check('défi lancé', r.status === 200 && ch.to === ines.id && ch.status === 'open' && Math.abs(ch.due - ch.at - 48 * 3600_000) < 1000);
+r = await call('/api/club/notifications', { token: ines.token });
+check('la personne défiée est prévenue', r.data.notices.some((n) => n.type === 'challenge' && n.actorName === 'Selim' && n.text === 'Jambes avant jeudi ?'));
+r = await call('/api/club/challenges', { token: selim.token, body: { to: selim.id } });
+check('pas de défi à soi-même', r.status === 400);
+r = await call('/api/club/challenges', { token: selim.token, body: { to: 'inconnu-1234' } });
+check('membre inconnu : refusé', r.status === 404);
+await call('/api/club/challenges', { token: selim.token, body: { to: ines.id, hours: 24 } });
+r = await call('/api/club/challenges', { token: selim.token, body: { to: ines.id, hours: 24 } });
+check('pas plus de deux défis en cours vers la même personne', r.status === 429);
+r = await call('/api/club/challenges', { token: ines.token });
+check('chacun voit ses défis', r.data.challenges.length === 2 && r.data.challenges.every((c) => c.to === ines.id));
+r = await call(`/api/club/challenges/${ch.id}/done`, { token: yanis.token, body: {} });
+check('seule la personne défiée peut le relever', r.status === 404);
+r = await call(`/api/club/challenges/${ch.id}/done`, { token: ines.token, body: {} });
+check('défi relevé', r.status === 200 && r.data.challenge.status === 'done' && !r.data.already);
+r = await call(`/api/club/challenges/${ch.id}/done`, { token: ines.token, body: {} });
+check('relevé une seule fois (pas d’XP en double)', r.data.already === true);
+r = await call('/api/club/notifications', { token: selim.token });
+check('celui qui a lancé le défi est prévenu', r.data.notices.some((n) => n.type === 'challengeDone' && n.actorName === 'Inès'));
+r = await call('/api/club/challenges', { token: selim.token, body: { to: yanis.id, hours: 999 } });
+check('délai inconnu : 48 h par défaut', Math.abs(r.data.challenge.due - r.data.challenge.at - 48 * 3600_000) < 1000);
+
 /* ---------- Strava ---------- */
 
 r = await call('/api/strava/status', { token: selim.token });

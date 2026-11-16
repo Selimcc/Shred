@@ -3,11 +3,14 @@
 // sortie Strava, montre), pas au lancement de l'app.
 import { STEP_GOAL } from './health';
 import { dayKey } from './date';
-import { mealsCount, sessionFor } from './logic';
-import { type AppState, getState, subscribe } from './store';
+import { CHALLENGE_XP, mealsCount, sessionFor } from './logic';
+import { completeChallenges } from './club';
+import { DEMO } from './api';
+import { signedIn } from './session';
+import { type AppState, getState, setState, subscribe } from './store';
 import { e1rm } from './strength';
 
-export type MomentKind = 'session' | 'record' | 'habits' | 'steps' | 'post' | 'spark';
+export type MomentKind = 'session' | 'record' | 'habits' | 'steps' | 'post' | 'spark' | 'challenge';
 
 export interface Moment {
   id: number;
@@ -83,6 +86,17 @@ export function startMoments() {
         session.type === 'rest' ? 'Récup validée' : 'Séance validée',
         `${session.name}${session.lifting && sets ? `, ${sets} séries` : ''}. +50 XP${meals < s.settings.goal.minMeals ? ', note tes repas pour la flamme' : ''}`,
       );
+      // Une séance validée relève aussi les défis reçus encore ouverts.
+      if (DEMO || signedIn()) {
+        void completeChallenges()
+          .then((done) => {
+            if (!done.length) return;
+            setState((d) => void (d.club = { sparks: d.club?.sparks ?? 0, challenges: (d.club?.challenges ?? 0) + done.length }));
+            const who = done.map((c) => c.fromName).join(', ');
+            setTimeout(() => moment('challenge', done.length > 1 ? `${done.length} défis relevés` : 'Défi relevé', `${who} est prévenu. +${CHALLENGE_XP * done.length} XP`), 3600);
+          })
+          .catch(() => undefined);
+      }
     } else if (now.habits && !last.habits) {
       moment('habits', 'Habitudes du jour bouclées', `${s.habits.length} sur ${s.habits.length}, propre.`);
     } else if (now.steps && !last.steps) {

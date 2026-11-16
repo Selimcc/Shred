@@ -69,9 +69,37 @@ export interface Member {
   profile?: { streak?: number; best?: number; flames?: number; tier?: number; level?: number; program?: string; radar?: { id: string; name: string; short: string; grade: string | null; score: number | null }[] };
 }
 
+/** Défi entre membres : une séance à valider avant l'échéance. */
+export interface Challenge {
+  id: string;
+  from: string;
+  fromName: string;
+  to: string;
+  toName: string;
+  at: number;
+  due: number;
+  text?: string;
+  status: 'open' | 'done';
+  doneAt?: number;
+}
+
+export const CHALLENGE_DELAYS: { hours: number; label: string }[] = [
+  { hours: 24, label: '24 h' },
+  { hours: 48, label: '48 h' },
+  { hours: 168, label: '7 jours' },
+];
+
+/** « il reste 5 h », « il reste 2 j » : ce qu'il reste avant l'échéance. */
+export function timeLeft(due: number, now = Date.now()): string {
+  const h = Math.max(0, (due - now) / 3600_000);
+  if (h < 1) return `il reste ${Math.max(1, Math.round(h * 60))} min`;
+  if (h < 36) return `il reste ${Math.round(h)} h`;
+  return `il reste ${Math.round(h / 24)} j`;
+}
+
 export interface Notice {
   id: string;
-  type: 'mention' | 'comment' | 'spark' | 'follow';
+  type: 'mention' | 'comment' | 'spark' | 'follow' | 'challenge' | 'challengeDone';
   actor: string;
   actorName: string;
   post?: string;
@@ -232,7 +260,34 @@ export const club = {
   notices: () => (DEMO ? demo.notices() : api<{ notices: Notice[]; unread: number; readAt: number }>('/api/club/notifications')),
   read: () => (DEMO ? demo.read() : api('/api/club/notifications/read', { body: {} })),
   avatar: (photo: string | null) => (DEMO ? demo.setAvatar(photo) : api<{ avatar: string | null }>('/api/club/avatar', { method: 'PUT', body: { photo } })),
+  challenge: (to: string, hours: number, text: string) =>
+    DEMO ? demo.challenge(to, hours, text) : api<{ challenge: Challenge }>('/api/club/challenges', { body: { to, hours, text } }),
+  challenges: () => (DEMO ? demo.challenges() : api<{ challenges: Challenge[] }>('/api/club/challenges')),
+  challengeDone: (id: string) => (DEMO ? demo.challengeDone(id) : api<{ challenge: Challenge; already: boolean }>(`/api/club/challenges/${id}/done`, { body: {} })),
 };
+
+/**
+ * Séance validée : chaque défi reçu encore ouvert est relevé. Renvoie le nombre de défis relevés
+ * (le serveur ne compte un défi qu'une fois, même si deux téléphones l'envoient).
+ */
+export async function completeChallenges(): Promise<Challenge[]> {
+  if (!myId) myId = (await club.members()).members.find((m) => m.me)?.id ?? null;
+  const { challenges } = await club.challenges();
+  const now = Date.now();
+  const open = challenges.filter((c) => c.status === 'open' && c.due > now && c.to === myId);
+  const done: Challenge[] = [];
+  for (const c of open) {
+    const r = await club.challengeDone(c.id).catch(() => null);
+    if (r && !r.already) done.push(r.challenge);
+  }
+  return done;
+}
+
+let myId: string | null = null;
+/** Mon identifiant dans le club, appris en lisant la liste des membres. */
+export function rememberMe(id: string) {
+  myId = id;
+}
 
 /* ---------- Mentions ---------- */
 
@@ -325,6 +380,9 @@ const demo = (() => {
     { id: 'n2', type: 'follow', actor: 'm-camille', actorName: 'Camille', at: now - 30 * H },
   ];
   let readAt = now - 40 * H;
+  const challenges: Challenge[] = [
+    { id: 'c-camille', from: 'm-camille', fromName: 'Camille', to: me, toName: 'Toi', at: now - 3 * H, due: now + 21 * H, text: 'Une séance jambes avant demain soir ?', status: 'open' },
+  ];
   const images = new Map<string, string>();
   const view = (p: Stored): ClubPost => {
     const { sparksBy, ...rest } = p;
@@ -408,6 +466,20 @@ const demo = (() => {
     },
     rename: (name: string) => {
       members[0].name = name || 'Toi';
+    },
+    challenge: (to: string, hours: number, text: string) => {
+      const m = members.find((x) => x.id === to)!;
+      const c: Challenge = { id: `c-${Date.now()}`, from: me, fromName: members[0].name, to, toName: m.name, at: Date.now(), due: Date.now() + hours * H, status: 'open', ...(text ? { text } : {}) };
+      challenges.unshift(c);
+      return wait({ challenge: c });
+    },
+    challenges: () => wait({ challenges: challenges.map((c) => ({ ...c })) }),
+    challengeDone: (id: string) => {
+      const c = challenges.find((x) => x.id === id)!;
+      const already = c.status === 'done';
+      c.status = 'done';
+      c.doneAt = c.doneAt ?? Date.now();
+      return wait({ challenge: { ...c }, already });
     },
   };
 })();

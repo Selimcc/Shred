@@ -103,7 +103,7 @@ export function App() {
         {tab === 'today' && <Today today={today} go={go} openSettings={() => setSettings('menu')} />}
         {tab === 'workout' && <Workout today={today} editProgram={() => setSettings('program')} />}
         {tab === 'food' && <Food today={today} openCoach={() => go('coach')} />}
-        {tab === 'club' && <Club openSettings={() => setSettings('account')} compose={compose} onComposed={() => setCompose(null)} openPost={openPost} />}
+        {tab === 'club' && <Club openSettings={(p = 'account') => setSettings(p)} compose={compose} onComposed={() => setCompose(null)} openPost={openPost} />}
         {tab === 'coach' && <Coach today={today} onBack={() => go('today')} />}
         {tab === 'progress' && <Progress today={today} openSettings={(p = 'menu') => setSettings(p)} openCoach={() => go('coach')} />}
       </main>

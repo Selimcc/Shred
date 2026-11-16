@@ -217,7 +217,8 @@ export interface AppState {
   /** Strava relié : qui, et la dernière synchro. Les jetons restent sur le serveur. */
   strava?: { athlete?: string; connectedAt?: string; lastSync?: string };
   /** Club : étincelles reçues (elles comptent dans l'XP). */
-  club?: { sparks: number };
+  /** Étincelles reçues et défis relevés : ils rapportent de l'XP. */
+  club?: { sparks: number; challenges?: number };
   ui: {
     celebrated?: string;
     /** La mascotte a déjà apporté la première flamme. */

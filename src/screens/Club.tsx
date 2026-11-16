@@ -25,13 +25,19 @@ import {
   shareableDays,
   splitMentions,
   type Visibility,
+  type Challenge,
+  CHALLENGE_DELAYS,
+  rememberMe,
+  timeLeft,
 } from '../lib/club';
+import { Field } from '../components/form';
 import { dayKey, formatShort } from '../lib/date';
 import { prepareImage } from '../lib/image';
+import { AvatarCrop } from '../components/AvatarCrop';
 import { signedIn } from '../lib/session';
 import { getState, setState, useApp } from '../lib/store';
 import { moment } from '../lib/moments';
-import { SPARK_XP } from '../lib/logic';
+import { CHALLENGE_XP, SPARK_XP } from '../lib/logic';
 
 type View = 'feed' | 'following' | 'members';
 
@@ -78,7 +84,7 @@ export function MemberAvatar({ m, size = 40 }: { m: Pick<Member, 'id' | 'name' |
 
 /* ---------- Écran ---------- */
 
-export function Club({ openSettings, compose, onComposed, openPost }: { openSettings: () => void; compose?: string | null; onComposed: () => void; openPost?: string | null }) {
+export function Club({ openSettings, compose, onComposed, openPost }: { openSettings: (page?: 'account' | 'profile') => void; compose?: string | null; onComposed: () => void; openPost?: string | null }) {
   const s = useApp();
   const [view, setView] = useState<View>('feed');
   const [posts, setPosts] = useState<ClubPost[] | null>(null);
@@ -113,9 +119,10 @@ export function Club({ openSettings, compose, onComposed, openPost }: { openSett
       setNotices({ list: n.notices, unread: n.unread });
       // Les étincelles reçues deviennent de l'XP.
       const mine = m.members.find((x) => x.me);
+      if (mine) rememberMe(mine.id);
       const before = getState().club?.sparks;
       if (mine && mine.sparks !== (before ?? 0)) {
-        setState((d) => void (d.club = { sparks: mine.sparks }));
+        setState((d) => void (d.club = { ...d.club, sparks: mine.sparks }));
         const gained = mine.sparks - (before ?? 0);
         if (before !== undefined && gained > 0) moment('spark', `+${gained} étincelle${gained > 1 ? 's' : ''}`, `Le club salue tes séances : +${gained * SPARK_XP} XP`);
       }
@@ -156,7 +163,7 @@ export function Club({ openSettings, compose, onComposed, openPost }: { openSett
           <p className="small muted" style={{ margin: 0 }}>
             Le club réunit les membres de ton serveur Shred : vous partagez vos séances, vos photos, vous vous identifiez et vous vous envoyez des étincelles. Il faut un compte pour y entrer.
           </p>
-          <button className="btn primary" onClick={openSettings}>
+          <button className="btn primary" onClick={() => openSettings('account')}>
             Me connecter
           </button>
         </div>
@@ -200,6 +207,8 @@ export function Club({ openSettings, compose, onComposed, openPost }: { openSett
           </button>
         ))}
       </div>
+
+      {view !== 'members' && <ChallengeStrip me={members.find((x) => x.me)?.id ?? null} />}
 
       {error && (
         <div className="card stack" style={{ gap: 8 }}>
@@ -254,7 +263,7 @@ export function Club({ openSettings, compose, onComposed, openPost }: { openSett
         />
       )}
       {open && <PostSheet id={open} members={members} onClose={() => setOpen(null)} onChange={update} />}
-      {person && <MemberSheet m={person} onClose={() => setPerson(null)} onChange={(m) => setMembers((l) => l.map((x) => (x.id === m.id ? m : x)))} />}
+      {person && <MemberSheet m={person} onEdit={() => { setPerson(null); openSettings('profile'); }} onClose={() => setPerson(null)} onChange={(m) => setMembers((l) => l.map((x) => (x.id === m.id ? m : x)))} />}
       {showNotices && notices && (
         <NoticesSheet
           notices={notices.list}
@@ -832,7 +841,7 @@ function MemberList({ members, onOpen, onChange }: { members: Member[]; onOpen: 
   );
 }
 
-function MemberSheet({ m: initial, onClose, onChange }: { m: Member; onClose: () => void; onChange: (m: Member) => void }) {
+function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onClose: () => void; onChange: (m: Member) => void; onEdit: () => void }) {
   const [m, setM] = useState(initial);
   const [posts, setPosts] = useState<ClubPost[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -851,14 +860,18 @@ function MemberSheet({ m: initial, onClose, onChange }: { m: Member; onClose: ()
     ...(m.profile?.streak !== undefined ? [[m.profile.streak, 'série']] : []),
     ...(m.profile?.level !== undefined ? [[m.profile.level, 'niveau']] : []),
   ] as [number, string][];
-  const avatar = async (e: ChangeEvent<HTMLInputElement>) => {
+  const [crop, setCrop] = useState<File | null>(null);
+  const [challenge, setChallenge] = useState(false);
+  const avatar = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     e.target.value = '';
-    if (!f) return;
+    if (f) setCrop(f);
+  };
+  const upload = async (dataUrl: string) => {
     try {
-      const img = await prepareImage(f, 400, 0.85);
-      const r = await club.avatar(`data:image/jpeg;base64,${img.base64}`);
+      const r = await club.avatar(dataUrl);
       update({ ...m, avatar: r.avatar });
+      setCrop(null);
       toast('Photo de profil mise à jour');
     } catch (err) {
       toast(errorText(err), true);
@@ -877,12 +890,25 @@ function MemberSheet({ m: initial, onClose, onChange }: { m: Member; onClose: ()
             )}
           </button>
           <input ref={file} type="file" accept="image/*" hidden onChange={avatar} />
+          {crop && <AvatarCrop file={crop} onCancel={() => setCrop(null)} onDone={upload} />}
           <div className="grow" style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 850, fontSize: '1.3rem' }}>{m.name}</div>
             {m.profile?.program && <div className="small muted ellipsis">{m.profile.program}</div>}
           </div>
-          <FollowButton m={m} onChange={update} />
+          {m.me ? (
+            <button className="btn small" onClick={onEdit}>
+              Modifier
+            </button>
+          ) : (
+            <FollowButton m={m} onChange={update} />
+          )}
         </div>
+        {!m.me && (
+          <button className="btn block" onClick={() => setChallenge(true)}>
+            <Icon name="bolt" size={17} /> Défier {m.name}
+          </button>
+        )}
+        {challenge && <ChallengeSheet m={m} onClose={() => setChallenge(false)} />}
         <div className="member-stats" style={{ gridTemplateColumns: `repeat(${stats.length}, 1fr)` } as CSSProperties}>
           {stats.map(([v, label]) => (
             <div key={label}>
@@ -918,6 +944,8 @@ const NOTICE_TEXT: Record<Notice['type'], (n: Notice) => string> = {
   comment: (n) => `${n.actorName} a commenté ta séance${n.text ? ` : « ${n.text.slice(0, 70)} »` : ''}`,
   spark: (n) => `${n.actorName} t’a envoyé une étincelle pour ${n.text ? `« ${n.text.slice(0, 50)} »` : 'ta séance'} (+5 XP)`,
   follow: (n) => `${n.actorName} suit tes séances`,
+  challenge: (n) => `${n.actorName} te lance un défi${n.text ? ` : « ${n.text.slice(0, 70)} »` : ' : une séance avant la fin du délai'}`,
+  challengeDone: (n) => `${n.actorName} a relevé ton défi${n.text ? ` « ${n.text.slice(0, 50)} »` : ''}`,
 };
 
 function NoticesSheet({ notices, members, onClose, onOpen }: { notices: Notice[]; members: Member[]; onClose: () => void; onOpen: (n: Notice) => void }) {
@@ -932,7 +960,7 @@ function NoticesSheet({ notices, members, onClose, onOpen }: { notices: Notice[]
               <span className="notice-avatar">
                 <MemberAvatar m={members.find((m) => m.id === n.actor) ?? { id: n.actor, name: n.actorName, avatar: null }} size={38} />
                 <span className={`notice-kind ${n.type}`}>
-                  <Icon name={n.type === 'spark' ? 'spark' : n.type === 'follow' ? 'plus' : n.type === 'mention' ? 'at' : 'chat'} size={11} filled={n.type === 'spark'} />
+                  <Icon name={n.type === 'spark' ? 'spark' : n.type === 'follow' ? 'plus' : n.type === 'mention' ? 'at' : n.type === 'challenge' || n.type === 'challengeDone' ? 'bolt' : 'chat'} size={11} filled={n.type === 'spark'} />
                 </span>
               </span>
               <div className="grow" style={{ minWidth: 0 }}>
@@ -944,5 +972,98 @@ function NoticesSheet({ notices, members, onClose, onOpen }: { notices: Notice[]
         </div>
       )}
     </Sheet>
+  );
+}
+
+/* ---------- Défis ---------- */
+
+function ChallengeSheet({ m, onClose }: { m: Member; onClose: () => void }) {
+  const [hours, setHours] = useState(48);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  return (
+    <Sheet title={`Défier ${m.name}`} onClose={onClose}>
+      <div className="stack" style={{ gap: 16 }}>
+        <p className="small muted" style={{ margin: 0 }}>
+          {m.name} reçoit une notification. Le défi est relevé dès qu’une séance est validée dans le délai : +{CHALLENGE_XP} XP pour {m.name}, et tu es
+          prévenu.
+        </p>
+        <Field label="Délai">
+          <div className="chips" role="group" aria-label="Délai">
+            {CHALLENGE_DELAYS.map((d) => (
+              <button key={d.hours} type="button" className={`chip ${hours === d.hours ? 'on' : ''}`} onClick={() => setHours(d.hours)}>
+                {d.label}
+              </button>
+            ))}
+          </div>
+        </Field>
+        <Field label="Un mot (facultatif)">
+          <input className="input" value={text} maxLength={140} placeholder="Jambes avant jeudi ?" onChange={(e) => setText(e.target.value)} />
+        </Field>
+        <button
+          className="btn primary block"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await club.challenge(m.id, hours, text.trim());
+              toast(`Défi envoyé à ${m.name}`);
+              window.dispatchEvent(new Event('shred:challenges'));
+              onClose();
+            } catch (e) {
+              toast(errorText(e), true);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <Icon name="bolt" size={18} /> Lancer le défi
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+/** En haut du fil : les défis reçus en cours, ceux envoyés, et ceux relevés ces dernières 24 h. */
+function ChallengeStrip({ me }: { me: string | null }) {
+  const [list, setList] = useState<Challenge[]>([]);
+  useEffect(() => {
+    const load = () => club.challenges().then((r) => setList(r.challenges), () => undefined);
+    void load();
+    window.addEventListener('shred:challenges', load);
+    return () => window.removeEventListener('shred:challenges', load);
+  }, []);
+  const now = Date.now();
+  const shown = list.filter((c) => (c.status === 'open' && c.due > now) || (c.status === 'done' && (c.doneAt ?? 0) > now - 24 * 3600_000)).slice(0, 4);
+  if (!me || !shown.length) return null;
+  return (
+    <section className="challenges" aria-label="Défis">
+      {shown.map((c) => {
+        const received = c.to === me;
+        const done = c.status === 'done';
+        return (
+          <div key={c.id} className={`challenge ${received ? 'in' : 'out'} ${done ? 'done' : ''}`}>
+            <span className="challenge-icon">
+              <Icon name={done ? 'check' : 'bolt'} size={16} />
+            </span>
+            <div className="grow" style={{ minWidth: 0 }}>
+              <div className="small challenge-head">
+                <b className="ellipsis">
+                {done
+                  ? received
+                    ? `Défi de ${c.fromName} relevé`
+                    : `${c.toName} a relevé ton défi`
+                  : received
+                    ? `${c.fromName} te défie`
+                    : `Défi envoyé à ${c.toName}`}
+                </b>
+                {!done && <span className="faint">{timeLeft(c.due, now)}</span>}
+              </div>
+              <div className="small muted ellipsis">{c.text ? `« ${c.text} »` : 'Une séance avant la fin du délai'}</div>
+            </div>
+          </div>
+        );
+      })}
+    </section>
   );
 }

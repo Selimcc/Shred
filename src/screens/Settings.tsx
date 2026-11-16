@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { HABIT_ICONS, SLOTS } from '../../shared/program';
 import type { MealSlot } from '../../shared/types';
 import { DossierCard } from '../components/Dossier';
-import { type Athlete, EQUIPMENT, GYMS, sportLabel } from '../../shared/athlete';
+import { EQUIPMENT, GYMS, sportLabel } from '../../shared/athlete';
 import { missingEquipment } from '../../shared/plans';
-import { adaptCurrentProgram, applyProgram, applyTargets, lastWeight, programFor } from '../lib/coaching';
-import { BodyForm, DietForm, GymForm, SportForm } from './AthleteForms';
+import { adaptCurrentProgram, applyTargets } from '../lib/coaching';
+import { GymForm } from './AthleteForms';
 import { MealPlanner } from './MealPlanner';
 import { ladder, STREAK_GOALS } from '../lib/flames';
 import { publicData, publishProfile } from '../lib/profile';
@@ -37,6 +37,7 @@ import { HealthPage } from './HealthSetup';
 import { ProgramEditor } from './ProgramEditor';
 import { StravaPage } from './Connections';
 import { isNative } from '../lib/native';
+import { MyProfilePage } from './MyProfile';
 
 export type SettingsPage =
   | 'menu'
@@ -61,7 +62,7 @@ export type SettingsPage =
 
 const TITLES: Record<SettingsPage, string> = {
   menu: 'Réglages',
-  profile: 'Profil et coach',
+  profile: 'Mon profil',
   program: 'Mon programme',
   modules: 'Modules',
   goals: 'Objectifs',
@@ -73,7 +74,7 @@ const TITLES: Record<SettingsPage, string> = {
   account: 'Compte',
   testers: 'Testeurs',
   publicProfile: 'Profil public',
-  athlete: 'Profil sportif',
+  athlete: 'Mon profil',
   gym: 'Ma salle',
   mealplan: 'Meal plan',
   report: 'Bilan de la semaine',
@@ -145,7 +146,6 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
     {
       title: 'Entraînement',
       rows: [
-        { id: 'athlete', icon: 'user', sub: `${sportLabel(s.settings.athlete)}, ${s.settings.athlete.days} séances par semaine` },
         { id: 'program', icon: 'dumbbell', sub: s.program.name },
         { id: 'goals', icon: 'trophy', sub: `${WEIGHT_GOALS[s.settings.weightGoal].label}${mod.nutrition ? `, ${s.settings.targets.kcal} kcal` : ''}` },
         { id: 'gym', icon: 'wrench', sub: `${GYMS.find((g) => g.id === s.settings.gym.chain)?.name ?? 'Salle'}${s.settings.gym.club ? `, ${s.settings.gym.club}` : ''}` },
@@ -217,7 +217,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
             <span className="grow" style={{ minWidth: 0 }}>
               <span className="settings-me-name">{s.settings.name || 'Ton prénom'}</span>
               <span className="small muted ellipsis" style={{ display: 'block' }}>
-                {[s.settings.age && `${s.settings.age} ans`, s.settings.height && `${s.settings.height} cm`, 'notes pour le coach'].filter(Boolean).join(', ')}
+                Mon profil : {sportLabel(s.settings.athlete).toLowerCase()}, corps, alimentation, coach
               </span>
             </span>
             <Icon name="chevron" size={18} />
@@ -242,7 +242,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
         </div>
       )}
 
-      {page === 'profile' && <ProfilePage />}
+      {(page === 'profile' || page === 'athlete') && <MyProfilePage go={setPage} />}
       {page === 'program' && <ProgramEditor />}
       {page === 'modules' && <ModulesPage />}
       {page === 'goals' && <GoalsPage />}
@@ -254,7 +254,6 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
       {page === 'account' && <AccountPage onClose={onClose} />}
       {page === 'testers' && <TestersPage />}
       {page === 'publicProfile' && <PublicProfilePage />}
-      {page === 'athlete' && <AthletePage />}
       {page === 'gym' && <GymPage />}
       {page === 'mealplan' && <MealPlanner />}
       {page === 'report' && <ReportPage />}
@@ -265,35 +264,6 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
 }
 
 /* ---------- Pages ---------- */
-
-function ProfilePage() {
-  const s = useApp();
-  return (
-    <div className="stack">
-      <Field label="Prénom">
-        <input className="input" value={s.settings.name} onChange={(e) => setState((d) => void (d.settings.name = e.target.value.slice(0, 30)))} />
-      </Field>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Field label="Âge">
-          <NumberSetting value={s.settings.age} onChange={(v) => setState((d) => void (d.settings.age = v))} />
-        </Field>
-        <Field label="Taille (cm)">
-          <NumberSetting value={s.settings.height} onChange={(v) => setState((d) => void (d.settings.height = v))} />
-        </Field>
-      </div>
-      <Field label="Ce que le coach doit savoir sur toi">
-        <textarea
-          className="input"
-          rows={5}
-          style={{ resize: 'vertical' }}
-          placeholder="Objectif, sport à côté, aliments que tu n’aimes pas, budget, blessures…"
-          value={s.settings.coachNotes}
-          onChange={(e) => setState((d) => void (d.settings.coachNotes = e.target.value.slice(0, 1200)))}
-        />
-      </Field>
-    </div>
-  );
-}
 
 const PROFILE_FIELDS: { id: keyof PublicProfileSettings['show']; title: string; text: string }[] = [
   { id: 'streak', title: 'Série actuelle', text: 'Le nombre de jours validés d’affilée.' },
@@ -355,59 +325,6 @@ function PublicProfilePage() {
           </p>
         </>
       )}
-    </div>
-  );
-}
-
-function AthletePage() {
-  const s = useApp();
-  const weight = lastWeight(s);
-  const save = (a: Athlete) => setState((d) => void (d.settings.athlete = a));
-  return (
-    <div className="stack" style={{ gap: 22 }}>
-      <BodyForm
-        athlete={s.settings.athlete}
-        body={{ age: s.settings.age, height: s.settings.height, weight }}
-        onAthlete={save}
-        onBody={(b) =>
-          setState((d) => {
-            d.settings.age = b.age;
-            d.settings.height = b.height;
-            if (b.weight && b.weight !== weight) d.body.weight[dayKey()] = b.weight;
-          })
-        }
-      />
-      <section className="stack">
-        <h2>Sport et disponibilités</h2>
-        <SportForm athlete={s.settings.athlete} onAthlete={save} />
-      </section>
-      <section className="stack">
-        <h2>Alimentation</h2>
-        <DietForm diet={s.settings.athlete.diet} onDiet={(diet) => save({ ...s.settings.athlete, diet })} />
-      </section>
-      <section className="stack">
-        <h2>Mettre à jour</h2>
-        <button
-          className="btn block"
-          onClick={() => {
-            const plan = applyTargets();
-            toast(plan ? `Objectif : ${plan.targets.kcal} kcal, ${plan.targets.protein} g de protéines` : 'Indique ton âge, ta taille et ton poids', !plan);
-          }}
-        >
-          Recalculer mes calories
-        </button>
-        <button
-          className="btn block"
-          onClick={async () => {
-            const { program, swaps } = programFor(s.settings.athlete, s.settings.gym);
-            if (!(await ask(`Remplacer ton programme par « ${program.name} » ?${swaps.length ? ` ${swaps.length} exercice(s) adapté(s) à ta salle.` : ''} Ton historique est conservé.`, 'Remplacer', true))) return;
-            applyProgram(program);
-            toast(`Programme « ${program.name} » chargé`);
-          }}
-        >
-          Générer le programme de mon profil
-        </button>
-      </section>
     </div>
   );
 }

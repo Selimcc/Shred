@@ -52,7 +52,24 @@ export interface Comment {
   mentions: Mention[];
 }
 
-export type NoticeType = 'mention' | 'comment' | 'spark' | 'follow';
+export type NoticeType = 'mention' | 'comment' | 'spark' | 'follow' | 'challenge' | 'challengeDone';
+
+/** Un défi : « fais une séance avant telle heure ». Relevé quand la personne défiée valide une séance à temps. */
+export interface Challenge {
+  id: string;
+  from: string;
+  fromName: string;
+  to: string;
+  toName: string;
+  at: number;
+  due: number;
+  text?: string;
+  status: 'open' | 'done';
+  doneAt?: number;
+}
+
+/** Délais proposés, en heures. */
+export const CHALLENGE_HOURS = [24, 48, 168];
 
 export interface Notice {
   id: string;
@@ -309,6 +326,44 @@ export class Club {
         return out({ ok: true });
       }
 
+      case '/challenge': {
+        const c = b.challenge as Challenge;
+        if (c.to === viewer) return out({ error: 'challenge-self' });
+        const mine = await this.db.list<string>({ prefix: `chu:${viewer}:`, reverse: true, limit: 50 });
+        let open = 0;
+        for (const id of mine.values()) {
+          const x = await this.db.get<Challenge>(`ch:${id}`);
+          if (x && x.from === viewer && x.to === c.to && x.status === 'open' && x.due > Date.now()) open++;
+        }
+        if (open >= 2) return out({ error: 'challenge-many' });
+        await this.db.put(`ch:${c.id}`, c);
+        await this.db.put(`chu:${viewer}:${pad(c.at)}:${c.id}`, c.id);
+        await this.db.put(`chu:${c.to}:${pad(c.at)}:${c.id}`, c.id);
+        await this.notify(c.to, { type: 'challenge', actor: viewer, actorName: b.viewerName, text: c.text });
+        pushes.push({ user: c.to, title: `${b.viewerName} te lance un défi`, body: c.text || 'Une séance avant la fin du délai. Tu relèves ?', url: '/?tab=club' });
+        return out({ challenge: c });
+      }
+
+      case '/challenges': {
+        const ids = await this.db.list<string>({ prefix: `chu:${viewer}:`, reverse: true, limit: 30 });
+        const list = (await Promise.all([...ids.values()].map((id) => this.db.get<Challenge>(`ch:${id}`)))).filter((x): x is Challenge => Boolean(x));
+        return out({ challenges: list });
+      }
+
+      case '/challenge-done': {
+        const c = await this.db.get<Challenge>(`ch:${String(b.id)}`);
+        if (!c || c.to !== viewer) return out({ error: 'challenge-missing' });
+        if (c.status === 'done') return out({ challenge: c, already: true });
+        const now = Date.now();
+        if (now > c.due) return out({ error: 'challenge-expired' });
+        c.status = 'done';
+        c.doneAt = now;
+        await this.db.put(`ch:${c.id}`, c);
+        await this.notify(c.from, { type: 'challengeDone', actor: viewer, actorName: b.viewerName, text: c.text });
+        pushes.push({ user: c.from, title: `${b.viewerName} a relevé ton défi`, body: 'Séance validée dans les temps.', url: '/?tab=club' });
+        return out({ challenge: c });
+      }
+
       case '/forget': {
         // Compte supprimé : ses publications, commentaires et abonnements partent avec lui.
         const all = await this.db.list<Post>({ prefix: 'p:' });
@@ -319,6 +374,8 @@ export class Club {
           const comments = await this.db.list({ prefix: `c:${p.id}:` });
           await this.db.delete([key, `pid:${p.id}`, ...comments.keys()]);
         }
+        const challenges = await this.db.list<string>({ prefix: `chu:${viewer}:` });
+        await this.db.delete([...challenges.keys(), ...[...challenges.values()].map((id) => `ch:${id}`)]);
         await this.db.delete([`f:${viewer}`, `fb:${viewer}`, `count:${viewer}`, `nr:${viewer}`, `sp:${viewer}`]);
         return out({ ok: true, photos });
       }
@@ -343,6 +400,10 @@ async function callClub<T>(env: Env, user: User, path: string, body: Record<stri
   if (data.error === 'not-found') throw new HttpError(404, 'Publication introuvable');
   if (data.error === 'forbidden') throw new HttpError(403, 'Tu ne peux pas supprimer ça');
   if (data.error === 'self') throw new HttpError(400, 'Pas d’étincelle pour soi-même');
+  if (data.error === 'challenge-self') throw new HttpError(400, 'Pas de défi à soi-même');
+  if (data.error === 'challenge-many') throw new HttpError(429, 'Déjà deux défis en cours pour cette personne : attends qu’elle les relève');
+  if (data.error === 'challenge-missing') throw new HttpError(404, 'Défi introuvable');
+  if (data.error === 'challenge-expired') throw new HttpError(410, 'Défi expiré');
   if (data.error) throw new HttpError(400, data.error);
   return data;
 }
@@ -514,6 +575,30 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
     const data = await callClub<{ following: boolean }>(env, user, '/follow', { target: follow[1] });
     await later(data.pushes);
     return json({ following: data.following });
+  }
+
+  if (pathname === '/api/club/challenges' && method === 'POST') {
+    const b = await readJson<{ to?: string; hours?: number; text?: string }>(req, 5_000);
+    const to = String(b.to ?? '');
+    const target = /^[A-Za-z0-9_-]{6,64}$/.test(to) ? await getAccount(env, to) : null;
+    if (!target) throw new HttpError(404, 'Membre introuvable');
+    const hours = CHALLENGE_HOURS.includes(Number(b.hours)) ? Number(b.hours) : 48;
+    const at = Date.now();
+    const text = str(b.text, 140);
+    const challenge: Challenge = { id: rid(), from: user.id, fromName: user.name, to: target.id, toName: target.name, at, due: at + hours * 3600_000, status: 'open', ...(text ? { text } : {}) };
+    const data = await callClub<{ challenge?: Challenge }>(env, user, '/challenge', { challenge });
+    await later(data.pushes);
+    return json({ challenge: data.challenge });
+  }
+  if (pathname === '/api/club/challenges' && method === 'GET') {
+    const data = await callClub<{ challenges: Challenge[] }>(env, user, '/challenges');
+    return json({ challenges: data.challenges });
+  }
+  const chDone = pathname.match(/^\/api\/club\/challenges\/([a-f0-9]{24})\/done$/);
+  if (chDone && method === 'POST') {
+    const data = await callClub<{ challenge?: Challenge; already?: boolean }>(env, user, '/challenge-done', { id: chDone[1] });
+    await later(data.pushes);
+    return json({ challenge: data.challenge, already: Boolean(data.already) });
   }
 
   if (pathname === '/api/club/notifications' && method === 'GET') {

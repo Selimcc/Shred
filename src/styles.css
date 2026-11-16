@@ -3371,6 +3371,121 @@ span.roll.roll {
   color: var(--on-accent);
   box-shadow: 0 0 0 3px var(--surface);
 }
+.profile-name {
+  font-weight: 850;
+  font-size: 1.3rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-part + .profile-part::before,
+.profile-part + .row::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 0;
+  border-top: 1px solid var(--line);
+}
+.profile-part {
+  position: relative;
+}
+.profile-chevron {
+  display: inline-grid;
+  color: var(--ink-3);
+  transition: transform 0.2s var(--ease);
+}
+.profile-part.open .profile-chevron {
+  transform: rotate(90deg);
+}
+.profile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 2px 16px 18px;
+}
+.profile-part.open {
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+}
+
+.crop-view {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #000;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  display: grid;
+  place-items: center;
+  cursor: grab;
+}
+.crop-view img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: none;
+  pointer-events: none;
+}
+.crop-mask {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.58);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+.crop-zoom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 280px;
+}
+.crop-zoom input {
+  flex: 1;
+  accent-color: var(--amber);
+}
+.challenges {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.challenge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.challenge.in:not(.done) {
+  border-color: color-mix(in srgb, var(--amber) 55%, var(--line));
+  background: color-mix(in srgb, var(--amber) 9%, var(--surface));
+}
+.challenge-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.challenge-head span {
+  flex: none;
+}
+.challenge-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--amber);
+}
+.challenge.done .challenge-icon {
+  color: var(--green, #4ade80);
+}
+
 .member-stats {
   display: grid;
   gap: 8px;
