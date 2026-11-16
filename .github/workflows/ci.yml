@@ -1,7 +1,8 @@
-name: CI/CD
+name: CI
 
 # Every push and pull request is checked (types, tests, production build, Worker bundle).
-# A push to main that passes the checks is deployed to Cloudflare automatically.
+# Deployment is done by Cloudflare itself (Workers Builds, connected to this repository):
+# after a push to main, the live job waits until the app reports the new version.
 
 on:
   push:
@@ -41,55 +42,23 @@ jobs:
           path: dist
           retention-days: 7
 
-  deploy:
-    name: Deploy to Cloudflare
+  live:
+    name: Live version check
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment:
-      name: production
-      url: ${{ steps.deploy.outputs.deployment-url }}
-    concurrency:
-      group: deploy-production
-      cancel-in-progress: false
+    timeout-minutes: 12
     env:
-      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+      APP_URL: ${{ vars.APP_URL || 'https://shred.shredded.workers.dev' }}
     steps:
-      - name: Cloudflare credentials
-        if: env.HAS_TOKEN != 'true'
-        run: |
-          echo "::warning title=Deploy skipped::Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in Settings > Secrets and variables > Actions to deploy automatically."
       - uses: actions/checkout@v4
-        if: env.HAS_TOKEN == 'true'
-      - uses: actions/setup-node@v4
-        if: env.HAS_TOKEN == 'true'
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-        if: env.HAS_TOKEN == 'true'
-      - uses: actions/download-artifact@v4
-        if: env.HAS_TOKEN == 'true'
-        with:
-          name: dist
-          path: dist
-      - name: wrangler deploy
-        id: deploy
-        if: env.HAS_TOKEN == 'true'
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-      - name: Smoke test
-        if: env.HAS_TOKEN == 'true' && steps.deploy.outputs.deployment-url != ''
+      - name: Wait for Cloudflare to serve this version
         run: |
-          url="${{ steps.deploy.outputs.deployment-url }}"
           expected=$(node -p "require('./package.json').version")
-          for i in 1 2 3 4 5 6; do
-            got=$(curl -fsS "$url/api/version" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).version)}catch{console.log('')}})" || true)
-            if [ "$got" = "$expected" ]; then echo "Live: $url (v$got)"; exit 0; fi
-            echo "Waiting for v$expected (got '$got')"; sleep 5
+          for i in $(seq 1 40); do
+            got=$(curl -fsS "$APP_URL/api/version" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).version)}catch{console.log('')}})" || true)
+            if [ "$got" = "$expected" ]; then echo "Live: $APP_URL (v$got)"; exit 0; fi
+            echo "Waiting for v$expected (got '$got')"; sleep 15
           done
-          echo "::error::$url/api/version does not report v$expected"; exit 1
+          echo "::error::$APP_URL/api/version still does not report v$expected. Check the build in Cloudflare > Workers & Pages > shred > Deployments."
+          exit 1

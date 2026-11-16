@@ -88,16 +88,11 @@ On iPhone, add the app to the home screen from Safari and open it from the icon 
 
 ### Continuous deployment
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request: `npm ci`, typecheck, the test suites, the production and demo builds, and a `wrangler deploy --dry-run` of the Worker. When a push to `main` passes, the `deploy` job uploads the built app with `wrangler deploy` and checks that `/api/version` reports the new version.
+The Worker is connected to this repository with Cloudflare Workers Builds (Workers & Pages > shred > Settings > Builds): every push to `main` is built with `npm run build` and deployed with `npx wrangler deploy`, with no token stored in GitHub. The Worker must keep the name `shred`, as in `wrangler.jsonc`.
 
-It needs two repository secrets (Settings > Secrets and variables > Actions):
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request: `npm ci`, typecheck, the test suites, the production and demo builds, and a `wrangler deploy --dry-run` of the Worker. After a push to `main`, the `live` job waits until `/api/version` reports the new version (the address comes from the `APP_URL` repository variable, `https://shred.shredded.workers.dev` by default).
 
-| Secret | Where to get it |
-| --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard > My Profile > API Tokens > Create Token > "Edit Cloudflare Workers" template |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard > Workers & Pages, right column |
-
-Without them the checks still run and the deploy job is skipped with a warning. Worker secrets (`ANTHROPIC_API_KEY`, VAPID keys, `ADMIN_CODE`) stay on Cloudflare and are not needed in GitHub. The pipeline can also be started by hand from the Actions tab (`workflow_dispatch`).
+Worker secrets (`ANTHROPIC_API_KEY`, VAPID keys, `ADMIN_CODE`) stay on Cloudflare (`npm run setup`, or Settings > Variables and Secrets) and are kept from one deployment to the next.
 
 **Cost:** Cloudflare's free tier covers about 20 active users. A meal photo analysis costs under one cent and a coach message a fraction of a cent. `DAILY_AI_LIMIT` and `GUEST_AI_LIMIT` cap AI requests per day.
 
