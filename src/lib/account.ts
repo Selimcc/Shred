@@ -96,6 +96,21 @@ export async function changePassword(current: string, next: string) {
 }
 
 /**
+ * Changer l'email de connexion. Les clés viennent du mot de passe et de l'email : on calcule les deux
+ * (ancien et nouvel email), le serveur vérifie l'ancienne, puis la sauvegarde est rechiffrée.
+ */
+export async function changeEmail(email: string, password: string) {
+  const acc = getSession().account;
+  if (!acc) throw new Error('Pas de compte connecté');
+  const next = normEmail(email);
+  if (next === normEmail(acc.email)) throw new Error('C’est déjà ton email');
+  const [cur, nxt] = await Promise.all([deriveKeys(acc.email, password), deriveKeys(next, password)]);
+  const res = await api<AuthResult>('/api/account/email', { body: { email: next, current: cur.auth, next: nxt.auth } });
+  setSession((s) => ({ ...s, account: { ...acc, email: res.user.email, token: storedToken(res.token, isNative()), dataKey: nxt.data, expired: false } }));
+  await uploadBackup(true);
+}
+
+/**
  * Déconnexion : dernière sauvegarde, arrêt des notifications de ce téléphone, puis tout est effacé ici.
  * Les données restent sur le compte.
  */

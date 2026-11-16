@@ -4,7 +4,8 @@
 // Ce qui est gardé dans la base KV :
 //   acct:<id>          le compte : email, prénom, rôle, empreinte du mot de passe (jamais le mot de passe)
 //   email:<sha256>     email → identifiant
-//   idx:users          liste des comptes (pour les rappels et la page Testeurs)
+//   idx:users          liste des comptes (pour les rappels et la page Testeurs), avec pseudo, surnom et bio
+//   handle:<pseudo>    @pseudo → identifiant ; hold:<pseudo> ancien pseudo réservé 14 jours
 //   sess:<sha256>      sessions ouvertes (on ne garde que l'empreinte du jeton), expirent seules
 //   dkey:<sha256>      clé des Raccourcis iPhone → identifiant
 //   inv:<code>         invitations en attente, rst:<code> codes de réinitialisation
@@ -35,6 +36,12 @@ export interface Account {
   createdAt: string;
   /** Empreinte de la clé des Raccourcis iPhone, s'il y en a une. */
   deviceKey?: string;
+  /** @pseudo unique (voir identity.ts), surnom et bio, visibles des autres membres. */
+  handle?: string;
+  nick?: string;
+  bio?: string;
+  /** Dates des derniers changements de pseudo (limite : 2 par 14 jours). */
+  handleChanges?: string[];
 }
 
 export interface IndexEntry {
@@ -43,6 +50,9 @@ export interface IndexEntry {
   email: string;
   role: Role;
   createdAt: string;
+  handle?: string;
+  nick?: string;
+  bio?: string;
 }
 
 export interface User {
@@ -101,7 +111,16 @@ export async function saveIndex(env: Env, entries: IndexEntry[]) {
   await env.KV.put('idx:users', JSON.stringify(await Promise.all(entries.map(async (e) => ({ ...e, email: await seal(env, e.email) })))));
 }
 
-export const indexEntry = (a: Account): IndexEntry => ({ id: a.id, name: a.name, email: a.email, role: a.role, createdAt: a.createdAt });
+export const indexEntry = (a: Account): IndexEntry => ({
+  id: a.id,
+  name: a.name,
+  email: a.email,
+  role: a.role,
+  createdAt: a.createdAt,
+  ...(a.handle ? { handle: a.handle } : {}),
+  ...(a.nick ? { nick: a.nick } : {}),
+  ...(a.bio ? { bio: a.bio } : {}),
+});
 
 /** Rattrape un compte absent de l'index (deux inscriptions à la même seconde). */
 export async function ensureIndexed(env: Env, id: string) {

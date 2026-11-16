@@ -4477,3 +4477,84 @@ span.roll.roll {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ---------- Identité : @pseudo vérifié en direct, surnom et bio ---------- */
+
+.handle-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.handle-input > span[aria-hidden] {
+  position: absolute;
+  left: 14px;
+  color: var(--ink-3);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.handle-input .input {
+  padding-left: 32px;
+  padding-right: 40px;
+}
+
+.handle-input.ok .input {
+  border-color: var(--green);
+}
+
+.handle-input.bad .input {
+  border-color: var(--red);
+}
+
+.handle-input > svg {
+  position: absolute;
+  right: 14px;
+  color: var(--green);
+}
+
+.handle-spin {
+  position: absolute;
+  right: 14px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--surface-3);
+  border-top-color: var(--ink);
+  animation: spin 0.8s linear infinite;
+}
+
+.handle-status {
+  margin-top: -8px;
+  min-height: 1.3em;
+}
+
+.handle-status .ok {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.handle-status .bad {
+  color: var(--red);
+  font-weight: 700;
+}
+
+.member-handle {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+
+.member-nick {
+  font-style: italic;
+}
+
+.member-bio {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.member-search {
+  margin-bottom: 10px;
+}

@@ -4,6 +4,7 @@
 // chacun choisit ce qu'il publie, séance par séance.
 import { sanitizeTrack, type Track } from './places';
 import { capDaily } from './usage';
+import { ensureHandles } from './identity';
 import { type Env, HttpError, json, readJson } from './env';
 import { vapidFromEnv } from './reminders';
 import { getAccount, listAccounts, loadJson, type User, userStore } from './users';
@@ -589,7 +590,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
   }
 
   if (pathname === '/api/club/members' && method === 'GET') {
-    const accounts = await listAccounts(env);
+    const accounts = await ensureHandles(env, await listAccounts(env));
     const data = await callClub<{ following: string[]; rows: { id: string; followers: number; posts: number; sparks: number }[] }>(env, user, '/social', { ids: accounts.map((a) => a.id) });
     const avatars = await Promise.all(accounts.map((a) => userStore(env.KV, a.id).get('avatar')));
     const profiles = await Promise.all(accounts.map((a) => loadJson<{ visible: boolean; data?: Record<string, unknown> }>(env.KV, `u:${a.id}:profile`)));
@@ -599,6 +600,9 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
       return {
         id: a.id,
         name: a.name,
+        handle: a.handle ?? null,
+        ...(a.nick ? { nick: a.nick } : {}),
+        ...(a.bio ? { bio: a.bio } : {}),
         me: a.id === user.id,
         following: data.following.includes(a.id),
         followers: row?.followers ?? 0,

@@ -1,4 +1,5 @@
 // Accueil : créer son compte avec une invitation, se connecter, ou retrouver l'accès avec un code.
+import { emailSuggestion } from '../../shared/email-typo';
 import { type FormEvent, useState } from 'react';
 import { Field, PasswordInput } from '../components/form';
 import { Icon } from '../components/Icon';
@@ -128,6 +129,11 @@ export function Welcome({ expired }: { expired?: Account }) {
               onChange={(e) => setEmail(e.target.value)}
             />
           </Field>
+          {mode === 'register' && emailSuggestion(email) && (
+            <button type="button" className="link small" style={{ alignSelf: 'flex-start', marginTop: -6 }} onClick={() => setEmail(emailSuggestion(email)!)}>
+              Tu voulais dire <b>{emailSuggestion(email)}</b> ?
+            </button>
+          )}
           {mode === 'reset' && (
             <Field label="Code de réinitialisation">
               <input className="input" autoCapitalize="characters" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} />

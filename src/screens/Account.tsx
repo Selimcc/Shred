@@ -1,9 +1,10 @@
 // Réglages, Compte (pour tout le monde) et Réglages, Testeurs (pour l'administrateur).
 import { type FormEvent, useEffect, useState } from 'react';
+import { emailSuggestion } from '../../shared/email-typo';
 import { copyText, Field, PasswordInput } from '../components/form';
 import { Icon } from '../components/Icon';
 import { ask, errorText, toast } from '../components/ui';
-import { changePassword, deleteAccount, leaveLocalMode, logout } from '../lib/account';
+import { changeEmail, changePassword, deleteAccount, leaveLocalMode, logout } from '../lib/account';
 import { api, type Health } from '../lib/api';
 import { hasUnsaved, uploadBackup } from '../lib/backup';
 import { dayKey, formatShort } from '../lib/date';
@@ -30,7 +31,8 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
   const acc = session.account;
   const [busy, setBusy] = useState<string | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
-  const [panel, setPanel] = useState<'password' | 'delete' | null>(null);
+  const [panel, setPanel] = useState<'password' | 'email' | 'delete' | null>(null);
+  const [email, setEmail] = useState('');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
 
@@ -69,6 +71,17 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
       setNext('');
       setPanel(null);
       toast('Mot de passe changé, sauvegarde rechiffrée');
+    });
+  };
+
+  const submitEmail = (e: FormEvent) => {
+    e.preventDefault();
+    void run('email', async () => {
+      await changeEmail(email, current);
+      setCurrent('');
+      setEmail('');
+      setPanel(null);
+      toast('Email changé : connecte-toi désormais avec celui-ci');
     });
   };
 
@@ -161,7 +174,32 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
           <button className="btn" style={{ flex: 1 }} onClick={() => setPanel(panel === 'password' ? null : 'password')}>
             Changer le mot de passe
           </button>
+          <button className="btn" style={{ flex: 1 }} onClick={() => setPanel(panel === 'email' ? null : 'email')}>
+            Changer l’email
+          </button>
         </div>
+        {panel === 'email' && (
+          <form className="stack card" onSubmit={submitEmail}>
+            <p className="small muted" style={{ margin: 0 }}>
+              Faute de frappe à l’inscription, nouvelle adresse : c’est avec cet email que tu te connecteras. S’il est déjà utilisé par un autre compte, il
+              faudra en choisir un autre. Tes autres appareils seront déconnectés.
+            </p>
+            <Field label="Nouvel email">
+              <input className="input" type="email" inputMode="email" autoComplete="email" autoCapitalize="off" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} placeholder={acc.email} />
+            </Field>
+            {emailSuggestion(email) && (
+              <button type="button" className="link small" style={{ alignSelf: 'flex-start', marginTop: -6 }} onClick={() => setEmail(emailSuggestion(email)!)}>
+                Tu voulais dire <b>{emailSuggestion(email)}</b> ?
+              </button>
+            )}
+            <Field label="Mot de passe">
+              <PasswordInput label="Mot de passe pour confirmer" value={current} onChange={setCurrent} autoComplete="current-password" />
+            </Field>
+            <button className="btn primary block" disabled={busy === 'email' || !email.includes('@') || !current}>
+              {busy === 'email' ? 'Sécurisation…' : 'Changer l’email'}
+            </button>
+          </form>
+        )}
         {panel === 'password' && (
           <form className="stack card" onSubmit={submitPassword}>
             <Field label="Mot de passe actuel">

@@ -1,9 +1,10 @@
 // Mon profil : un seul endroit pour qui tu es (photo, prénom, corps), ton sport, ton alimentation et ce que
 // le coach doit savoir. En haut, ce que les autres voient de toi : niveau, série, étincelles, fiche de force.
-import { type ChangeEvent, useRef, useState } from 'react';
+import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 import { type Athlete, ACTIVITIES, sportLabel } from '../../shared/athlete';
 import { AvatarCrop } from '../components/AvatarCrop';
 import { Field } from '../components/form';
+import { IdentityForm } from '../components/IdentityForm';
 import { Icon } from '../components/Icon';
 import { Radar } from '../components/Radar';
 import { RollingNumber } from '../components/RollingNumber';
@@ -11,6 +12,7 @@ import { ask, errorText, toast } from '../components/ui';
 import { DEMO } from '../lib/api';
 import { club } from '../lib/club';
 import { setMe, useMe } from '../lib/me';
+import { getIdentity, type Identity } from '../lib/identity';
 import { applyProgram, applyTargets, lastWeight, programFor } from '../lib/coaching';
 import { dayKey, formatNumber } from '../lib/date';
 import { flameInfo } from '../lib/flames';
@@ -24,7 +26,7 @@ import type { SettingsPage } from './Settings';
 
 const LEVELS: Record<Athlete['experience'], string> = { beginner: 'débutant', intermediate: 'intermédiaire', advanced: 'confirmé' };
 
-type Part = 'me' | 'sport' | 'food' | 'coach';
+type Part = 'id' | 'me' | 'sport' | 'food' | 'coach';
 
 function Section({ id, open, onToggle, icon, title, sub, children }: { id: Part; open: boolean; onToggle: (id: Part) => void; icon: string; title: string; sub: string; children: React.ReactNode }) {
   return (
@@ -55,7 +57,12 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
   const me = useMe();
   const file = useRef<HTMLInputElement>(null);
   const canPhoto = DEMO || signedIn();
-
+  // Pseudo, surnom et bio n'existent qu'avec un compte (le club n'est pas dans la démo publique).
+  const social = !DEMO && signedIn();
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  useEffect(() => {
+    if (social) getIdentity().then(setIdentity, () => undefined);
+  }, [social]);
 
   const saveAthlete = (x: Athlete) => setState((d) => void (d.settings.athlete = x));
   const toggle = (id: Part) => setOpen((o) => (o === id ? null : id));
@@ -129,11 +136,18 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
         {crop && <AvatarCrop file={crop} onCancel={() => setCrop(null)} onDone={upload} />}
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="profile-name">{s.settings.name || 'Ton prénom'}</div>
+          {identity?.handle && (
+            <div className="small ellipsis">
+              <span className="member-handle">@{identity.handle}</span>
+              {identity.nick && <span className="member-nick muted">, {identity.nick}</span>}
+            </div>
+          )}
           <div className="small muted ellipsis">
             {sportLabel(a)}, {LEVELS[a.experience]}
           </div>
         </div>
       </div>
+      {identity?.bio && <p className="member-bio small">{identity.bio}</p>}
 
       <div className="member-stats" style={{ gridTemplateColumns: `repeat(${stats.length}, 1fr)` }}>
         {stats.map(([v, label]) => (
@@ -147,10 +161,24 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
       </div>
 
       <div className="group">
+        {social && (
+          <Section
+            id="id"
+            open={open === 'id'}
+            onToggle={toggle}
+            icon="at"
+            title="Nom d’utilisateur, surnom et bio"
+            sub={identity ? [`@${identity.handle}`, identity.nick, identity.bio ? 'bio' : 'sans bio'].filter(Boolean).join(', ') : 'Ce que le club voit de toi'}
+          >
+            <IdentityForm onSaved={setIdentity} />
+          </Section>
+        )}
         <Section id="me" open={open === 'me'} onToggle={toggle} icon="user" title="Moi" sub={[s.settings.name || 'Prénom à renseigner', ...body].join(', ')}>
-          <Field label="Prénom">
-            <input className="input" value={s.settings.name} placeholder="Ton prénom" onChange={(e) => setState((x) => void (x.settings.name = e.target.value.slice(0, 30)))} />
-          </Field>
+          {!social && (
+            <Field label="Prénom">
+              <input className="input" value={s.settings.name} placeholder="Ton prénom" onChange={(e) => setState((x) => void (x.settings.name = e.target.value.slice(0, 30)))} />
+            </Field>
+          )}
           <BodyForm
             athlete={a}
             body={{ age: s.settings.age, height: s.settings.height, weight }}

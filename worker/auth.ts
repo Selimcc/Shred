@@ -5,7 +5,8 @@
 // Une seconde clé, dérivée elle aussi du mot de passe, chiffre la sauvegarde sur le téléphone :
 // le serveur (et l'administrateur) ne peuvent pas lire les séances et les repas sauvegardés.
 import { SESSION_COOKIE, writeAccount } from './users';
-import { counters } from './usage';
+import { capDaily, counters } from './usage';
+import { freeHandle, releaseHandle } from './identity';
 import { forgetMember } from './club';
 import { type Env, HttpError, json, readJson } from './env';
 import { disconnectStrava } from './strava';
@@ -202,6 +203,7 @@ async function accountByEmail(env: Env, email: string): Promise<Account | null> 
 /** Efface un compte et toutes ses données (clés u:<id>:…), y compris ses publications du club et Strava. */
 export async function purgeAccount(env: Env, acct: Account) {
   await forgetMember(env, acct).catch(() => undefined);
+  await releaseHandle(env, acct).catch(() => undefined);
   await disconnectStrava(env, userStore(env.KV, acct.id)).catch(() => undefined);
   let cursor: string | undefined;
   do {
@@ -279,9 +281,12 @@ export async function authRoutes(req: Request, env: Env, pathname: string): Prom
       createdAt: new Date().toISOString(),
     };
     await setPassword(acct, key);
+    const others = await listAccounts(env);
+    // Un @pseudo libre tiré du prénom, que la personne peut changer ensuite dans son profil.
+    acct.handle = await freeHandle(env, name, acct.id, others);
     await saveAccount(env, acct);
-    await env.KV.put(`email:${await sha256hex(email)}`, acct.id);
-    await saveIndex(env, [...(await listAccounts(env)), indexEntry(acct)]);
+    await Promise.all([env.KV.put(`email:${await sha256hex(email)}`, acct.id), env.KV.put(`handle:${acct.handle}`, acct.id)]);
+    await saveIndex(env, [...others, indexEntry(acct)]);
     if (inviteKey && invite) {
       // Personnelle : elle disparaît. De groupe : une place de moins, jusqu'à la dernière.
       invite.uses += 1;
@@ -376,6 +381,39 @@ export async function accountRoutes(req: Request, env: Env, user: User, pathname
     await setPassword(acct, authKey(b.next));
     acct.epoch += 1;
     await saveAccount(env, acct);
+    {
+      const opened = await openSession(env, acct);
+      return withCookie(json(opened), opened.token);
+    }
+  }
+
+  if (pathname === '/api/account/email' && method === 'POST') {
+    // Changer l'email de connexion (faute de frappe à l'inscription…). Les clés dérivées du mot de passe
+    // dépendent de l'email : l'app envoie la clé actuelle (ancien email) et la nouvelle (nouvel email), puis
+    // rechiffre la sauvegarde. Les autres sessions sont fermées.
+    const b = await readJson<{ email?: string; current?: string; next?: string }>(req, 2_000);
+    const acct = await getAccount(env, user.id);
+    if (!acct) throw new HttpError(404, 'Compte introuvable');
+    const email = normEmail(b.email);
+    if (email === acct.email) throw new HttpError(400, 'C’est déjà ton email');
+    await guard(env, [`pw:${user.id}`], 10);
+    if (!(await checkPassword(acct, authKey(b.current)))) {
+      await strike(env, [`pw:${user.id}`]);
+      throw new HttpError(403, 'Mot de passe incorrect');
+    }
+    await capDaily(env, user.id, 'email');
+    const hash = await sha256hex(email);
+    if (!(await counters.once(env, `claim-email:${hash}`, 30)) || (await env.KV.get(`email:${hash}`))) {
+      throw new HttpError(409, 'Cet email est déjà utilisé par un autre compte');
+    }
+    const oldHash = await sha256hex(acct.email);
+    acct.email = email;
+    await setPassword(acct, authKey(b.next));
+    acct.epoch += 1;
+    await saveAccount(env, acct);
+    await env.KV.put(`email:${hash}`, acct.id);
+    await env.KV.delete(`email:${oldHash}`);
+    await saveIndex(env, (await listAccounts(env)).map((u) => (u.id === acct.id ? indexEntry(acct) : u)));
     {
       const opened = await openSession(env, acct);
       return withCookie(json(opened), opened.token);

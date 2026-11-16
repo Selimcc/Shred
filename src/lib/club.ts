@@ -62,6 +62,11 @@ export interface ClubComment {
 export interface Member {
   id: string;
   name: string;
+  /** @pseudo unique, sans le @. */
+  handle?: string | null;
+  /** Surnom et bio, facultatifs. */
+  nick?: string;
+  bio?: string;
   me: boolean;
   following: boolean;
   followers: number;
@@ -305,7 +310,7 @@ export function mentionQuery(text: string, caret: number): { start: number; quer
 
 export function matchMembers(members: Member[], query: string): Member[] {
   const q = fold(query);
-  return members.filter((m) => !m.me && fold(m.name).startsWith(q)).slice(0, 5);
+  return members.filter((m) => !m.me && [m.name, m.handle, m.nick].some((x) => x && fold(x).startsWith(q))).slice(0, 5);
 }
 
 /** Les mentions encore présentes dans le texte au moment d'envoyer. */
@@ -334,11 +339,11 @@ const demo = (() => {
   const now = Date.now();
   const me = 'demo';
   const members: Member[] = [
-    { id: me, name: 'Toi', me: true, following: false, followers: 3, posts: 0, sparks: 0, avatar: null },
-    { id: 'm-camille', name: 'Camille', me: false, following: true, followers: 4, posts: 12, sparks: 61, avatar: null, profile: { streak: 41, best: 41, tier: 3, level: 9, program: 'Semi-marathon du 22 mars' } },
-    { id: 'm-yanis', name: 'Yanis', me: false, following: true, followers: 3, posts: 9, sparks: 44, avatar: null, profile: { streak: 17, best: 29, tier: 2, level: 7, program: 'PPL + Upper/Lower' } },
-    { id: 'm-ines', name: 'Inès', me: false, following: false, followers: 2, posts: 6, sparks: 23, avatar: null, profile: { streak: 8, best: 22, tier: 1, level: 5, program: 'Bloc natation' } },
-    { id: 'm-leo', name: 'Léo', me: false, following: false, followers: 2, posts: 7, sparks: 19, avatar: null, profile: { streak: 3, best: 14, tier: 1, level: 4, program: 'Cyclosportive 160 km' } },
+    { id: me, name: 'Toi', handle: 'toi', me: true, following: false, followers: 3, posts: 0, sparks: 0, avatar: null },
+    { id: 'm-camille', name: 'Camille', handle: 'camille.run', nick: 'La fusée', bio: 'Semi en 1 h 38 visé en mars. Fractionné le mardi, sortie longue le dimanche.', me: false, following: true, followers: 4, posts: 12, sparks: 61, avatar: null, profile: { streak: 41, best: 41, tier: 3, level: 9, program: 'Semi-marathon du 22 mars' } },
+    { id: 'm-yanis', name: 'Yanis', handle: 'yanis_ppl', bio: 'PPL 6 jours. Objectif 140 kg au squat avant l’été.', me: false, following: true, followers: 3, posts: 9, sparks: 44, avatar: null, profile: { streak: 17, best: 29, tier: 2, level: 7, program: 'PPL + Upper/Lower' } },
+    { id: 'm-ines', name: 'Inès', handle: 'ines.swim', nick: 'Nemo', me: false, following: false, followers: 2, posts: 6, sparks: 23, avatar: null, profile: { streak: 8, best: 22, tier: 1, level: 5, program: 'Bloc natation' } },
+    { id: 'm-leo', name: 'Léo', handle: 'leo.velo', me: false, following: false, followers: 2, posts: 7, sparks: 19, avatar: null, profile: { streak: 3, best: 14, tier: 1, level: 4, program: 'Cyclosportive 160 km' } },
   ];
   const intervals: [number, number][] = [[1, 900], [2, 300], ...Array.from({ length: 6 }, (_, i) => (i < 5 ? [[5, 230], [1, 90]] : [[5, 230]])).flat() as [number, number][], [1, 600]];
   const swimSet: [number, number][] = [[1, 420], [2, 280], ...Array.from({ length: 10 }, () => [[4, 108], [1, 15]]).flat() as [number, number][], [1, 280]];

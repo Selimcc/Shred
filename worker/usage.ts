@@ -324,6 +324,8 @@ export const DAILY_CAPS = {
   follow: 200,
   places: 120,
   music: 400,
+  handle: 400,
+  email: 10,
 } as const;
 
 export async function capDaily(env: Env, userId: string, kind: keyof typeof DAILY_CAPS): Promise<void> {

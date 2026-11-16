@@ -87,7 +87,19 @@ export function MemberAvatar({ m, size = 40 }: { m: Pick<Member, 'id' | 'name' |
 
 /* ---------- Écran ---------- */
 
-export function Club({ openSettings, compose, onComposed, openPost }: { openSettings: (page?: 'account' | 'profile') => void; compose?: string | null; onComposed: () => void; openPost?: string | null }) {
+export function Club({
+  openSettings,
+  compose,
+  onComposed,
+  openPost,
+  openMember,
+}: {
+  openSettings: (page?: 'account' | 'profile') => void;
+  compose?: string | null;
+  onComposed: () => void;
+  openPost?: string | null;
+  openMember?: string | null;
+}) {
   const s = useApp();
   const [view, setView] = useState<View>('feed');
   // En quittant le club, l'extrait en cours s'arrête.
@@ -99,6 +111,7 @@ export function Club({ openSettings, compose, onComposed, openPost }: { openSett
   const [composer, setComposer] = useState<string | null>(compose ?? null);
   const [open, setOpen] = useState<string | null>(openPost ?? null);
   const [person, setPerson] = useState<Member | null>(null);
+  const memberShown = useRef(false);
   const [notices, setNotices] = useState<{ list: Notice[]; unread: number } | null>(null);
   const [showNotices, setShowNotices] = useState(false);
   const can = DEMO || signedIn();
@@ -121,6 +134,18 @@ export function Club({ openSettings, compose, onComposed, openPost }: { openSett
         setNext(f.next);
       }
       setMembers(m.members);
+      if (openMember && !memberShown.current) {
+        // Lien de profil : on ouvre la fiche une seule fois, puis l'adresse redevient celle du club.
+        memberShown.current = true;
+        const target = m.members.find((x) => x.handle === openMember);
+        if (target) setPerson(target);
+        else toast(`Aucun membre @${openMember}`, true);
+        try {
+          history.replaceState(null, '', '?tab=club');
+        } catch {
+          // Aperçu intégré : sans effet.
+        }
+      }
       setNotices({ list: n.notices, unread: n.unread });
       // Les étincelles reçues deviennent de l'XP.
       const mine = m.members.find((x) => x.me);
@@ -137,7 +162,7 @@ export function Club({ openSettings, compose, onComposed, openPost }: { openSett
     } catch (e) {
       setError(errorText(e));
     }
-  }, [view, can]);
+  }, [view, can, openMember]);
 
   useEffect(() => {
     void load();
@@ -853,14 +878,30 @@ function FollowButton({ m, onChange }: { m: Member; onChange: (m: Member) => voi
 }
 
 function MemberList({ members, onOpen, onChange }: { members: Member[]; onOpen: (m: Member) => void; onChange: (l: Member[]) => void }) {
-  const sorted = [...members].sort((a, b) => Number(b.me) - Number(a.me) || b.posts - a.posts);
+  const [q, setQ] = useState('');
+  const fold = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const query = fold(q.trim().replace(/^@/, ''));
+  const sorted = [...members]
+    .filter((m) => !query || [m.name, m.handle, m.nick].some((x) => x && fold(x).includes(query)))
+    .sort((a, b) => Number(b.me) - Number(a.me) || b.posts - a.posts);
   return (
-    <div className="group">
+    <>
+      {members.length > 6 && (
+        <input className="input member-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher un prénom, un @pseudo, un surnom" aria-label="Chercher un membre" />
+      )}
+      {query && !sorted.length && <p className="small muted">Personne ne correspond à « {q.trim()} ».</p>}
+      <div className="group">
       {sorted.map((m) => (
         <div key={m.id} className="row member-row" role="button" tabIndex={0} onClick={() => onOpen(m)} onKeyDown={(e) => e.key === 'Enter' && onOpen(m)}>
           <MemberAvatar m={m} size={44} />
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="title">{m.name}</div>
+            {m.handle && (
+              <div className="small ellipsis">
+                <span className="member-handle">@{m.handle}</span>
+                {m.nick && <span className="member-nick muted">, {m.nick}</span>}
+              </div>
+            )}
             <div className="small muted">
               {m.posts} publication{m.posts > 1 ? 's' : ''}, {m.followers} abonné{m.followers > 1 ? 's' : ''}
               {m.profile?.streak ? `, série de ${m.profile.streak} j` : ''}
@@ -869,7 +910,8 @@ function MemberList({ members, onOpen, onChange }: { members: Member[]; onOpen: 
           <FollowButton m={m} onChange={(x) => onChange(members.map((y) => (y.id === x.id ? x : y)))} />
         </div>
       ))}
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -926,6 +968,12 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
           {crop && <AvatarCrop file={crop} onCancel={() => setCrop(null)} onDone={upload} />}
           <div className="grow" style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 850, fontSize: '1.3rem' }}>{m.name}</div>
+            {m.handle && (
+              <div className="small ellipsis">
+                <span className="member-handle">@{m.handle}</span>
+                {m.nick && <span className="member-nick muted">, {m.nick}</span>}
+              </div>
+            )}
             {m.profile?.program && <div className="small muted ellipsis">{m.profile.program}</div>}
           </div>
           {m.me ? (
@@ -936,6 +984,7 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
             <FollowButton m={m} onChange={update} />
           )}
         </div>
+        {m.bio && <p className="member-bio small">{m.bio}</p>}
         {!m.me && (
           <button className="btn block" onClick={() => setChallenge(true)}>
             <Icon name="bolt" size={17} /> Défier {m.name}

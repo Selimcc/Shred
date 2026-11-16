@@ -76,6 +76,13 @@ The repository is public (it hosts the demo on GitHub Pages), so anyone can read
 
 If a secret is ever pushed, deleting the commit is not enough: it has already been readable. Change the secret first (`wrangler secret put …`, or the provider's dashboard), then clean up.
 
+## Identity (0.18.0)
+
+- Handles are unique and checked against look-alikes and reserved names (admin, shred, coach, support…), so a member cannot pose as another member or as the app. A released handle stays reserved for its owner for 14 days.
+- Nickname and bio are cleaned on the server (control and invisible characters, length, at most 4 lines) and shown as plain text by React; links in a bio are not clickable.
+- Changing the login email requires the password, refuses an email used by another account, keeps it encrypted at rest, closes the other sessions and is limited to 10 per day.
+- The live handle check is limited to 400 requests per member per day.
+
 ## Accepted
 
 | Severity | Finding | Why |

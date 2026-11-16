@@ -5,6 +5,7 @@ import { DEFAULT_CFG, type DayState, type ReminderType, runReminders, runReminde
 import { accountRoutes, adminRoutes, authRoutes } from './auth';
 import { getBackup, putBackup } from './backup';
 import { profileRoutes } from './profiles';
+import { identityRoutes } from './identity';
 import { emailReady, sendReport } from './report';
 import { authenticate, ensureIndexed, listAccounts, loadJson, type User, userStore } from './users';
 import { restRoute } from './timers';
@@ -19,7 +20,7 @@ export { Usage } from './usage';
 export { seal as sealForTest, unseal as unsealForTest } from './seal';
 import { placeRoutes } from './places';
 
-const VERSION = '0.17.4';
+const VERSION = '0.18.0';
 
 /**
  * CORS : l'app web appelle l'API depuis la même adresse (pas besoin de CORS). Seules l'app iPhone (Capacitor)
@@ -172,6 +173,7 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
   const acct =
     (await accountRoutes(req, env, user, pathname)) ??
     (await adminRoutes(req, env, user, url)) ??
+    (await identityRoutes(req, env, user, url)) ??
     (await profileRoutes(req, env, user, pathname)) ??
     (await clubRoutes(req, env, user, url, ctx)) ??
     (await stravaRoutes(req, env, user, url));

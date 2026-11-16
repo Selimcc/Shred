@@ -33,7 +33,10 @@ const TABS: { id: Tab; label: string; icon: string; enabled?: (s: AppState) => b
 ];
 
 function initialTab(): Tab {
-  const t = new URLSearchParams(location.search).get('tab');
+  const q = new URLSearchParams(location.search);
+  // Lien de profil partagé (?member=pseudo) : il s'ouvre dans le club.
+  if (q.get('member')) return 'club';
+  const t = q.get('tab');
   return TABS.some((x) => x.id === t) ? (t as Tab) : 'today';
 }
 
@@ -47,6 +50,7 @@ export function App() {
   const [settings, setSettings] = useState<SettingsPage | null>(() => (new URLSearchParams(location.search).get('settings') === 'usage' ? 'usage' : null));
   const [compose, setCompose] = useState<string | null>(null);
   const [openPost] = useState(() => new URLSearchParams(location.search).get('post'));
+  const [openMember] = useState(() => (new URLSearchParams(location.search).get('member') ?? '').toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 20) || null);
 
   const go = (t: Tab) => {
     setTab(t);
@@ -110,7 +114,7 @@ export function App() {
         {tab === 'today' && <Today today={today} go={go} openSettings={() => setSettings('menu')} />}
         {tab === 'workout' && <Workout today={today} editProgram={() => setSettings('program')} />}
         {tab === 'food' && <Food today={today} openCoach={() => go('coach')} />}
-        {tab === 'club' && <Club openSettings={(p = 'account') => setSettings(p)} compose={compose} onComposed={() => setCompose(null)} openPost={openPost} />}
+        {tab === 'club' && <Club openSettings={(p = 'account') => setSettings(p)} compose={compose} onComposed={() => setCompose(null)} openPost={openPost} openMember={openMember} />}
         {tab === 'coach' && <Coach today={today} onBack={() => go('today')} />}
         {tab === 'progress' && <Progress today={today} openSettings={(p = 'menu') => setSettings(p)} openCoach={() => go('coach')} />}
       </main>
