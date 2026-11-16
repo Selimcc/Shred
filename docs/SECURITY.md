@@ -88,6 +88,15 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 - The member directory is gone: a member only receives their own relations. Others are found by handle, with a daily search cap, so the whole club cannot be listed in one call.
 - Private accounts: posts, strength chart and stats only reach accepted followers; the check happens inside the Club Durable Object for every read (feed, post, photo, spark, comment).
 
+## Version 0.22
+
+| Severity | Finding | Fix |
+|---|---|---|
+| Low | `GET /api/profiles` still listed every visible profile of the club to any member, bypassing the end of the member directory (0.19). Unused by the app. | Admin only. |
+| Design | Weekly leaderboard (`/api/club/leaderboard`). | Only the member and the people they follow (follow accepted for private accounts) appear. The published figures are three bounded integers and the Monday of the week (`sanitizeBoard`), opt-out in Settings, Profil public. 300 reads a day per member. |
+| Design | Food search sends the typed words to Open Food Facts from the phone. | Results are cleaned and bounded like scanned products (`offText`, `offImage`, nutrition clamped). Nothing goes through the Worker. |
+| Design | Story card, trophies, water, exercise history. | Computed and drawn on the phone; nothing new is sent to the server. |
+
 ## Accepted
 
 | Severity | Finding | Why |

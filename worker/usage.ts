@@ -381,6 +381,7 @@ export const DAILY_CAPS = {
   handle: 400,
   search: 400,
   video: 8,
+  board: 300,
   email: 10,
 } as const;
 

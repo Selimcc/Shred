@@ -1,6 +1,6 @@
 // Profil public : l'app calcule un petit résumé (seulement les champs cochés) et l'envoie quand il change.
 import { api, DEMO } from './api';
-import { dayKey } from './date';
+import { addDays, dayKey, mondayOf } from './date';
 import { flameInfo } from './flames';
 import { levelFor, totalXp } from './logic';
 import { signedIn } from './session';
@@ -65,12 +65,34 @@ function lastSent(): string {
   }
 }
 
+/** Chiffres de la semaine pour le classement du club (vus seulement par tes abonnés). */
+export interface BoardData {
+  weekOf: string;
+  week: number;
+  volume: number;
+  streak: number;
+}
+
+export function boardData(s: AppState, today: string): BoardData {
+  const monday = mondayOf(today);
+  let week = 0;
+  let volume = 0;
+  for (let i = 0; i < 7; i++) {
+    const day = s.days[addDays(monday, i)];
+    if (!day) continue;
+    if (day.mainDone) week++;
+    for (const logs of Object.values(day.sets)) for (const l of logs) if (l.done && l.w && l.r) volume += l.w * l.r;
+  }
+  return { weekOf: monday, week, volume: Math.round(volume), streak: flameInfo(s, today).current };
+}
+
 /** Envoie le profil s'il a changé depuis le dernier envoi. */
 export async function publishProfile(force = false): Promise<void> {
   if (DEMO || !signedIn()) return;
   const s = getState();
   const visible = s.settings.profile.visible;
-  const body = { visible, data: visible ? publicData(s, dayKey()) : undefined };
+  const board = s.settings.profile.board !== false ? boardData(s, dayKey()) : undefined;
+  const body = { visible, data: visible ? publicData(s, dayKey()) : undefined, board };
   const text = JSON.stringify(body);
   if (!force && text === lastSent()) return;
   await api('/api/profile', { method: 'PUT', body });

@@ -127,6 +127,17 @@ export interface Notice {
   at: number;
 }
 
+export interface BoardRow {
+  id: string;
+  name: string;
+  handle: string | null;
+  avatar: string | null;
+  me: boolean;
+  week: number;
+  volume: number;
+  streak: number;
+}
+
 export interface PostVideo {
   id: string;
   poster: string;
@@ -324,6 +335,8 @@ export const club = {
   /** Un membre par son pseudo ou son identifiant. */
   member: (key: string) => (DEMO ? demo.member(key) : api<{ member: Member }>(`/api/club/member/${encodeURIComponent(key)}`)),
   follow: (id: string) => (DEMO ? demo.follow(id) : api<{ following: boolean; requested?: boolean }>(`/api/club/follow/${id}`, { body: {} })),
+  /** Classement de la semaine : toi et les personnes que tu suis. */
+  leaderboard: (week: string) => (DEMO ? demo.leaderboard(week) : api<{ week: string; rows: BoardRow[] }>(`/api/club/leaderboard?week=${week}`)),
   requests: () => (DEMO ? Promise.resolve({ members: [] as Member[] }) : api<{ members: Member[] }>('/api/club/requests')),
   answer: (id: string, accept: boolean) => (DEMO ? Promise.resolve({ ok: true, accepted: accept }) : api<{ ok: boolean; accepted: boolean }>(`/api/club/requests/${id}`, { body: { accept } })),
   removeFollower: (id: string) => (DEMO ? Promise.resolve({ ok: true }) : api<{ ok: boolean }>(`/api/club/followers/${id}`, { method: 'DELETE' })),
@@ -518,6 +531,16 @@ const demo = (() => {
       return wait({ post: view(p) });
     },
     members: () => wait({ members: members.map((m) => ({ ...m })), requests: 0 }),
+    leaderboard: (week: string) =>
+      wait({
+        week,
+        rows: [
+          { id: 'm-yanis', name: 'Yanis', handle: 'yanis_ppl', avatar: null, me: false, week: 5, volume: 38_400, streak: 31 },
+          { id: me, name: 'Toi', handle: 'toi', avatar: null, me: true, week: 4, volume: 29_800, streak: 23 },
+          { id: 'm-camille', name: 'Camille', handle: 'camille.run', avatar: null, me: false, week: 4, volume: 6_200, streak: 12 },
+          { id: 'm-ines', name: 'Inès', handle: 'ines.swim', avatar: null, me: false, week: 2, volume: 0, streak: 5 },
+        ] as BoardRow[],
+      }),
     search: (q: string) => wait({ members: members.filter((m) => m.handle?.startsWith(q.replace(/^@/, '').toLowerCase())).map((m) => ({ ...m })) }),
     member: (key: string) => {
       const m = members.find((x) => x.handle === key || x.id === key);

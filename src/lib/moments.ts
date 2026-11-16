@@ -10,7 +10,7 @@ import { signedIn } from './session';
 import { type AppState, getState, setState, subscribe } from './store';
 import { e1rm } from './strength';
 
-export type MomentKind = 'session' | 'record' | 'habits' | 'steps' | 'post' | 'spark' | 'challenge';
+export type MomentKind = 'session' | 'record' | 'habits' | 'steps' | 'post' | 'spark' | 'challenge' | 'trophy';
 
 export interface Moment {
   id: number;

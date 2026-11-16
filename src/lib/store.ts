@@ -65,6 +65,8 @@ export interface DayLog {
   activities?: Activity[];
   mainDone: boolean;
   mainDoneAt?: number;
+  /** Eau bue dans la journée, en millilitres. */
+  water?: number;
   meals: MealEntry[];
   habits: Partial<Record<HabitId, boolean>>;
 }
@@ -119,12 +121,16 @@ export interface Settings {
   gym: Gym;
   /** Envoyer le bilan de la semaine par mail (si le serveur sait envoyer). */
   reportEmail: boolean;
+  /** Objectif d'eau en ml ; sinon calculé d'après le poids. */
+  waterGoal?: number;
   /** Machines signalées en panne : l'exercice est remplacé automatiquement jusqu'à la date. */
   broken?: Record<string, { since: string; until: string }>;
 }
 
 export interface PublicProfileSettings {
   visible: boolean;
+  /** Apparaître dans le classement de la semaine de tes abonnés (par défaut oui). */
+  board?: boolean;
   show: { streak: boolean; best: boolean; flames: boolean; level: boolean; radar: boolean; program: boolean };
 }
 
@@ -230,6 +236,8 @@ export interface AppState {
     reportMailed?: string;
     /** Propositions d'ajustement écartées, avec la date. */
     dismissedTweaks?: Record<string, string>;
+    /** Trophées gagnés : identifiant → jour du déblocage (trophies.ts). */
+    trophies?: Record<string, string>;
   };
   /** Liste de courses et préparation du meal plan en cours. */
   prep?: MealPrep;

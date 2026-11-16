@@ -11,6 +11,7 @@ import {
   avatarPath,
   club,
   type ClubComment,
+  type BoardRow,
   type ClubPost,
   demoClub,
   imageUrl,
@@ -34,7 +35,7 @@ import {
   type PostVideo,
 } from '../lib/club';
 import { Field } from '../components/form';
-import { dayKey, formatShort } from '../lib/date';
+import { dayKey, formatNumber, formatShort, mondayOf, weekdayOf } from '../lib/date';
 import { prepareImage } from '../lib/image';
 import { AvatarCrop } from '../components/AvatarCrop';
 import { setMe } from '../lib/me';
@@ -257,6 +258,7 @@ export function Club({
         ))}
       </div>
 
+      {view !== 'members' && <Leaderboard onOpen={(id) => void openPerson(id)} />}
       {view !== 'members' && <ChallengeStrip me={members.find((x) => x.me)?.id ?? null} />}
 
       {error && (
@@ -410,6 +412,60 @@ export function SummaryCard({ s, compact = false }: { s: SessionSummary; compact
         </div>
       ))}
     </div>
+  );
+}
+
+/** Classement de la semaine entre toi et les personnes que tu suis : séances validées, puis tonnage. */
+function Leaderboard({ onOpen }: { onOpen: (id: string) => void }) {
+  const [rows, setRows] = useState<BoardRow[] | null>(null);
+  const [all, setAll] = useState(false);
+  const today = dayKey();
+  const monday = mondayOf(today);
+  useEffect(() => {
+    club.leaderboard(monday).then((r) => setRows(r.rows), () => setRows([]));
+  }, [monday]);
+  if (!rows || rows.length < 2) return null;
+  // Jours restants jusqu'à dimanche (getDay : dimanche = 0).
+  const left = (7 - weekdayOf(today)) % 7;
+  const rank = rows.findIndex((r) => r.me) + 1;
+  const vol = (kg: number) => (kg >= 1000 ? `${formatNumber(kg / 1000, 1)} t` : `${kg} kg`);
+  return (
+    <section className="card board">
+      <div className="board-head">
+        <div>
+          <div style={{ fontWeight: 800 }}>Classement de la semaine</div>
+          <div className="small muted">{left > 0 ? `Encore ${left} jour${left > 1 ? 's' : ''} pour remonter` : 'Dernier jour'}{rank ? `, tu es ${rank === 1 ? '1er' : `${rank}e`}` : ''}</div>
+        </div>
+        <Icon name="trophy" size={22} />
+      </div>
+      <ol className="board-list">
+        {(all ? rows : rows.slice(0, 3)).map((r, i) => (
+          <li key={r.id} className={r.me ? 'me' : ''}>
+            <button onClick={() => !r.me && onOpen(r.id)} disabled={r.me}>
+              <span className={`board-rank r${i + 1}`}>{i + 1}</span>
+              <MemberAvatar m={r} size={34} />
+              <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}>
+                <span className="title ellipsis" style={{ display: 'block' }}>
+                  {r.me ? 'Toi' : r.name}
+                </span>
+                <span className="small faint">{r.streak > 1 ? `${r.streak} j de série` : r.handle ? `@${r.handle}` : ''}</span>
+              </span>
+              <span className="board-score num">
+                <span>
+                  <b>{r.week}</b> séance{r.week > 1 ? 's' : ''}
+                </span>
+                {r.volume > 0 && <span className="small faint">{vol(r.volume)}</span>}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+      {rows.length > 3 && (
+        <button className="link small" onClick={() => setAll((v) => !v)}>
+          {all ? 'Voir le podium' : `Voir les ${rows.length}`}
+        </button>
+      )}
+    </section>
   );
 }
 

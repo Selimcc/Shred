@@ -23,6 +23,7 @@ export function mergeDay(a: DayLog, b: DayLog): DayLog {
   out.meals.sort((x, y) => x.at - y.at);
   for (const [id, on] of Object.entries(other.habits)) if (on) out.habits[id] = true;
   out.mainDone = a.mainDone || b.mainDone;
+  if (a.water || b.water) out.water = Math.max(a.water ?? 0, b.water ?? 0);
   if (other.swaps) out.swaps = { ...other.swaps, ...out.swaps };
   if (other.extra) for (const x of other.extra) if (!out.extra?.some((y) => y.key === x.key)) (out.extra ??= []).push(x);
   if (other.skipped) out.skipped = [...new Set([...(out.skipped ?? []), ...other.skipped])];
@@ -87,6 +88,12 @@ export function mergeStates(local: AppState, remote: AppState, localNewer: boole
   out.habits = unionBy(recent.habits, other.habits, (h) => h.id);
   out.mealPlan = unionBy(recent.mealPlan, other.mealPlan, (m) => m.id);
   out.programHistory = unionBy(recent.programHistory ?? [], other.programHistory ?? [], (p) => `${p.replacedAt}:${p.program.name}`).slice(0, 5);
+  // Trophées : l'union des deux, avec la date la plus ancienne.
+  if (local.ui.trophies || remote.ui.trophies) {
+    const all = { ...remote.ui.trophies, ...local.ui.trophies };
+    for (const [id, d] of Object.entries(remote.ui.trophies ?? {})) if (d < all[id]) all[id] = d;
+    out.ui.trophies = all;
+  }
   // Les notifications et le matériel de l'appareil restent ceux du téléphone.
   out.settings.pushEnabled = local.settings.pushEnabled;
   return out;

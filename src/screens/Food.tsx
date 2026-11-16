@@ -6,7 +6,8 @@ import { Icon } from '../components/Icon';
 import { SuggestSheet } from '../components/SuggestSheet';
 import { Ring } from '../components/Ring';
 import { Bar, errorText, PhotoThumb, Sheet, toast } from '../components/ui';
-import { addMeal, parseDecimal, removeMeal, togglePlannedMeal } from '../lib/actions';
+import { addMeal, addWater, parseDecimal, removeMeal, togglePlannedMeal } from '../lib/actions';
+import { type FoodHit, forGrams, recentFoods, searchFoods } from '../lib/foodSearch';
 import { api, type MealAnalysis } from '../lib/api';
 import { formatNumber } from '../lib/date';
 import { prepareImage } from '../lib/image';
@@ -64,6 +65,8 @@ export function Food({ today, openCoach }: { today: string; openCoach: () => voi
       </div>
 
       {s.settings.modules.health && <Balance today={today} eaten={t.kcal} />}
+
+      <WaterCard today={today} />
 
       <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
         <button className="btn primary" style={{ flex: 1.2, minHeight: 58 }} onClick={() => fileRef.current?.click()}>
@@ -494,17 +497,216 @@ function ManualForm({
   );
 }
 
+/** Objectif d'eau : réglé à la main, sinon 35 ml par kilo (entre 2 et 4 litres), arrondi au verre. */
+function waterGoal(s: ReturnType<typeof useApp>): number {
+  if (s.settings.waterGoal) return s.settings.waterGoal;
+  const weights = Object.entries(s.body.weight).sort(([a], [b]) => b.localeCompare(a));
+  const kg = weights[0]?.[1] ?? 75;
+  return Math.min(4000, Math.max(2000, Math.round((kg * 35) / 250) * 250));
+}
+
+function WaterCard({ today }: { today: string }) {
+  const s = useApp();
+  const ml = readDay(s, today).water ?? 0;
+  const goal = waterGoal(s);
+  const glasses = Math.round(goal / 250);
+  const full = Math.floor(ml / 250);
+  return (
+    <section className="card water-card" style={{ marginTop: 12 }}>
+      <div className="water-head">
+        <div>
+          <div className="small muted">Hydratation</div>
+          <div className="water-amount num">
+            {formatNumber(ml / 1000, ml % 1000 ? 2 : 1)} <span>/ {formatNumber(goal / 1000, 1)} L</span>
+          </div>
+        </div>
+        <div className="water-actions">
+          <button className="icon-btn" disabled={!ml} aria-label="Retirer un verre" onClick={() => addWater(today, -250)}>
+            <Icon name="minus" size={18} />
+          </button>
+          <button className="btn small primary" onClick={() => addWater(today, 250)}>
+            + 25 cl
+          </button>
+          <button className="btn small" onClick={() => addWater(today, 500)}>
+            + 50 cl
+          </button>
+        </div>
+      </div>
+      <div className="water-glasses" role="img" aria-label={`${full} verres sur ${glasses}`}>
+        {Array.from({ length: glasses }, (_, i) => (
+          <span key={i} className={i < full ? 'on' : ''} style={{ animationDelay: `${i * 30}ms` }} />
+        ))}
+      </div>
+      {ml >= goal && <div className="small water-done">Objectif atteint, bien hydraté.</div>}
+    </section>
+  );
+}
+
 function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; onClose: () => void }) {
+  const s = useApp();
+  const recent = recentFoods(s, today);
+  const [tab, setTab] = useState<'recent' | 'search' | 'manual'>(recent.length ? 'recent' : 'search');
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState<FoodHit[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pick, setPick] = useState<FoodHit | null>(null);
+  const [grams, setGrams] = useState('100');
+
+  useEffect(() => {
+    if (tab !== 'search' || q.trim().length < 2) return setHits(null);
+    let live = true;
+    setError(null);
+    const t = setTimeout(() => {
+      searchFoods(q).then(
+        (h) => live && setHits(h),
+        (e) => live && (setError(errorText(e)), setHits([])),
+      );
+    }, 450);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [q, tab]);
+
+  const done = (label: string) => {
+    toast(`${label} ajouté`);
+    onClose();
+  };
+  const g = parseDecimal(grams) ?? 0;
+
   return (
     <Sheet title={`Ajouter au ${slotName(slot).toLowerCase()}`} onClose={onClose}>
-      <ManualForm
-        cta="Ajouter"
-        onSave={(m) => {
-          addMeal(today, { slot, ...m, source: 'manual' });
-          toast('Repas ajouté');
-          onClose();
-        }}
-      />
+      <div className="seg" role="tablist" style={{ marginBottom: 14 }}>
+        {(
+          [
+            ['recent', 'Récents'],
+            ['search', 'Rechercher'],
+            ['manual', 'À la main'],
+          ] as const
+        ).map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'recent' &&
+        (recent.length ? (
+          <div className="group">
+            {recent.map((m) => (
+              <button
+                key={m.id}
+                className="row settings-row"
+                style={{ width: '100%' }}
+                onClick={() => {
+                  addMeal(today, { slot, label: m.label, kcal: m.kcal, protein: m.protein, carbs: m.carbs, fat: m.fat, source: 'manual', ...(m.items ? { items: m.items } : {}) });
+                  done(m.label);
+                }}
+              >
+                <span className="grow" style={{ textAlign: 'left', minWidth: 0 }}>
+                  <span className="title ellipsis" style={{ display: 'block' }}>
+                    {m.label}
+                  </span>
+                  <span className="small muted num">
+                    {formatNumber(m.kcal)} kcal, {formatNumber(m.protein)} g P
+                  </span>
+                </span>
+                <Icon name="plus" size={18} />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">Tes repas notés apparaîtront ici pour les remettre en un geste.</p>
+        ))}
+
+      {tab === 'search' && !pick && (
+        <div className="stack" style={{ gap: 12 }}>
+          <input className="input" type="search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Skyr, pain complet, poulet…" aria-label="Chercher un aliment" />
+          {error && <p className="small muted" style={{ margin: 0 }}>{error}</p>}
+          {hits === null && q.trim().length >= 2 && <div className="spinner" />}
+          {hits && hits.length === 0 && !error && <p className="small muted" style={{ margin: 0 }}>Rien trouvé. Essaie un autre mot, ou saisis-le à la main.</p>}
+          {hits && hits.length > 0 && (
+            <div className="group">
+              {hits.map((h) => (
+                <button
+                  key={h.code || h.name}
+                  className="row settings-row"
+                  style={{ width: '100%' }}
+                  onClick={() => {
+                    setPick(h);
+                    setGrams(String(h.serving ?? 100));
+                  }}
+                >
+                  {h.image ? <img className="food-thumb" src={h.image} alt="" loading="lazy" /> : <span className="food-thumb" />}
+                  <span className="grow" style={{ textAlign: 'left', minWidth: 0 }}>
+                    <span className="title ellipsis" style={{ display: 'block' }}>
+                      {h.name}
+                    </span>
+                    <span className="small muted ellipsis" style={{ display: 'block' }}>
+                      {h.brand ? `${h.brand}, ` : ''}
+                      {formatNumber(h.per100.kcal)} kcal pour 100 g
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="small faint" style={{ margin: 0 }}>
+            Données Open Food Facts, base collaborative : vérifie l’étiquette en cas de doute.
+          </p>
+        </div>
+      )}
+
+      {tab === 'search' && pick && (
+        <div className="stack" style={{ gap: 12 }}>
+          <button className="link small" style={{ alignSelf: 'flex-start' }} onClick={() => setPick(null)}>
+            ‹ Résultats
+          </button>
+          <div style={{ fontWeight: 800 }}>{pick.name}</div>
+          {pick.brand && <div className="small muted">{pick.brand}</div>}
+          <label className="field">
+            <span>Quantité (g)</span>
+            <input className="input num" inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} />
+          </label>
+          <div className="chips" style={{ gap: 6 }}>
+            {[50, 100, 150, 200, ...(pick.serving ? [pick.serving] : [])].map((v) => (
+              <button key={v} className={`chip ${g === v ? 'on' : ''}`} onClick={() => setGrams(String(v))}>
+                {v} g{pick.serving === v ? ' (portion)' : ''}
+              </button>
+            ))}
+          </div>
+          {g > 0 && (
+            <div className="small muted num">
+              {(() => {
+                const m = forGrams(pick, g);
+                return `${formatNumber(m.kcal)} kcal, ${m.protein} g P, ${m.carbs} g G, ${m.fat} g L`;
+              })()}
+            </div>
+          )}
+          <button
+            className="btn primary block"
+            disabled={!(g > 0 && g <= 5000)}
+            onClick={() => {
+              const m = forGrams(pick, g);
+              const label = `${pick.name}${pick.brand ? ` (${pick.brand})` : ''}`.slice(0, 80);
+              addMeal(today, { slot, label, ...m, source: 'manual', items: [{ name: pick.name, grams: g, ...m }] });
+              done(pick.name);
+            }}
+          >
+            Ajouter {g > 0 ? `${formatNumber(g)} g` : ''}
+          </button>
+        </div>
+      )}
+
+      {tab === 'manual' && (
+        <ManualForm
+          cta="Ajouter"
+          onSave={(m) => {
+            addMeal(today, { slot, ...m, source: 'manual' });
+            done(m.label);
+          }}
+        />
+      )}
     </Sheet>
   );
 }

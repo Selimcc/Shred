@@ -10,6 +10,7 @@ import { stravaStatus, syncStrava } from './strava';
 import { toast } from '../components/ui';
 import type { ImportResult } from './activities';
 import { startMoments } from './moments';
+import { startTrophies } from './trophies';
 import { dayValidated, mealsCount, reconcileStreak, sessionFor, streakInfo } from './logic';
 import { signedIn } from './session';
 import { getState, readDay, setState, subscribe } from './store';
@@ -63,6 +64,7 @@ export function startSync() {
   };
   tick();
   startMoments();
+  startTrophies();
   subscribe(() => schedule());
   startBackup();
   startProfileSync();

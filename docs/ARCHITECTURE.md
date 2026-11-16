@@ -154,3 +154,13 @@ Each account has a first name, a unique `@handle`, and optionally a nickname (30
 
 - Settings pages are a stack: « back » returns to the previous page (My profile, then Settings). Changing page uses the View Transitions API when available (Safari 18, Chrome): the new page slides in from the right while the old one slides left and fades, reversed on back (`src/lib/nav.ts`). Without it, only the new page slides in. Reduced motion turns it off.
 - Music progress bar: a thin line driven by `requestAnimationFrame` from the audio's real position (no jumps between `timeupdate` events), no knob at rest; pressing it thickens the bar, shows the knob, and the time follows the finger. Elapsed and remaining times underneath. Keyboard: left and right arrows move 5 seconds.
+
+## Version 0.22: closing the gap with Hevy, Strong, MyFitnessPal and Strava
+
+- **Premium layer** (end of `src/styles.css`): graphite background with an ambient glow, surfaces lit from the top (1 px highlight, faint gradient, soft shadow), glass tab bar with a lit active pill, gradient primary buttons, hero card with a slow diagonal sheen, sheets in dark glass.
+- **Story card** (`src/lib/storyCard.ts`, `StorySheet`): a 1080 × 1920 PNG drawn on a canvas after a session (title, up to four figures, records, streak), shared through the Web Share API (Instagram story) or downloaded.
+- **Trophies** (`src/lib/trophies.ts`, `Trophies.tsx`): 27 medals in bronze, silver, gold and legend, computed in one pass over the days (sessions, tonnage, records, streak, validated days, meals, cardio km, steps, weigh-ins, photos, early and late sessions, full weekends). Unlock dates live in `ui.trophies` (merged by union, earliest date); the first run dates past achievements silently, later ones get a Pulse moment.
+- **Exercise sheet** (`src/lib/exerciseStats.ts`, in the demo sheet of each exercise): records (estimated 1RM, heaviest, total tonnage), 1RM chart over all history, last sessions with the best set highlighted, warm-up ramp (bar, 50, 70, 85 %) for compound lifts, and a plate calculator with competition colours for barbell lifts. The exercise name now opens it.
+- **Water**: `DayLog.water` in ml (merged by max), +25 cl, +50 cl and undo on the Meals screen; goal from `settings.waterGoal`, otherwise 35 ml per kg, between 2 and 4 L.
+- **Food**: the « Autre » sheet has three tabs: recent meals (last 45 days, one per name), Open Food Facts search by name with a quantity picker, and manual entry.
+- **Weekly leaderboard** in the club feed: sessions validated this week, then tonnage, then streak, between the member and the people they follow. Figures come from `PUT /api/profile` (`board`), published even when the profile card is hidden, unless the member opts out.

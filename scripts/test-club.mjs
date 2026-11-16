@@ -407,6 +407,24 @@ check('aperçu protégé de la même façon', r.status === 404);
 r = await call(`/api/club/posts/${vpost.id}`, { token: selim.token, method: 'DELETE' });
 check('suppression : la vidéo et son aperçu partent avec', r.status === 200 && !kv.has(`club:video:${vid}`) && !kv.has(`club:photo:${vpost.video.poster}`));
 
+/* ---------- Classement de la semaine ---------- */
+
+const wk = '2026-11-16';
+r = await call('/api/profile', { token: yanis.token, method: 'PUT', body: { visible: false, board: { weekOf: wk, week: 5, volume: 31000, streak: 12 } } });
+check('chiffres de la semaine publiés même profil masqué', r.status === 200 && r.data.profile.board?.week === 5);
+r = await call('/api/profile', { token: ines.token, method: 'PUT', body: { visible: true, data: {}, board: { weekOf: wk, week: 99, volume: -4, streak: 3, extra: '<script>' } } });
+check('données du classement bornées', r.data.profile.board.week === 0 && r.data.profile.board.volume === 0 && !('extra' in r.data.profile.board), JSON.stringify(r.data.profile.board));
+r = await call(`/api/club/leaderboard?week=${wk}`, { token: selim.token });
+check('classement : moi et les personnes que je suis', r.status === 200 && r.data.rows.some((x) => x.me) && r.data.rows.some((x) => x.id === yanis.id), JSON.stringify(r.data.rows?.map((x) => x.name)));
+check('classement : pas les inconnus', !r.data.rows.some((x) => x.id === ines.id));
+check('classement : trié par séances', r.data.rows[0].week >= r.data.rows.at(-1).week);
+r = await call('/api/club/leaderboard?week=2026-11-09', { token: selim.token });
+check('classement : semaine passée = zéro', r.data.rows.every((x) => x.week === 0));
+r = await call('/api/club/leaderboard?week=x', { token: selim.token });
+check('semaine invalide refusée', r.status === 400);
+r = await call('/api/profiles', { token: ines.token });
+check('liste de tous les profils fermée aux membres', r.status === 403);
+
 /* ---------- Panneau admin ---------- */
 
 r = await call('/api/admin/testers', { token: ines.token });

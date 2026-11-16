@@ -4,7 +4,7 @@ import { DISCIPLINE_ICON, Icon } from '../components/Icon';
 import { Ring } from '../components/Ring';
 import { ask, Bar, Check, Sheet, toast } from '../components/ui';
 import { chooseSession, finishSession, parseDecimal, previousWeight, toggleSet, updateSet } from '../lib/actions';
-import { formatShort, weekdayOf, WEEKDAY_NAMES } from '../lib/date';
+import { formatNumber, formatShort, weekdayOf, WEEKDAY_NAMES } from '../lib/date';
 import { exerciseFrames, exerciseInfo, videoUrl } from '../lib/exercise-info';
 import { adviseLoad, loadFor } from '../lib/advisor';
 import { e1rm } from '../lib/strength';
@@ -20,6 +20,10 @@ import { repMeters } from '../../shared/effort';
 import { hasProfile, SessionProfile } from '../components/SessionProfile';
 import { ExercisePicker } from './ProgramEditor';
 import { RollingNumber } from '../components/RollingNumber';
+import { exerciseStats, isBarbell, platesFor, warmupSets } from '../lib/exerciseStats';
+import { liftSeries } from '../lib/training';
+import { LiftChart } from '../components/Charts';
+import { StorySheet } from '../components/StorySheet';
 import { isRecord, moment } from '../lib/moments';
 
 const fmtRest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60}` : ''}` : `${sec} s`);
@@ -32,6 +36,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
   const [picker, setPicker] = useState(false);
   const [demo, setDemo] = useState<Exercise | null>(null);
   const [timer, setTimer] = useState<{ end: number; total: number } | null>(null);
+  const [story, setStory] = useState(false);
   const [swap, setSwap] = useState<Exercise | null>(null);
   const [adding, setAdding] = useState(false);
   const tweaks = programTweaks(s, today);
@@ -258,8 +263,8 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
               <div style={{ fontWeight: 800 }}>Séance terminée</div>
               <div className="small muted">Note tes repas pour valider la journée.</div>
             </div>
-            <button className="btn small primary" onClick={() => window.dispatchEvent(new CustomEvent('shred:share', { detail: { date: today } }))}>
-              Partager
+            <button className="btn small primary" onClick={() => setStory(true)}>
+              <Icon name="share" size={15} /> Partager
             </button>
             <button className="link small" onClick={() => finishSession(today, false)}>
               Annuler
@@ -271,6 +276,8 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
           </button>
         )}
       </div>
+
+      {story && <StorySheet date={today} onClose={() => setStory(false)} />}
 
       {timer && (
         <RestTimer
@@ -402,7 +409,9 @@ function ExerciseCard({
               )}
             </div>
           )}
-          <div style={{ fontWeight: 800, lineHeight: 1.25 }}>{ex.name}</div>
+          <button className="ex-name" onClick={onDemo}>
+            {ex.name}
+          </button>
           {!isTask && (
             <div className="chips" style={{ gap: 6, marginTop: 8 }}>
               <span className="tag num">{ex.sets > 1 ? `${ex.sets} × ${ex.reps}` : ex.reps}</span>
@@ -623,11 +632,128 @@ function DemoSheet({ ex, onClose }: { ex: Exercise; onClose: () => void }) {
           {ex.rest > 0 ? `, ${fmtRest(ex.rest)} de repos` : ''}.
         </p>
       )}
+      <ExerciseInsights ex={ex} />
       <LoadCalculator ex={ex} />
       <a className="btn block" style={{ marginTop: 18, textDecoration: 'none' }} href={videoUrl(ex.name)} target="_blank" rel="noreferrer">
         <Icon name="play" size={16} filled /> Voir des vidéos de l’exercice
       </a>
     </Sheet>
+  );
+}
+
+/** Historique, meilleures séries, disques et échauffement : la fiche de l'exercice. */
+function ExerciseInsights({ ex }: { ex: Exercise }) {
+  const s = useApp();
+  const [all, setAll] = useState(false);
+  const stats = exerciseStats(s, ex.key);
+  const loaded = !ex.noLoad && ex.kind !== 'task' && ex.kind !== 'cardio';
+  const advice = loaded ? adviseLoad(s, ex, '9999-12-31') : null;
+  const work = advice?.weight ?? stats.sessions[0]?.best?.w ?? 0;
+  const barbell = isBarbell(ex.key, ex.name);
+  const [plateW, setPlateW] = useState<number | undefined>(work || undefined);
+  const series = liftSeries(s, ex.key, '9999-12-31', 3650);
+  if (!stats.sessions.length) return null;
+  const shown = all ? stats.sessions.slice(0, 30) : stats.sessions.slice(0, 4);
+  const plates = barbell && plateW ? platesFor(plateW) : null;
+  const warm = loaded && ex.kind === 'compound' && work ? warmupSets(work, ex.step ?? 2.5, barbell) : [];
+  return (
+    <div className="stack" style={{ marginTop: 18, gap: 14 }}>
+      {loaded && stats.bestE1rm && (
+        <div className="ex-records">
+          <div>
+            <b className="num">{fmtKg(Math.round(stats.bestE1rm.e1rm * 2) / 2)}</b>
+            <span className="small muted">1RM estimé</span>
+          </div>
+          {stats.heaviest && (
+            <div>
+              <b className="num">{fmtKg(stats.heaviest.w)}</b>
+              <span className="small muted">plus lourd × {stats.heaviest.r}</span>
+            </div>
+          )}
+          <div>
+            <b className="num">{stats.totalVolume >= 1000 ? `${formatNumber(stats.totalVolume / 1000, 1)} t` : `${stats.totalVolume} kg`}</b>
+            <span className="small muted">soulevés en tout</span>
+          </div>
+        </div>
+      )}
+      {series.length >= 2 && <LiftChart points={series} />}
+
+      <section className="stack" style={{ gap: 8 }}>
+        <div className="section-head" style={{ margin: 0 }}>
+          <h2 style={{ fontSize: '1rem' }}>Historique</h2>
+          <span className="small faint">
+            {stats.sessions.length} séance{stats.sessions.length > 1 ? 's' : ''}, {stats.totalSets} séries
+          </span>
+        </div>
+        <div className="group">
+          {shown.map((x) => (
+            <div key={x.date} className="row ex-history">
+              <div style={{ minWidth: 64 }} className="small muted">
+                {formatShort(x.date)}
+              </div>
+              <div className="grow small num">
+                {x.sets.map((l, i) => (
+                  <span key={i} className={x.best && l.w === x.best.w && l.r === x.best.r ? 'ex-top' : ''}>
+                    {i > 0 && ', '}
+                    {l.w ? `${fmtKg(l.w)} × ${l.r ?? '?'}` : l.r ? `${l.r} reps` : l.km ? `${formatNumber(l.km, 1)} km` : l.min ? `${l.min} min` : '✓'}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        {stats.sessions.length > 4 && (
+          <button className="link small" style={{ alignSelf: 'flex-start' }} onClick={() => setAll((v) => !v)}>
+            {all ? 'Voir moins' : `Voir les ${Math.min(30, stats.sessions.length)} dernières`}
+          </button>
+        )}
+      </section>
+
+      {warm.length > 0 && (
+        <section className="card stack" style={{ gap: 8, background: 'var(--surface-2)' }}>
+          <div style={{ fontWeight: 800 }}>Échauffement avant {fmtKg(work)}</div>
+          <div className="chips" style={{ gap: 6 }}>
+            {warm.map((w, i) => (
+              <span key={i} className="tag num">
+                {fmtKg(w.w)} × {w.r}
+              </span>
+            ))}
+          </div>
+          <p className="small faint" style={{ margin: 0 }}>
+            Repos court entre ces séries. Elles ne comptent pas dans la séance.
+          </p>
+        </section>
+      )}
+
+      {barbell && loaded && (
+        <section className="card stack" style={{ gap: 10, background: 'var(--surface-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontWeight: 800, flex: 1 }}>Disques à charger</div>
+            <NumInput value={plateW} placeholder="kg" label="Charge totale" onCommit={setPlateW} />
+          </div>
+          {plates &&
+            (plates.plates.length ? (
+              <>
+                <div className="plate-bar" aria-label={`Par côté : ${plates.plates.map((p) => `${formatNumber(p, 2)} kg`).join(', ')}`}>
+                  <span className="plate-sleeve" />
+                  {plates.plates.map((p, i) => (
+                    <span key={i} className={`plate p${String(p).replace('.', '_')}`} style={{ height: `${44 + p * 2.4}px` }}>
+                      {formatNumber(p, p % 1 ? 2 : 0)}
+                    </span>
+                  ))}
+                </div>
+                <p className="small muted" style={{ margin: 0 }}>
+                  Par côté, barre de 20 kg comprise.{plates.rest > 0 ? ` Il reste ${formatNumber(plates.rest, 2)} kg qui ne tombent pas juste.` : ''}
+                </p>
+              </>
+            ) : (
+              <p className="small muted" style={{ margin: 0 }}>
+                {plateW && plateW <= 20 ? 'La barre seule suffit (20 kg).' : 'Saisis la charge totale.'}
+              </p>
+            ))}
+        </section>
+      )}
+    </div>
   );
 }
 

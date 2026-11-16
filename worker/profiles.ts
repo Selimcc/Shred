@@ -23,10 +23,25 @@ export interface PublicData {
   program?: string;
 }
 
-interface StoredProfile {
+/** Chiffres de la semaine pour le classement, montrés seulement à qui te suit. */
+export interface Board {
+  weekOf: string;
+  week: number;
+  volume: number;
+  streak: number;
+}
+
+export interface StoredProfile {
   visible: boolean;
   data?: PublicData;
+  board?: Board;
   updatedAt?: string;
+}
+
+export function sanitizeBoard(input: unknown): Board | undefined {
+  const b = (input ?? null) as Record<string, unknown> | null;
+  if (!b || typeof b.weekOf !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.weekOf)) return undefined;
+  return { weekOf: b.weekOf, week: int(b.week, 14) ?? 0, volume: int(b.volume, 2_000_000) ?? 0, streak: int(b.streak, 100_000) ?? 0 };
 }
 
 const int = (v: unknown, max: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max ? Math.round(v) : undefined);
@@ -59,15 +74,18 @@ export function sanitizeProfile(input: unknown): PublicData {
 
 export async function profileRoutes(req: Request, env: Env, user: User, pathname: string): Promise<Response | null> {
   if (pathname === '/api/profile' && req.method === 'PUT') {
-    const b = await readJson<{ visible?: boolean; data?: unknown }>(req, 10_000);
+    const b = await readJson<{ visible?: boolean; data?: unknown; board?: unknown }>(req, 10_000);
+    const board = sanitizeBoard(b.board);
     const stored: StoredProfile = b.visible
-      ? { visible: true, data: sanitizeProfile(b.data), updatedAt: new Date().toISOString() }
-      : { visible: false };
+      ? { visible: true, data: sanitizeProfile(b.data), ...(board ? { board } : {}), updatedAt: new Date().toISOString() }
+      : { visible: false, ...(board ? { board } : {}) };
     await user.store.put('profile', JSON.stringify(stored));
     return json({ ok: true, profile: stored });
   }
 
   if (pathname === '/api/profiles' && req.method === 'GET') {
+    // Liste de tous les profils : réservée à l'admin (le club ne montre plus d'annuaire des membres).
+    if (user.role !== 'admin') throw new HttpError(403, 'Réservé à l’administrateur');
     const accounts = await listAccounts(env);
     const rows = await Promise.all(accounts.map(async (a) => ({ a, p: await loadJson<StoredProfile>(env.KV, `u:${a.id}:profile`) })));
     const profiles = rows

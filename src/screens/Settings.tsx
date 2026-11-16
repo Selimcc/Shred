@@ -346,6 +346,23 @@ function PublicProfilePage() {
           />
         </div>
       )}
+      {priv !== null && (
+        <div className="group">
+          <Toggle
+            title="Classement de la semaine"
+            text={
+              s.settings.profile.board !== false
+                ? 'Tes abonnés voient tes séances et ton tonnage de la semaine dans leur classement.'
+                : 'Tu n’apparais pas dans le classement de tes abonnés.'
+            }
+            on={s.settings.profile.board !== false}
+            onChange={(v) => {
+              setState((d) => void (d.settings.profile.board = v));
+              void publishProfile(true).catch(() => undefined);
+            }}
+          />
+        </div>
+      )}
       <p className="small muted" style={{ margin: 0 }}>
         Seuls les comptes de cette app, sur invitation, peuvent voir ton profil, et seulement ce que tu coches. Tes séances, repas et poids ne sont
         jamais montrés.

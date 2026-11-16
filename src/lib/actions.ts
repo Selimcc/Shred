@@ -83,6 +83,14 @@ export function addMeal(date: string, entry: Omit<MealEntry, 'id' | 'at'>) {
   });
 }
 
+/** Ajouter (ou retirer, ml négatif) de l'eau bue dans la journée. */
+export function addWater(date: string, ml: number) {
+  setState((d) => {
+    const day = ensureDay(d, date);
+    day.water = Math.max(0, Math.min(8000, (day.water ?? 0) + ml));
+  });
+}
+
 export function removeMeal(date: string, id: string) {
   setState((d) => {
     const day = ensureDay(d, date);

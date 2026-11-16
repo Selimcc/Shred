@@ -4939,3 +4939,576 @@ html[data-nav]::view-transition-new(root) {
   margin: 2px 0 0;
   overflow-wrap: anywhere;
 }
+
+/* ==========================================================================
+   Couche « premium » (v0.22) : plus de profondeur, moins d'aplats.
+   Fond graphite avec une lueur d'ambiance, surfaces éclairées par le haut
+   (reflet d'un pixel, dégradé très léger, ombre douce), boutons et barre
+   d'onglets en verre. Les règles plus haut restent la base ; celles-ci
+   n'ajoutent que la matière.
+   ========================================================================== */
+
+:root {
+  --bg: #101216;
+  --surface: #191c21;
+  --surface-2: #23272d;
+  --surface-3: #2e333a;
+  --line: rgba(255, 255, 255, 0.065);
+  --line-2: rgba(255, 255, 255, 0.12);
+  --sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 46%);
+  --lift: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 18px 40px -26px rgba(0, 0, 0, 0.85);
+  --spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --veil: rgba(16, 18, 22, 0.96);
+}
+
+/* Lueur d'ambiance fixe : ambre en haut à droite, glacier à gauche, à peine visible. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 38% at 92% -4%, rgba(255, 181, 71, 0.075), transparent 70%),
+    radial-gradient(55% 32% at -6% 8%, rgba(134, 185, 255, 0.05), transparent 70%),
+    radial-gradient(80% 50% at 50% 110%, rgba(95, 211, 160, 0.03), transparent 70%);
+}
+
+.card,
+.group {
+  background: var(--sheen), var(--surface);
+  box-shadow: var(--lift);
+}
+.sheet .card,
+.sheet .group {
+  background: var(--sheen), var(--surface);
+}
+
+/* Titres d'écran plus affirmés, style éditorial. */
+h1 {
+  font-weight: 800;
+  font-stretch: 88%;
+  letter-spacing: -0.035em;
+}
+.section-head h2,
+.section > h2 {
+  font-size: 1.16rem;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+}
+
+/* Boutons : le principal brille légèrement, les autres sont en verre. */
+.btn {
+  font-weight: 680;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition:
+    transform 0.18s var(--spring),
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.15s;
+}
+.btn.primary,
+.btn.go {
+  background: linear-gradient(180deg, #ffffff, #e4e6ea);
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+    0 10px 26px -14px rgba(255, 255, 255, 0.55);
+}
+.btn.primary:active:not(:disabled),
+.btn.go:active:not(:disabled) {
+  background: linear-gradient(180deg, #eceef1, #d6d9de);
+  transform: scale(0.97);
+}
+.btn.primary:disabled {
+  box-shadow: none;
+}
+
+/* Carte du jour : halo coloré qui respire et reflet en diagonale. */
+.today-hero {
+  background:
+    radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--tier, var(--amber)) 20%, transparent), transparent 62%),
+    radial-gradient(70% 60% at 0% 100%, rgba(134, 185, 255, 0.07), transparent 70%),
+    var(--sheen),
+    var(--surface);
+  border-color: var(--line-2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 28px 60px -32px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.today-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.05) 48%, transparent 60%);
+  background-size: 260% 100%;
+  animation: hero-sheen 7s ease-in-out 1.2s infinite;
+}
+@keyframes hero-sheen {
+  0%,
+  60% {
+    background-position: 130% 0;
+  }
+  100% {
+    background-position: -40% 0;
+  }
+}
+.hero-title {
+  letter-spacing: -0.02em;
+  background: linear-gradient(180deg, #ffffff 30%, #c9ccd2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero-stats b {
+  font-size: 1.75rem;
+}
+
+/* Barre d'onglets en verre, onglet actif sur une pastille éclairée. */
+.tabbar nav {
+  background: rgba(20, 23, 28, 0.86);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 18px 50px -12px rgba(0, 0, 0, 0.7);
+}
+.tab .pill {
+  border-radius: 999px;
+  transition:
+    background 0.3s var(--spring),
+    transform 0.3s var(--spring);
+}
+.tab.active .pill {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+.tab:active .pill {
+  transform: scale(0.9);
+}
+
+/* Feuilles : verre sombre, poignée plus discrète. */
+.sheet {
+  background: linear-gradient(180deg, #1c1f25, #16181d 30%);
+  box-shadow: 0 -20px 60px -20px rgba(0, 0, 0, 0.8);
+}
+.sheet-backdrop {
+  background: rgba(5, 6, 8, 0.6);
+  backdrop-filter: blur(6px) saturate(1.2);
+  -webkit-backdrop-filter: blur(6px) saturate(1.2);
+}
+
+/* Champs : fond creusé, anneau net au focus. */
+.input {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+.input:focus {
+  outline: none;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(255, 181, 71, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .today-hero::after {
+    animation: none;
+  }
+}
+
+/* Carte story : aperçu au format 9:16. */
+.story-preview {
+  width: min(62vw, 300px);
+  aspect-ratio: 9 / 16;
+  margin: 0 auto;
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--surface-2);
+  box-shadow:
+    0 30px 60px -24px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  animation: story-in 0.5s var(--spring) both;
+}
+.story-preview img,
+.story-preview .sk-block {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+@keyframes story-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+}
+
+/* ---------- Trophées ---------- */
+
+.trophy-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+.trophy-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  min-height: 58px;
+}
+.trophy-next {
+  margin-top: 14px;
+}
+.trophy-bar {
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.trophy-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--amber), #ffd28a);
+  transform-origin: left;
+}
+.trophy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.trophy-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px 12px;
+  border-radius: 18px;
+  background: var(--sheen), var(--surface);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.trophy-cell .medal {
+  margin-bottom: 6px;
+}
+.trophy-title {
+  font-weight: 760;
+  line-height: 1.2;
+}
+.trophy-text {
+  line-height: 1.3;
+}
+.trophy-cell:not(.on) .trophy-title {
+  color: var(--ink-2);
+}
+
+/* Médaille : anneau métallique (dégradé conique par rang), face sombre, reflet. */
+.medal {
+  --m1: #b9733f;
+  --m2: #f0b27a;
+  --m3: #8a4f28;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 210deg, var(--m1), var(--m2), var(--m3), var(--m2), var(--m1));
+  box-shadow:
+    0 10px 22px -10px color-mix(in srgb, var(--m2) 60%, transparent),
+    inset 0 1px 1px rgba(255, 255, 255, 0.5);
+}
+.medal.silver {
+  --m1: #8f99a6;
+  --m2: #eef2f7;
+  --m3: #6b7480;
+}
+.medal.gold {
+  --m1: #d49a1e;
+  --m2: #ffe08a;
+  --m3: #a8740d;
+}
+.medal.legend {
+  --m1: #7e5bff;
+  --m2: #8fe3ff;
+  --m3: #ff7ad1;
+}
+.medal-face {
+  display: grid;
+  place-items: center;
+  width: 78%;
+  height: 78%;
+  border-radius: 50%;
+  color: var(--m2);
+  background: radial-gradient(circle at 35% 30%, #2b2f36, #121418 75%);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.medal::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35), transparent 40%);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+.medal.off {
+  background: var(--surface-3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.medal.off .medal-face {
+  color: var(--ink-3);
+}
+.medal.off::after {
+  display: none;
+}
+
+/* ---------- Fiche exercice ---------- */
+
+.ex-name {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: left;
+}
+.ex-records {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.ex-records > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--sheen), var(--surface-2);
+  box-shadow: var(--lift);
+}
+.ex-records b {
+  font-size: 1.3rem;
+  font-stretch: 75%;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.ex-history {
+  align-items: flex-start;
+  gap: 10px;
+}
+.ex-top {
+  color: var(--amber);
+  font-weight: 700;
+}
+.plate-bar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 110px;
+  padding: 6px 0;
+  overflow-x: auto;
+}
+.plate-sleeve {
+  width: 46px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #d9dce1, #8e949c);
+}
+.plate {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  background: #3a3f47;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+/* Couleurs des disques de compétition. */
+.plate.p25 {
+  background: #d23c3c;
+}
+.plate.p20 {
+  background: #2f66d6;
+}
+.plate.p15 {
+  background: #d8b42a;
+  color: #1b1b1b;
+}
+.plate.p10 {
+  background: #2c9b5d;
+}
+.plate.p5 {
+  background: #e9ecf0;
+  color: #1b1b1b;
+}
+.plate.p2_5,
+.plate.p1_25 {
+  background: #5d636c;
+}
+
+/* ---------- Hydratation ---------- */
+
+.water-card {
+  background:
+    radial-gradient(80% 90% at 0% 0%, rgba(134, 185, 255, 0.12), transparent 60%),
+    var(--sheen),
+    var(--surface);
+}
+.water-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.water-amount {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-stretch: 75%;
+  line-height: 1.15;
+}
+.water-amount span {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  font-stretch: 100%;
+}
+.water-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.water-glasses {
+  display: flex;
+  gap: 5px;
+  margin-top: 14px;
+}
+.water-glasses span {
+  flex: 1;
+  height: 26px;
+  border-radius: 4px 4px 9px 9px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  transition: background 0.4s var(--spring);
+}
+.water-glasses span.on {
+  background: linear-gradient(180deg, #a9cfff, #4d8ff0);
+  box-shadow: 0 6px 14px -8px rgba(77, 143, 240, 0.9);
+  animation: water-fill 0.45s var(--spring) both;
+}
+@keyframes water-fill {
+  from {
+    transform: scaleY(0.4);
+    transform-origin: bottom;
+  }
+}
+.water-done {
+  margin-top: 10px;
+  color: var(--glacier);
+  font-weight: 700;
+}
+.food-thumb {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--surface-3);
+}
+
+/* ---------- Classement du club ---------- */
+
+.board {
+  margin-top: 14px;
+  background:
+    radial-gradient(90% 80% at 100% 0%, rgba(255, 209, 102, 0.12), transparent 60%),
+    var(--sheen),
+    var(--surface);
+}
+.board-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--gold);
+}
+.board-head > div {
+  color: var(--ink);
+}
+.board-list {
+  list-style: none;
+  margin: 12px 0 6px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.board-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 6px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+.board-list button:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.board-list li.me button {
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+.board-rank {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--ink-2);
+  background: var(--surface-3);
+}
+.board-rank.r1 {
+  color: #3b2a00;
+  background: linear-gradient(135deg, #ffe08a, #d49a1e);
+}
+.board-rank.r2 {
+  color: #262b31;
+  background: linear-gradient(135deg, #f1f4f8, #8f99a6);
+}
+.board-rank.r3 {
+  color: #2a1606;
+  background: linear-gradient(135deg, #f0b27a, #b9733f);
+}
+.board-score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+}
+.board-score b {
+  font-size: 1.05rem;
+  color: var(--ink);
+}

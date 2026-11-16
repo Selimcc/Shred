@@ -9,6 +9,7 @@ import { type Env, HttpError, json, readJson } from './env';
 import { vapidFromEnv } from './reminders';
 import { getAccount, type IndexEntry, listAccounts, loadJson, type User, userStore } from './users';
 import { fold } from '../shared/handle';
+import type { StoredProfile } from './profiles';
 import { type PushSubscriptionData, sendPush } from './webpush';
 
 export type Visibility = 'all' | 'followers' | 'private';
@@ -862,6 +863,40 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
     if (!a) throw new HttpError(404, 'Membre introuvable');
     const s = await social(env, user, [a.id]);
     return json({ member: (await buildMembers(env, user, [a], s))[0] });
+  }
+
+  if (pathname === '/api/club/leaderboard' && method === 'GET') {
+    // Classement de la semaine : toi et les personnes que tu suis (abonnement accepté), si elles l'acceptent.
+    const week = url.searchParams.get('week') ?? '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) throw new HttpError(400, 'Semaine invalide');
+    await capDaily(env, user.id, 'board');
+    const s = await social(env, user);
+    const ids = [user.id, ...s.following];
+    const accounts = (await listAccounts(env)).filter((a) => ids.includes(a.id));
+    const [profiles, avatars] = await Promise.all([
+      Promise.all(accounts.map((a) => loadJson<StoredProfile>(env.KV, `u:${a.id}:profile`))),
+      Promise.all(accounts.map((a) => userStore(env.KV, a.id).get('avatar'))),
+    ]);
+    const rows = accounts
+      .map((a, i) => {
+        const b = profiles[i]?.board;
+        const me = a.id === user.id;
+        if (!b && !me) return null;
+        const current = b?.weekOf === week;
+        return {
+          id: a.id,
+          name: a.name,
+          handle: a.handle ?? null,
+          avatar: avatars[i] ?? null,
+          me,
+          week: current ? b!.week : 0,
+          volume: current ? b!.volume : 0,
+          streak: b?.streak ?? 0,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => Boolean(r))
+      .sort((x, y) => y.week - x.week || y.volume - x.volume || y.streak - x.streak);
+    return json({ week, rows });
   }
 
   if (pathname === '/api/club/requests' && method === 'GET') {

@@ -1,4 +1,5 @@
 import { BodyPhotos } from '../components/BodyPhotos';
+import { TrophyCase } from '../components/Trophies';
 import { HealthStats } from '../components/HealthStats';
 import { useState } from 'react';
 import { Icon } from '../components/Icon';
@@ -67,6 +68,8 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
       <EnduranceTiles today={today} />
 
       <Flames today={today} openGoals={() => openSettings('goals')} />
+
+      <TrophyCase />
 
       {mod.strength && <Lifts today={today} />}
 
