@@ -83,6 +83,8 @@ export interface Modules {
 export interface Goal {
   workout: boolean;
   minMeals: number;
+  /** Ce qui compte comme séance faite : la moitié des séries suffit, ou la séance entière. */
+  level?: 'half' | 'full';
 }
 
 export interface Settings {

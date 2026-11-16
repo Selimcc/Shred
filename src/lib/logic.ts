@@ -18,11 +18,54 @@ export function sessionFor(s: AppState, key: string): Session {
 export interface Rule {
   workout: boolean;
   minMeals: number;
+  /** half : la moitié des séries, une séance cardio commencée ou 30 min à la salle suffisent. */
+  level: 'half' | 'full';
 }
+
+/** Part des séries qui suffit à valider la séance pour la série de flammes. */
+export const HALF_SESSION = 0.5;
+/** Minutes à la salle (d'après Santé) qui valent une séance faite. */
+export const GYM_MINUTES = 30;
 
 export function ruleOf(s: AppState): Rule {
   const minMeals = s.settings.modules.nutrition ? Math.max(0, Math.min(4, s.settings.goal.minMeals)) : 0;
-  return { workout: s.settings.goal.workout || minMeals === 0, minMeals };
+  return { workout: s.settings.goal.workout || minMeals === 0, minMeals, level: s.settings.goal.level ?? 'half' };
+}
+
+function gymMinutes(s: AppState, date: string): number {
+  const h = s.health[date];
+  if (!h?.gymIn || !h.gymOut) return 0;
+  const min = (new Date(h.gymOut).getTime() - new Date(h.gymIn).getTime()) / 60000;
+  return min > 0 && min < 600 ? min : 0;
+}
+
+/**
+ * La partie « sport » de la journée est-elle remplie ?
+ * Jour de repos prévu : rien à faire. Sinon la séance terminée, ou (par défaut) la moitié des séries,
+ * une séance cardio commencée, ou 30 minutes à la salle.
+ */
+export function workoutOk(s: AppState, date: string, rule: Rule = ruleOf(s)): boolean {
+  const day = s.days[date];
+  if (day?.mainDone) return true;
+  const session = sessionFor(s, date);
+  if (session.type === 'rest') {
+    // Sans repas à noter, il faut quand même un signe de vie ce jour-là.
+    return rule.minMeals > 0 || Boolean(day && (Object.values(day.habits).some(Boolean) || Object.values(day.sets).some((l) => doneCount(l) > 0)));
+  }
+  if (!rule.workout) return true;
+  if (rule.level === 'full') return false;
+  if (gymMinutes(s, date) >= GYM_MINUTES) return true;
+  if (!day) return false;
+  const prog = setProgress(session, day);
+  if (session.lifting) return prog.total > 0 && prog.done / prog.total >= HALF_SESSION;
+  return session.exercises.some((e) => doneCount(day.sets[e.key]) > 0);
+}
+
+/** Journée validée : la partie sport (voir workoutOk) et le minimum de repas notés. */
+export function dayValidated(s: AppState, date: string, rule: Rule = ruleOf(s)): boolean {
+  const day = s.days[date];
+  if (!day && rule.minMeals > 0) return false;
+  return (day ? mealsCount(day) : 0) >= rule.minMeals && workoutOk(s, date, rule);
 }
 
 export function doneCount(logs?: SetLog[]): number {
@@ -57,11 +100,6 @@ export function mealsCount(day: DayLog): number {
   return MAIN_SLOTS.filter((slot) => day.meals.some((m) => m.slot === slot)).length;
 }
 
-export function isValidated(day: DayLog | undefined, rule: Rule): boolean {
-  if (!day) return false;
-  return (!rule.workout || day.mainDone) && mealsCount(day) >= rule.minMeals;
-}
-
 export function totals(day: DayLog): Macros {
   return day.meals.reduce(
     (acc, m) => ({
@@ -87,7 +125,7 @@ export function reconcileStreak(draft: AppState, today: string) {
   let d = addDays(st.through, 1);
   let guard = 0;
   while (d <= yesterday && guard++ < 1000) {
-    if (isValidated(draft.days[d], rule)) {
+    if (dayValidated(draft, d, rule)) {
       st.banked += 1;
       if (st.banked % 7 === 0 && st.freezes < 2) st.freezes += 1;
     } else if (st.banked > 0 && st.freezes > 0) {
@@ -104,7 +142,7 @@ export function reconcileStreak(draft: AppState, today: string) {
 }
 
 export function streakInfo(s: AppState, today: string) {
-  const todayValidated = isValidated(s.days[today], ruleOf(s));
+  const todayValidated = dayValidated(s, today);
   const current = s.streak.banked + (todayValidated ? 1 : 0);
   return {
     current,
@@ -119,7 +157,7 @@ export type DayStatus = 'validated' | 'frozen' | 'missed' | 'today' | 'future' |
 
 export function dayStatus(s: AppState, key: string, today: string): DayStatus {
   if (key > today) return 'future';
-  if (isValidated(s.days[key], ruleOf(s))) return 'validated';
+  if (dayValidated(s, key)) return 'validated';
   if (key === today) return 'today';
   if (s.streak.frozen.includes(key)) return 'frozen';
   if (key < s.createdAt) return 'empty';
@@ -133,15 +171,17 @@ export function weekKeys(today: string): string[] {
 
 /* ---------- XP et niveaux ---------- */
 
-export function dayXp(day: DayLog, rule: Rule): number {
+export function dayXp(s: AppState, date: string, rule: Rule = ruleOf(s)): number {
+  const day = s.days[date];
+  if (!day) return 0;
   const sets = Object.values(day.sets).reduce((n, logs) => n + doneCount(logs), 0);
   const habits = Object.values(day.habits).filter(Boolean).length;
-  return sets * 2 + mealsCount(day) * 10 + habits * 5 + (day.mainDone ? 50 : 0) + (isValidated(day, rule) ? 50 : 0);
+  return sets * 2 + mealsCount(day) * 10 + habits * 5 + (day.mainDone ? 50 : 0) + (dayValidated(s, date, rule) ? 50 : 0);
 }
 
 export function totalXp(s: AppState): number {
   const rule = ruleOf(s);
-  let xp = Object.values(s.days).reduce((n, d) => n + dayXp(d, rule), 0);
+  let xp = Object.keys(s.days).reduce((n, d) => n + dayXp(s, d, rule), 0);
   xp += Object.keys(s.body.weight).length * 5;
   return xp;
 }

@@ -2210,3 +2210,17 @@ input[type='time'].input {
     transition: none !important;
   }
 }
+
+.flame-hint {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  margin: 12px 0 0;
+  color: var(--ink-2);
+}
+
+.flame-hint svg {
+  flex: none;
+  color: var(--amber);
+  transform: translateY(2px);
+}

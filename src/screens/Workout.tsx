@@ -8,7 +8,7 @@ import { formatShort, weekdayOf, WEEKDAY_NAMES } from '../lib/date';
 import { exerciseFrames, exerciseInfo, videoUrl } from '../lib/exercise-info';
 import { adviseLoad, loadFor } from '../lib/advisor';
 import { e1rm } from '../lib/strength';
-import { fmtKg, formatSets, lastPerformance, nextTarget, sessionFor, setProgress } from '../lib/logic';
+import { fmtKg, formatSets, HALF_SESSION, lastPerformance, nextTarget, ruleOf, sessionFor, setProgress, workoutOk } from '../lib/logic';
 import { type Form, readDay, type SetLog, useApp } from '../lib/store';
 import { addExtra, alternatives, BROKEN_DAYS, isBroken, markRepaired, removeExtra, setExpress, setForm, skipExercise, swapExercise, SWAP_REASONS, type SwapReason, undoSwap } from '../lib/dynamic';
 import { applyTweak, dismissTweak, programTweaks } from '../lib/tweaks';
@@ -71,6 +71,18 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
           </Ring>
         )}
       </header>
+      {session.type !== 'rest' && !day.mainDone && ruleOf(s).workout && (
+        <p className="small flame-hint">
+          <Icon name="flame" size={15} />
+          {workoutOk(s, today)
+            ? 'Flamme du jour assurée côté sport. Le reste de la séance, c’est du bonus.'
+            : ruleOf(s).level === 'half'
+              ? session.lifting
+                ? `Encore ${Math.max(1, Math.ceil(prog.total * HALF_SESSION) - prog.done)} série${Math.ceil(prog.total * HALF_SESSION) - prog.done > 1 ? 's' : ''} pour ta flamme du jour (la moitié de la séance suffit).`
+                : 'Commence la séance et ta flamme du jour est assurée.'
+              : 'Termine la séance pour ta flamme du jour.'}
+        </p>
+      )}
       <div className="workout-actions">
         <button className="btn small" onClick={() => setPicker(true)}>
           <Icon name="swap" size={16} /> Changer de séance

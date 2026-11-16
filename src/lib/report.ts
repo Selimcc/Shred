@@ -5,7 +5,7 @@ import { catalogEntry } from '../../shared/catalog';
 import { findSession, scheduleFor } from '../../shared/program';
 import { usable } from '../../shared/plans';
 import { addDays, dayKey, formatNumber, formatShort, mondayOf, weekdayOf } from './date';
-import { isValidated, mealsCount, ruleOf, sessionFor, streakInfo, totals } from './logic';
+import { dayValidated, mealsCount, ruleOf, sessionFor, streakInfo, totals } from './logic';
 import type { AppState } from './store';
 import { e1rm, GROUPS, strengthProfile } from './strength';
 
@@ -93,7 +93,7 @@ export function weeklyReport(s: AppState, monday: string, today = dayKey()): Wee
   const planned = dates.filter((d) => findSession(s.program, scheduleFor(s.program, d)[weekdayOf(d)]).type !== 'rest');
   const doneDays = dates.filter((d) => s.days[d]?.mainDone && sessionFor(s, d).type !== 'rest');
   const sessions = { planned: planned.length, done: doneDays.length, names: doneDays.map((d) => sessionFor(s, d).name) };
-  const validated = dates.filter((d) => isValidated(s.days[d], rule)).length;
+  const validated = dates.filter((d) => dayValidated(s, d, rule)).length;
 
   // Nutrition
   const fed = dates.filter((d) => (s.days[d]?.meals.length ?? 0) > 0 && mealsCount(s.days[d]) >= 2);

@@ -14,6 +14,8 @@ import {
   dayStatus,
   mealsCount,
   ruleOf,
+  HALF_SESSION,
+  workoutOk,
   sessionFor,
   setProgress,
   streakInfo,
@@ -35,7 +37,8 @@ function nextStep(s: AppState, today: string): { mood: Mood; text: string; cta?:
   const meals = mealsCount(day);
   const hour = new Date().getHours();
   const name = s.settings.name ? ` ${s.settings.name}` : '';
-  const sessionLeft = rule.workout && !day.mainDone && session.type !== 'rest';
+  const sessionLeft = !day.mainDone && session.type !== 'rest' && !workoutOk(s, today, rule);
+  const half = Math.ceil(prog.total * HALF_SESSION);
   const mealsLeft = Math.max(0, rule.minMeals - meals);
 
   if (st.todayValidated) {
@@ -53,14 +56,21 @@ function nextStep(s: AppState, today: string): { mood: Mood; text: string; cta?:
     };
   }
   if (sessionLeft) {
-    if (prog.done > 0) return { mood: 'cheer', text: `Tu es lancé : ${prog.done} séries sur ${prog.total}. On termine ?`, cta: { label: 'Continuer la séance', tab: 'workout' } };
+    if (prog.done > 0) {
+      const left = Math.max(1, half - prog.done);
+      const why = rule.level === 'half' ? ` Encore ${left} série${left > 1 ? 's' : ''} et ta flamme du jour est assurée.` : ' On termine ?';
+      return { mood: 'cheer', text: `Tu es lancé : ${prog.done} séries sur ${prog.total}.${why}`, cta: { label: 'Continuer la séance', tab: 'workout' } };
+    }
     const detail = session.lifting ? `${session.exercises.length} exercices, environ ${session.duration}` : session.focus;
     return { mood: 'happy', text: `Salut${name} ! Aujourd’hui c’est ${session.name} : ${detail}.`, cta: { label: `Commencer ${session.name}`, tab: 'workout' } };
   }
   if (mealsLeft > 0) {
     return {
       mood: 'happy',
-      text: day.mainDone ? `Séance faite, bravo ! Note encore ${mealsLeft} repas pour valider ta journée.` : `Jour de repos. Note ${mealsLeft} repas et ta journée est validée.`,
+      text:
+        session.type === 'rest'
+          ? `Jour de repos. Note ${mealsLeft} repas et ta journée est validée.`
+          : `Côté sport c’est bon, bravo ! Note encore ${mealsLeft} repas pour valider ta journée.`,
       cta: { label: 'Noter un repas', tab: 'food' },
     };
   }

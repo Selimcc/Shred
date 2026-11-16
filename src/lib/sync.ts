@@ -4,7 +4,7 @@ import { startProfileSync } from './profile';
 import { lastWeekMonday } from './report';
 import { addDays, dayKey, mondayOf } from './date';
 import { syncHealth } from './health';
-import { isValidated, mealsCount, reconcileStreak, ruleOf, sessionFor, streakInfo } from './logic';
+import { dayValidated, mealsCount, reconcileStreak, sessionFor, streakInfo } from './logic';
 import { signedIn } from './session';
 import { getState, readDay, setState, subscribe } from './store';
 
@@ -20,7 +20,7 @@ export function daySummary() {
     lifting: sessionFor(s, today).lifting,
     mainDone: day.mainDone,
     meals: mealsCount(day),
-    validated: isValidated(day, ruleOf(s)),
+    validated: dayValidated(s, today),
     streak: st.current,
     banked: st.banked,
   };

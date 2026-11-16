@@ -11,7 +11,7 @@ import { athleteSummary } from '../../shared/athlete';
 import { catalogEntry, GROUP_NAMES } from '../../shared/catalog';
 import { programText } from './ai';
 import { addDays, diffDays, formatNumber, formatShort, mondayOf, WEEKDAY_NAMES, weekdayOf } from './date';
-import { formatSets, fmtKg, isValidated, mealsCount, ruleOf, sessionFor, totals } from './logic';
+import { formatSets, fmtKg, dayValidated, mealsCount, ruleOf, sessionFor, totals } from './logic';
 import { type AppState, WEIGHT_GOALS } from './store';
 import { e1rm } from './strength';
 
@@ -74,7 +74,7 @@ function dayDoc(s: AppState, date: string): KnowledgeDoc | null {
   if (h?.steps !== undefined) lines.push(`Activité : ${h.steps} pas${h.active ? `, ${h.active} kcal actives` : ''}.`);
   const kg = s.body.weight[date];
   if (kg) lines.push(`Poids : ${formatNumber(kg, 1)} kg.`);
-  if (isValidated(day, ruleOf(s))) lines.push('Journée validée.');
+  if (dayValidated(s, date)) lines.push('Journée validée.');
   return { id: `day:${date}`, kind: 'day', date, title: `${WEEKDAY_NAMES[weekdayOf(date)]} ${short(date)} : ${session.name}`, text: lines.join('\n') };
 }
 
@@ -93,7 +93,7 @@ function weekDocs(s: AppState, today: string, weeks: number): KnowledgeDoc[] {
     const logged = dates.filter((d) => s.days[d]);
     if (logged.length) {
       const sessions = dates.filter((d) => s.days[d]?.mainDone).map((d) => sessionFor(s, d).name);
-      const validated = dates.filter((d) => isValidated(s.days[d], rule)).length;
+      const validated = dates.filter((d) => dayValidated(s, d, rule)).length;
       const fed = dates.filter((d) => (s.days[d]?.meals.length ?? 0) > 0);
       const kcal = fed.length ? Math.round(fed.reduce((a, d) => a + totals(s.days[d]).kcal, 0) / fed.length) : null;
       const prot = fed.length ? Math.round(fed.reduce((a, d) => a + totals(s.days[d]).protein, 0) / fed.length) : null;

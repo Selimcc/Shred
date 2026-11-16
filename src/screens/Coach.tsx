@@ -10,8 +10,7 @@ import { api } from '../lib/api';
 import { addDays, formatLong, formatNumber } from '../lib/date';
 import {
   formatSets,
-  isValidated,
-  ruleOf,
+  dayValidated,
   mealsCount,
   sessionFor,
   setProgress,
@@ -76,7 +75,7 @@ export function buildContext(s: AppState, today: string): string {
   const week = Array.from({ length: 7 }, (_, i) => addDays(today, -i - 1)).map((d) => {
     const dl = s.days[d];
     const name = sessionFor(s, d).name;
-    return `${d} ${name} ${dl?.mainDone ? 'faite' : 'non faite'}${isValidated(dl, ruleOf(s)) ? ', journée validée' : ''}`;
+    return `${d} ${name} ${dl?.mainDone ? 'faite' : 'non faite'}${dayValidated(s, d) ? ', journée validée' : ''}`;
   });
   lines.push(`7 derniers jours :\n${week.join('\n')}`);
   return lines.join('\n');

@@ -452,11 +452,35 @@ function GoalsPage() {
         <h2>Valider une journée</h2>
         <div className="group">
           <Toggle
-            title="Séance obligatoire"
-            text="La séance du jour (ou le repos actif) doit être terminée."
+            title="Le sport compte"
+            text="Les jours d’entraînement, la séance fait partie de la journée validée. Les jours de repos, rien à faire côté sport."
             on={g.workout}
             onChange={(v) => setState((d) => void (d.settings.goal.workout = v || d.settings.goal.minMeals === 0))}
           />
+          {g.workout && (
+            <div className="row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+              <div>
+                <div className="title">Ce qui compte comme séance</div>
+                <div className="small muted">
+                  {(g.level ?? 'half') === 'half'
+                    ? 'La moitié des séries cochées, une séance cardio commencée ou 30 min à la salle (avec Santé) suffisent.'
+                    : 'Toutes les séries de la séance doivent être faites.'}
+                </div>
+              </div>
+              <div className="seg" role="group" aria-label="Ce qui compte comme séance">
+                {(
+                  [
+                    ['half', 'La moitié suffit'],
+                    ['full', 'La séance entière'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button key={id} type="button" className={(g.level ?? 'half') === id ? 'on' : ''} onClick={() => setState((d) => void (d.settings.goal.level = id))}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {s.settings.modules.nutrition && (
             <label className="row">
               <div className="grow">

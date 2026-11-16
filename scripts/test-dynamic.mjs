@@ -16,7 +16,7 @@ await build({
       export { catalogEntry } from './shared/catalog';
       export { resolveSession, findSession } from './shared/program';
       export { initial, migrate, replaceState, getState } from './src/lib/store';
-      export { sessionFor } from './src/lib/logic';
+      export { sessionFor, dayValidated, workoutOk } from './src/lib/logic';
       export * from './src/lib/dynamic';
       export { programTweaks, applyTweak, suggestPriorities } from './src/lib/tweaks';
       export { programFor, applyProgram, restorePreviousProgram } from './src/lib/coaching';
@@ -197,6 +197,43 @@ const before = k.getState().program.name;
 k.applyProgram(gen({ physique: 'mass', days: 4, minutes: 60 }).program);
 check('nouveau programme : l’historique des séances reste', k.getState().days['2026-10-01'].sets.bench[0].w === 80);
 check('revenir au programme précédent', k.restorePreviousProgram() && k.getState().program.name === before);
+
+
+/* ---------- Flammes : la moitié de la séance suffit ---------- */
+{
+  const st = k.initial();
+  st.program = gen({ physique: 'aesthetic', days: 5, minutes: 75 }).program;
+  const trainDay = '2026-11-16'; // lundi : push
+  const restDay = '2026-11-19'; // jeudi : repos
+  const meals = ['breakfast', 'lunch', 'dinner'].map((slot) => ({ slot, kcal: 600, protein: 40, carbs: 60, fat: 20, name: 'x', id: slot }));
+  const sess = k.sessionFor(st, trainDay);
+  const total = sess.exercises.reduce((n, e) => n + e.sets, 0);
+  const fill = (n) => {
+    const sets = {};
+    let left = n;
+    for (const e of sess.exercises) {
+      const c = Math.min(e.sets, left);
+      if (c > 0) sets[e.key] = Array.from({ length: c }, () => ({ w: 20, r: 10, done: true }));
+      left -= c;
+    }
+    return sets;
+  };
+  st.days[trainDay] = { sets: fill(Math.ceil(total / 2)), mainDone: false, meals, habits: {} };
+  check('flamme : la moitié des séries + 3 repas valide la journée', k.dayValidated(st, trainDay), `${Math.ceil(total / 2)}/${total}`);
+  st.days[trainDay] = { sets: fill(Math.floor(total * 0.4)), mainDone: false, meals, habits: {} };
+  check('flamme : 40 % des séries ne suffisent pas', !k.dayValidated(st, trainDay));
+  st.health[trainDay] = { gymIn: `${trainDay}T18:00:00Z`, gymOut: `${trainDay}T18:40:00Z` };
+  check('flamme : 40 min à la salle (Santé) comptent comme séance', k.dayValidated(st, trainDay));
+  delete st.health[trainDay];
+  st.settings.goal.level = 'full';
+  st.days[trainDay] = { sets: fill(Math.ceil(total / 2)), mainDone: false, meals, habits: {} };
+  check('flamme : en mode « séance entière », la moitié ne suffit pas', !k.dayValidated(st, trainDay));
+  st.settings.goal.level = 'half';
+  st.days[restDay] = { sets: {}, mainDone: false, meals, habits: {} };
+  check('flamme : jour de repos, les repas suffisent', k.dayValidated(st, restDay));
+  st.days[restDay] = { sets: {}, mainDone: false, meals: meals.slice(0, 2), habits: {} };
+  check('flamme : jour de repos, il faut quand même les repas', !k.dayValidated(st, restDay));
+}
 
 console.log(failures ? `\n${failures} échec(s).` : '\nTous les tests passent.');
 process.exit(failures ? 1 : 0);
