@@ -9,6 +9,8 @@ A training and nutrition companion that installs on the phone like a native app:
 
 ![Today, workout, nutrition and progress screens](docs/screenshots/overview.png)
 
+![Club: feed of members' sessions, sharing with @tags, comments, and the Strava connection](docs/screenshots/club.png)
+
 ![Endurance: session intensity profile, block logging, weekly load by sport and a triathlon plan preview](docs/screenshots/endurance.png)
 
 ## Highlights
@@ -18,9 +20,11 @@ A training and nutrition companion that installs on the phone like a native app:
 - **Web Push written from scratch.** VAPID signing and `aes128gcm` payload encryption on WebCrypto, with no dependency, tested against the reference implementation. A Cloudflare cron checks every 15 minutes and stays silent once the day is complete.
 - **AI coach with local retrieval.** The history is split into documents (days, weeks, per-exercise history, weight, profile) and indexed on the phone with BM25, recency and gym synonyms. Only the relevant snippets go to the model, which keeps answers grounded and token costs low.
 - **Program generator.** Splits built from the target physique, priorities, available days, session length and the equipment of your gym, with weekly volume per muscle and a preview before applying.
+- **A club, like Strava.** Members share a session with photos, tag each other with @, give kudos, comment and follow one another; notifications arrive in the app and as push. One Durable Object holds the feed, KV holds the photos.
+- **Strava and Apple Health without Shortcuts.** Strava activities are imported over OAuth and tick off the matching session; the iPhone app (Capacitor) reads HealthKit directly, Apple Watch workouts included.
 - **Endurance plans.** Running, swimming, cycling and triathlon (sprint to Ironman), dated to race day or as renewable 8-week blocks: every week has its own sessions, intensities from your own paces, CSS or FTP, recovery weeks and a taper.
 - **One-command deploy** to Cloudflare's free tier, about 20 active users before needing the $5 plan.
-- **349 test assertions** (encryption, reminders over simulated days, auth, retrieval, streak rules, generator, endurance plans, backup merge, deload, health parsing) plus strict TypeScript on both front and back.
+- **419 test assertions** (encryption, reminders over simulated days, auth, retrieval, streak rules, generator, endurance plans, club, Strava OAuth, activity import, backup merge, deload, health parsing) plus strict TypeScript on both front and back.
 - **Continuous deployment.** Every push is type-checked, tested and built; a green push to `main` is deployed to Cloudflare and smoke-tested.
 
 ## Features
@@ -31,10 +35,11 @@ A training and nutrition companion that installs on the phone like a native app:
 | **Endurance** | Easy, long, progressive and recovery runs, intervals, hills, fartlek and tempo; swim drills (catch-up, fist, side kick, sculling), kick and pull sets, CSS threshold sets, sprints, open water; endurance, long, sweet spot, threshold, VO2 max, cadence and force rides; bike-to-run bricks and transitions; sport-specific strength (runner, swimmer, cyclist, triathlete). Each session shows an intensity profile (zones 1 to 5) that lights up as you go; distance and time are logged per block |
 | **Nutrition** | Calorie and macro targets (Mifflin-St Jeor), barcode scanner (Open Food Facts, native BarcodeDetector or ZXing on iPhone), meal photo analysis, weekly meal plan with batch cooking and a shopping list, dish suggestions for the remaining macros |
 | **Streak** | Daily goal (half of the session, a started cardio session or 30 min at the gym is enough; rest days only need meals), streak freezes, flame tiers, XP, an original mascot and celebration animations (SVG/CSS, respects reduced motion) |
-| **Progress** | Weekly training time stacked by sport with tooltips, distance tiles with 8-week sparklines (rolling 7 days), estimated 1RM curve per lift with records marked, interactive Apple Health cards, weight trend, waist, weekly physique photos compared side by side, strength profile, volume per muscle |
+| **Progress** | Rolling counters with motion blur, weekly training time stacked by sport with tooltips, distance tiles with 8-week sparklines (rolling 7 days), estimated 1RM curve per lift with records marked, interactive Apple Health cards, weight trend, waist, weekly physique photos compared side by side, strength profile, volume per muscle |
+| **Club** | Feed of members' sessions (whole club or people you follow), session card with stats, intensity profile and records, up to 4 photos, @mentions with autocomplete, kudos, comments, per-post visibility (club, followers, only me), profile photo, follow, notifications with push for mentions and comments |
 | **Coach** | Chat that knows your program, your day and your history; weekly report with one-tap adjustments; strength profile graded A to E per muscle group |
 | **Plans** | 5K, 10K, half, marathon, triathlon (S, M, 70.3, Ironman), 1,500 m and 5 km open-water swims, 100 and 160 km sportives and Hyrox, dated to race day; or an 8-week block that Pulse renews one notch harder |
-| **Integrations** | Apple Health through iOS Shortcuts: steps, energy, sleep, resting heart rate, HRV, exercise minutes, distance (sleep and HRV suggest the day's readiness), gym check-ins, weekly report by email (Resend) |
+| **Integrations** | Strava (OAuth, activities imported and matched to the day's session, see [docs/STRAVA.md](docs/STRAVA.md)); iPhone app reading Apple Health directly ([docs/IOS.md](docs/IOS.md)); or, in the web app, Apple Health through iOS Shortcuts: steps, energy, sleep, resting heart rate, HRV, exercise minutes, distance (sleep and HRV suggest the day's readiness), gym check-ins, weekly report by email (Resend) |
 | **Accounts** | Invite-only, multiple users per server, admin page and CLI, opt-in public profiles |
 
 ## Architecture
@@ -99,7 +104,7 @@ Without them the checks still run and the deploy job is skipped with a warning. 
 ## Tests
 
 ```bash
-npm test           # push encryption, VAPID, reminders, health, auth, encrypted backup and merge, retrieval, streak, coaching, generator, deload, rest timer, endurance
+npm test           # push encryption, VAPID, reminders, health, auth, encrypted backup and merge, retrieval, streak, coaching, generator, deload, rest timer, endurance, club, Strava, activity import
 npm run typecheck  # front and Worker
 ```
 
@@ -109,10 +114,11 @@ The reminder tests simulate the cron over several days, send real encrypted noti
 
 ```
 shared/        program model, exercise library, templates, generator, athlete needs, race and endurance plans, effort model, meals
-src/screens/   Today, Workout, Food, Coach, Progress, Settings, program editor and builder, onboarding
+src/screens/   Today, Workout, Food, Club, Coach, Progress, Settings, connections, program editor and builder, onboarding
 src/lib/       store and migrations, streak/XP logic, crypto, backup, retrieval, coaching, reports
 src/components UI kit, charts, mascot and celebrations
-worker/        API routes, auth, Web Push, reminders, AI calls, Apple Health, profiles, email report
+worker/        API routes, auth, Web Push, reminders, AI calls, Apple Health, club, Strava, profiles, email report
+ios/           Capacitor iOS shell (HealthKit), built from dist-native
 scripts/       setup, admin CLI, VAPID key generation, test suites
 ```
 

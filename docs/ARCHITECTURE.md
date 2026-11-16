@@ -62,6 +62,18 @@ When the phone and the account hold different data (two devices, or a phone used
 
 A web app cannot schedule a local notification on iOS. When a set is checked, the app asks the Worker to notify it at the end of the rest; a Durable Object (`worker/timers.ts`, one per user) sets an alarm and sends the Web Push at that second, so it arrives on a locked phone. If the app is on screen three seconds before the end, it cancels the alarm and the on-screen timer is enough.
 
+## Club
+
+`worker/club.ts`. One Durable Object (`CLUB`, SQLite-backed, a single instance named `club`) serialises every write, so kudos and comment counters never race. Keys: `p:<timestamp>:<id>` (posts, listed newest first with `reverse`), `pid:<id>` (index), `c:<post>:<timestamp>:<id>` (comments), `f:<user>` / `fb:<user>` (following / followers), `n:<user>:<timestamp>:<id>` (notifications), `nr:<user>` (read marker), `count:<user>`. The Worker authenticates, checks mentions against the member list, stores photos in KV (`club:photo:<id>`, data URLs decoded and size-checked, 4 per post) and sends Web Push for mentions, comments and new followers.
+
+Visibility per post: the whole club, followers only, or only me; people tagged in a post can always see it. Posts carry a summary prepared by the app (title, up to 6 stats, an intensity profile as `[zone, seconds]` pairs, records), sanitised and bounded on the server. The encrypted backup is never read. Deleting an account removes its posts, comments, photos, avatar and follows.
+
+## Strava and native Health
+
+- `worker/strava.ts`: OAuth (`/api/strava/connect`, `/api/strava/callback` with a one-time state in KV), token refresh, `/api/strava/sync` returning short activity summaries. Tokens never leave the server. See [STRAVA.md](STRAVA.md).
+- `src/lib/activities.ts`: activities from Strava or the Apple Watch land in `day.activities`, de-duplicated (same id, or same sport within 10 minutes from another source). An activity of the session's sport ticks those blocks off (and the session when it is complete); `linked` records which blocks it stands for, so the stats count the real distance and time instead of the plan's estimate, once.
+- `src/lib/nativeHealth.ts`: in the iPhone app (`isNative()`), HealthKit daily aggregates, sleep samples and workouts are read on each launch and when the app comes back to the foreground; today's totals are also sent to `/api/health/ingest` for the reminders. See [IOS.md](IOS.md).
+
 ## Training logic
 
 - **Daily goal**: by default today's session (or active rest) and at least 3 logged meals. Configurable.

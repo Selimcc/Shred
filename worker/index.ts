@@ -8,11 +8,14 @@ import { profileRoutes } from './profiles';
 import { emailReady, sendReport } from './report';
 import { authenticate, ensureIndexed, loadJson, type User } from './users';
 import { restRoute } from './timers';
+import { clubRoutes } from './club';
+import { stravaCallback, stravaRoutes } from './strava';
 import { type PushSubscriptionData, sendPush } from './webpush';
 
 export { RestTimer } from './timers';
+export { Club } from './club';
 
-const VERSION = '0.9.0';
+const VERSION = '0.10.0';
 
 function cors(res: Response): Response {
   const h = new Headers(res.headers);
@@ -83,20 +86,25 @@ function isSubscription(v: unknown): v is PushSubscriptionData {
   );
 }
 
-async function route(req: Request, env: Env, url: URL): Promise<Response> {
+async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): Promise<Response> {
   const { pathname } = url;
   const method = req.method;
 
   // Public : version déployée (vérifiée par la CI après chaque déploiement).
   if (pathname === '/api/version' && method === 'GET') return json({ version: VERSION });
 
-  const open = await authRoutes(req, env, pathname);
+  const open = (await authRoutes(req, env, pathname)) ?? (method === 'GET' ? await stravaCallback(env, url) : null);
   if (open) return open;
 
   const user: User = await authenticate(req, env, { deviceKey: DEVICE_ROUTES.has(pathname) });
   const store = user.store;
 
-  const acct = (await accountRoutes(req, env, user, pathname)) ?? (await adminRoutes(req, env, user, url)) ?? (await profileRoutes(req, env, user, pathname));
+  const acct =
+    (await accountRoutes(req, env, user, pathname)) ??
+    (await adminRoutes(req, env, user, url)) ??
+    (await profileRoutes(req, env, user, pathname)) ??
+    (await clubRoutes(req, env, user, url, ctx)) ??
+    (await stravaRoutes(req, env, user, url));
   if (acct) return acct;
 
   if (pathname === '/api/health' && method === 'GET') {
@@ -228,7 +236,7 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
 }
 
 export default {
-  async fetch(req, env): Promise<Response> {
+  async fetch(req, env, ctx): Promise<Response> {
     const url = new URL(req.url);
     if (!url.pathname.startsWith('/api/')) {
       // App privée : on demande aux moteurs de recherche de ne pas l'indexer.
@@ -239,7 +247,8 @@ export default {
     }
     if (req.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
     try {
-      return cors(await route(req, env, url));
+      const res = await route(req, env, url, ctx);
+      return cors(res);
     } catch (e) {
       if (e instanceof HttpError) return cors(json({ error: e.message }, e.status));
       console.error(e);

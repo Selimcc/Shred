@@ -3,6 +3,8 @@ export interface Env {
   KV: KVNamespace;
   /** Minuteurs de repos (Durable Object) : notification à la fin du repos. */
   TIMERS?: DurableObjectNamespace;
+  /** Le club : fil, commentaires, kudos, abonnements (Durable Object unique). */
+  CLUB?: DurableObjectNamespace;
 
   // Secrets (wrangler secret put …, ou .dev.vars en local)
   ANTHROPIC_API_KEY?: string;
@@ -14,6 +16,9 @@ export interface Env {
   EMAIL_FROM?: string;
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
+  /** Application Strava (strava.com/settings/api) : import des sorties. */
+  STRAVA_CLIENT_ID?: string;
+  STRAVA_CLIENT_SECRET?: string;
 
   // Variables (wrangler.jsonc → vars)
   VAPID_SUBJECT?: string;

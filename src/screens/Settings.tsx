@@ -35,6 +35,8 @@ import {
 import { AccountPage, TestersPage } from './Account';
 import { HealthPage } from './HealthSetup';
 import { ProgramEditor } from './ProgramEditor';
+import { StravaPage } from './Connections';
+import { isNative } from '../lib/native';
 
 export type SettingsPage =
   | 'menu'
@@ -54,7 +56,8 @@ export type SettingsPage =
   | 'gym'
   | 'mealplan'
   | 'report'
-  | 'data';
+  | 'data'
+  | 'strava';
 
 const TITLES: Record<SettingsPage, string> = {
   menu: 'Réglages',
@@ -75,6 +78,7 @@ const TITLES: Record<SettingsPage, string> = {
   mealplan: 'Meal plan',
   report: 'Bilan de la semaine',
   data: 'Données',
+  strava: 'Strava',
 };
 
 const AI_MODES: { id: AiMode; title: string; text: string }[] = [
@@ -134,35 +138,67 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
   };
 
   const mod = s.settings.modules;
-  const rows: { id: SettingsPage; icon: string; sub: string; show?: boolean }[] = [
+  const [more, setMore] = useState(false);
+  const strava = s.strava;
+  type Row = { id: SettingsPage; icon: string; sub: string; show?: boolean };
+  const groups: { title: string; rows: Row[] }[] = [
     {
-      id: 'account',
-      icon: 'user',
-      sub: session.account ? `${session.account.email}${session.account.expired ? ', session expirée' : ''}` : 'Sans compte, sur ce téléphone',
-      show: !DEMO,
+      title: 'Entraînement',
+      rows: [
+        { id: 'athlete', icon: 'user', sub: `${sportLabel(s.settings.athlete)}, ${s.settings.athlete.days} séances par semaine` },
+        { id: 'program', icon: 'dumbbell', sub: s.program.name },
+        { id: 'goals', icon: 'trophy', sub: `${WEIGHT_GOALS[s.settings.weightGoal].label}${mod.nutrition ? `, ${s.settings.targets.kcal} kcal` : ''}` },
+        { id: 'gym', icon: 'wrench', sub: `${GYMS.find((g) => g.id === s.settings.gym.chain)?.name ?? 'Salle'}${s.settings.gym.club ? `, ${s.settings.gym.club}` : ''}` },
+      ],
     },
-    { id: 'testers', icon: 'users', sub: 'Inviter, réinitialiser, retirer', show: !DEMO && session.account?.role === 'admin' },
-    { id: 'profile', icon: 'chat', sub: s.settings.name || 'Prénom, âge, notes pour le coach' },
     {
-      id: 'publicProfile',
-      icon: 'chart',
-      sub: s.settings.profile.visible ? 'Visible par les autres testeurs' : 'Privé',
-      show: !DEMO,
+      title: 'Au quotidien',
+      rows: [
+        { id: 'mealplan', icon: 'utensils', sub: s.prep ? 'Plan, préparation et courses' : 'Générer un plan adapté', show: mod.nutrition },
+        { id: 'habits', icon: 'check', sub: s.habits.map((h) => h.name).join(', ') || 'Aucune', show: mod.habits },
+        { id: 'notifications', icon: 'bell', sub: s.settings.pushEnabled ? 'Activés' : 'Désactivés' },
+      ],
     },
-    { id: 'athlete', icon: 'user', sub: `${sportLabel(s.settings.athlete)}, ${s.settings.athlete.days} séances par semaine` },
-    { id: 'program', icon: 'dumbbell', sub: s.program.event ? s.program.name : `${s.program.name}, ${s.program.sessions.filter((x) => !x.generated).length} séances` },
-    { id: 'gym', icon: 'trophy', sub: `${GYMS.find((g) => g.id === s.settings.gym.chain)?.name ?? 'Salle'}${s.settings.gym.club ? `, ${s.settings.gym.club}` : ''}` },
+    {
+      title: 'Connexions',
+      rows: [
+        { id: 'strava', icon: 'route', sub: strava?.athlete ? `Relié à ${strava.athlete}` : 'Importer tes sorties automatiquement' },
+        { id: 'health', icon: 'steps', sub: isNative() ? 'Directement depuis l’app iPhone' : 'Pas, sommeil, cœur, salle' },
+        { id: 'ai', icon: 'bolt', sub: AI_MODES.find((m) => m.id === s.settings.ai)!.title },
+      ],
+    },
+    {
+      title: 'Compte et club',
+      rows: [
+        {
+          id: 'account',
+          icon: 'lock',
+          sub: session.account ? `${session.account.email}${session.account.expired ? ', session expirée' : ''}` : 'Sans compte, sur ce téléphone',
+          show: !DEMO,
+        },
+        { id: 'publicProfile', icon: 'users', sub: s.settings.profile.visible ? 'Profil visible par le club' : 'Profil privé' },
+        { id: 'report', icon: 'chart', sub: s.settings.reportEmail ? 'Par mail chaque lundi' : 'Dans l’app chaque lundi', show: !DEMO },
+      ],
+    },
+  ];
+  const extra: Row[] = [
     { id: 'modules', icon: 'list', sub: `${Object.values(mod).filter(Boolean).length} sur ${MODULES.length} actifs` },
-    { id: 'goals', icon: 'trophy', sub: `${WEIGHT_GOALS[s.settings.weightGoal].label}${mod.nutrition ? `, ${s.settings.targets.kcal} kcal` : ''}` },
-    { id: 'mealplan', icon: 'list', sub: s.prep ? 'Plan, préparation et courses' : 'Générer un plan adapté', show: mod.nutrition },
     { id: 'meals', icon: 'utensils', sub: `${s.mealPlan.length} repas`, show: mod.nutrition },
-    { id: 'habits', icon: 'check', sub: s.habits.map((h) => h.name).join(', ') || 'Aucune', show: mod.habits },
-    { id: 'ai', icon: 'bolt', sub: AI_MODES.find((m) => m.id === s.settings.ai)!.title },
-    { id: 'notifications', icon: 'bell', sub: s.settings.pushEnabled ? 'Activés' : 'Désactivés' },
-    { id: 'report', icon: 'chart', sub: s.settings.reportEmail ? 'Par mail chaque lundi' : 'Dans l’app chaque lundi', show: !DEMO },
-    { id: 'health', icon: 'steps', sub: 'Raccourcis iPhone', show: mod.health || mod.gym },
+    { id: 'testers', icon: 'users', sub: 'Inviter, réinitialiser, retirer', show: !DEMO && session.account?.role === 'admin' },
     { id: 'data', icon: 'scale', sub: 'Export, import, remise à zéro' },
   ];
+  const rowButton = (r: Row) => (
+    <button key={r.id} className="row settings-row" onClick={() => setPage(r.id)}>
+      <span className="settings-icon">
+        <Icon name={r.icon} size={18} />
+      </span>
+      <div className="grow" style={{ minWidth: 0 }}>
+        <div className="title">{TITLES[r.id]}</div>
+        <div className="small muted ellipsis">{r.sub}</div>
+      </div>
+      <Icon name="chevron" size={18} />
+    </button>
+  );
 
   return (
     <Sheet title={TITLES[page]} onClose={onClose}>
@@ -173,23 +209,36 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
       )}
 
       {page === 'menu' && (
-        <div className="group">
-          {rows
-            .filter((r) => r.show !== false)
-            .map((r) => (
-              <button key={r.id} className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => setPage(r.id)}>
-                <span className="icon-btn" style={{ background: 'var(--surface-2)', width: 38, height: 38 }}>
-                  <Icon name={r.icon} size={19} />
-                </span>
-                <div className="grow">
-                  <div className="title">{TITLES[r.id]}</div>
-                  <div className="small muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {r.sub}
-                  </div>
-                </div>
-                <Icon name="chevron" size={18} />
-              </button>
-            ))}
+        <div className="stack settings-menu">
+          <button className="card settings-me" onClick={() => setPage('profile')}>
+            <span className="avatar big" aria-hidden="true">
+              {(s.settings.name || '?').slice(0, 1).toUpperCase()}
+            </span>
+            <span className="grow" style={{ minWidth: 0 }}>
+              <span className="settings-me-name">{s.settings.name || 'Ton prénom'}</span>
+              <span className="small muted ellipsis" style={{ display: 'block' }}>
+                {[s.settings.age && `${s.settings.age} ans`, s.settings.height && `${s.settings.height} cm`, 'notes pour le coach'].filter(Boolean).join(', ')}
+              </span>
+            </span>
+            <Icon name="chevron" size={18} />
+          </button>
+          {groups.map((g) => {
+            const rows = g.rows.filter((r) => r.show !== false);
+            if (!rows.length) return null;
+            return (
+              <section key={g.title}>
+                <h3 className="settings-group">{g.title}</h3>
+                <div className="group">{rows.map(rowButton)}</div>
+              </section>
+            );
+          })}
+          <section>
+            <button className="settings-more small" onClick={() => setMore(!more)} aria-expanded={more}>
+              {more ? 'Moins de réglages' : 'Plus de réglages'}
+              <Icon name="chevron" size={15} />
+            </button>
+            {more && <div className="group">{extra.filter((r) => r.show !== false).map(rowButton)}</div>}
+          </section>
         </div>
       )}
 
@@ -210,6 +259,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
       {page === 'mealplan' && <MealPlanner />}
       {page === 'report' && <ReportPage />}
       {page === 'data' && <DataPage onReset={onClose} />}
+      {page === 'strava' && <StravaPage />}
     </Sheet>
   );
 }

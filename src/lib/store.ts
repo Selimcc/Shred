@@ -12,7 +12,7 @@ import {
 import { type Athlete, DEFAULT_ATHLETE, DEFAULT_GYM, type Gym, type WeightGoal } from '../../shared/athlete';
 import type { MealPrep } from '../../shared/meals';
 import { DEFAULT_PROGRAM } from '../../shared/templates';
-import type { CatalogEntry, ExerciseSlot, HabitDef, PlannedMeal, Program } from '../../shared/types';
+import type { CatalogEntry, Discipline, ExerciseSlot, HabitDef, PlannedMeal, Program } from '../../shared/types';
 import { addDays, dayKey } from './date';
 import { demoState } from './demo-seed';
 
@@ -61,6 +61,8 @@ export interface DayLog {
   /** Séance express : minutes disponibles. */
   express?: number;
   sets: Record<string, SetLog[]>;
+  /** Sorties importées (Strava, montre via Apple Santé) ce jour-là. */
+  activities?: Activity[];
   mainDone: boolean;
   mainDoneAt?: number;
   meals: MealEntry[];
@@ -149,6 +151,24 @@ export interface BodyPhoto {
   pose: Pose;
 }
 
+/** Une sortie enregistrée ailleurs (Strava, Apple Watch) et importée dans Shred. */
+export interface Activity {
+  /** « strava:123 », « health:… » : sert à ne pas l'importer deux fois. */
+  id: string;
+  source: 'strava' | 'health';
+  sport: Discipline | 'lift' | 'other';
+  name: string;
+  /** Début, heure locale ISO. */
+  start: string;
+  min: number;
+  km?: number;
+  elev?: number;
+  hr?: number;
+  kcal?: number;
+  /** Exercices de la séance du jour que cette sortie a validés. */
+  linked?: string[];
+}
+
 export interface HealthDay {
   steps?: number;
   active?: number;
@@ -194,6 +214,8 @@ export interface AppState {
   habits: HabitDef[];
   /** Données reçues d'Apple Santé et des passages à la salle, par jour. */
   health: Record<string, HealthDay>;
+  /** Strava relié : qui, et la dernière synchro. Les jetons restent sur le serveur. */
+  strava?: { athlete?: string; connectedAt?: string; lastSync?: string };
   ui: {
     celebrated?: string;
     /** La mascotte a déjà apporté la première flamme. */
@@ -313,6 +335,7 @@ export function migrate(saved: Partial<AppState> & { settings?: Partial<Settings
     habits: saved.habits ?? base.habits,
     health: { ...saved.health },
     ui: { ...saved.ui },
+    ...(saved.strava ? { strava: saved.strava } : {}),
   };
 }
 

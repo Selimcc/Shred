@@ -6,6 +6,7 @@ import { DEMO } from './lib/api';
 import { useToday } from './lib/hooks';
 import { useSession } from './lib/session';
 import { type AppState, useApp } from './lib/store';
+import { Club } from './screens/Club';
 import { Coach } from './screens/Coach';
 import { Food } from './screens/Food';
 import { Onboarding } from './screens/Onboarding';
@@ -15,13 +16,14 @@ import { Today } from './screens/Today';
 import { Welcome } from './screens/Welcome';
 import { Workout } from './screens/Workout';
 
-export type Tab = 'today' | 'workout' | 'food' | 'coach' | 'progress';
+export type Tab = 'today' | 'workout' | 'food' | 'club' | 'coach' | 'progress';
 
 /** Onglets disponibles ; chacun peut dépendre d'un module ou du mode IA. */
 const TABS: { id: Tab; label: string; icon: string; enabled?: (s: AppState) => boolean; hidden?: boolean }[] = [
   { id: 'today', label: 'Aujourd’hui', icon: 'home' },
   { id: 'workout', label: 'Séance', icon: 'dumbbell' },
   { id: 'food', label: 'Repas', icon: 'utensils', enabled: (s) => s.settings.modules.nutrition },
+  { id: 'club', label: 'Club', icon: 'users' },
   { id: 'progress', label: 'Progrès', icon: 'chart' },
   // Le coach s'ouvre en touchant Pulse : pas d'onglet en plus.
   { id: 'coach', label: 'Pulse', icon: 'chat', enabled: (s) => s.settings.ai !== 'off', hidden: true },
@@ -40,6 +42,8 @@ export function App() {
   const tabs = TABS.filter((t) => !t.enabled || t.enabled(s));
   const tab = tabs.some((t) => t.id === tabState) ? tabState : 'today';
   const [settings, setSettings] = useState<SettingsPage | null>(null);
+  const [compose, setCompose] = useState<string | null>(null);
+  const [openPost] = useState(() => new URLSearchParams(location.search).get('post'));
 
   const go = (t: Tab) => {
     setTab(t);
@@ -57,7 +61,16 @@ export function App() {
       if (e.data?.type === 'open-tab') go(e.data.tab as Tab);
     };
     navigator.serviceWorker?.addEventListener('message', onMsg);
-    return () => navigator.serviceWorker?.removeEventListener('message', onMsg);
+    // « Partager au club » depuis la séance : on ouvre le club avec la publication prête.
+    const onShare = (e: Event) => {
+      setCompose((e as CustomEvent<{ date: string }>).detail.date);
+      go('club');
+    };
+    window.addEventListener('shred:share', onShare);
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', onMsg);
+      window.removeEventListener('shred:share', onShare);
+    };
   }, []);
 
   // Pas de compte : écran d'accueil. Premier lancement : quelques questions.
@@ -89,6 +102,7 @@ export function App() {
         {tab === 'today' && <Today today={today} go={go} openSettings={() => setSettings('menu')} />}
         {tab === 'workout' && <Workout today={today} editProgram={() => setSettings('program')} />}
         {tab === 'food' && <Food today={today} openCoach={() => go('coach')} />}
+        {tab === 'club' && <Club openSettings={() => setSettings('account')} compose={compose} onComposed={() => setCompose(null)} openPost={openPost} />}
         {tab === 'coach' && <Coach today={today} onBack={() => go('today')} />}
         {tab === 'progress' && <Progress today={today} openSettings={(p = 'menu') => setSettings(p)} openCoach={() => go('coach')} />}
       </main>

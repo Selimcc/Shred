@@ -5,6 +5,10 @@ import { startProfileSync } from './profile';
 import { lastWeekMonday } from './report';
 import { addDays, dayKey, mondayOf } from './date';
 import { syncHealth } from './health';
+import { syncNativeHealth } from './nativeHealth';
+import { stravaStatus, syncStrava } from './strava';
+import { toast } from '../components/ui';
+import type { ImportResult } from './activities';
 import { dayValidated, mealsCount, reconcileStreak, sessionFor, streakInfo } from './logic';
 import { signedIn } from './session';
 import { getState, readDay, setState, subscribe } from './store';
@@ -62,15 +66,46 @@ export function startSync() {
   startProfileSync();
   setTimeout(() => void autoMailReport(), 8000);
   void syncHealth(true);
+  void syncNativeHealth(true).then(announce);
+  void syncStrava().then(announce);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       tick();
       schedule(300);
       void syncHealth(true);
+      void syncNativeHealth().then(announce);
+      void returnFromStrava().then(() => syncStrava().then(announce));
     }
   });
   setInterval(tick, 60_000);
   schedule(500);
+}
+
+/** Une sortie importée a validé la séance du jour : on le dit. */
+function announce(r: ImportResult | null) {
+  const v = r?.validated.filter((x) => x.date === dayKey())[0];
+  if (v) toast(`Séance « ${v.name} » validée par ta sortie`);
+  else if (r?.added) toast(`${r.added} sortie${r.added > 1 ? 's' : ''} importée${r.added > 1 ? 's' : ''}`);
+}
+
+/** Retour de la page d'autorisation Strava : on vérifie que le compte est relié, puis on importe. */
+export async function returnFromStrava() {
+  let pending = false;
+  try {
+    pending = localStorage.getItem('shred:strava-pending') === '1';
+  } catch {
+    pending = false;
+  }
+  if (!pending || !signedIn()) return;
+  const st = await stravaStatus().catch(() => null);
+  if (!st?.connected) return;
+  try {
+    localStorage.removeItem('shred:strava-pending');
+  } catch {
+    // stockage indisponible : sans conséquence
+  }
+  toast(`Strava relié${st.athlete ? ` (${st.athlete})` : ''}`);
+  announce(await syncStrava(true));
 }
 
 /** Le lundi (ou au premier lancement de la semaine), envoie le bilan par mail si la personne l'a demandé. */

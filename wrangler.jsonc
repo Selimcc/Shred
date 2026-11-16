@@ -18,8 +18,16 @@
   "kv_namespaces": [{ "binding": "KV", "id": "40104c1ad36948488ff181569284fdde" }],
 
   // Minuteur de repos : une alarme par personne, la notification part à la fin du repos.
-  "durable_objects": { "bindings": [{ "name": "TIMERS", "class_name": "RestTimer" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RestTimer"] }],
+  "durable_objects": {
+    "bindings": [
+      { "name": "TIMERS", "class_name": "RestTimer" },
+      { "name": "CLUB", "class_name": "Club" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RestTimer"] },
+    { "tag": "v2", "new_sqlite_classes": ["Club"] }
+  ],
 
   // Vérifie les rappels toutes les 15 minutes.
   "triggers": { "crons": ["*/15 * * * *"] },

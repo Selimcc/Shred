@@ -33,10 +33,12 @@ export function ruleOf(s: AppState): Rule {
 }
 
 function gymMinutes(s: AppState, date: string): number {
+  // Une séance de muscu enregistrée sur la montre ou Strava compte comme un passage à la salle.
+  const watch = (s.days[date]?.activities ?? []).filter((a) => a.sport === 'lift').reduce((n, a) => n + a.min, 0);
   const h = s.health[date];
-  if (!h?.gymIn || !h.gymOut) return 0;
+  if (!h?.gymIn || !h.gymOut) return watch;
   const min = (new Date(h.gymOut).getTime() - new Date(h.gymIn).getTime()) / 60000;
-  return min > 0 && min < 600 ? min : 0;
+  return Math.max(watch, min > 0 && min < 600 ? min : 0);
 }
 
 /**

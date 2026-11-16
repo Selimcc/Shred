@@ -14,6 +14,8 @@ import { dayKey } from '../lib/date';
 import { runShortcut, syncHealth, timeOf } from '../lib/health';
 import { getSession, signedIn } from '../lib/session';
 import { useApp } from '../lib/store';
+import { isNative } from '../lib/native';
+import { connectNativeHealth, syncNativeHealth } from '../lib/nativeHealth';
 
 type LinkKey = 'health' | 'gymIn' | 'gymOut';
 
@@ -71,8 +73,42 @@ export function HealthPage() {
     window.open(link, '_blank', 'noopener');
   };
 
+  const native = isNative();
   return (
     <div className="stack" style={{ gap: 20 }}>
+      {native ? (
+        <section className="card stack" style={{ gap: 10 }}>
+          <div style={{ fontWeight: 800 }}>Apple Santé, en direct</div>
+          <p className="small muted" style={{ margin: 0 }}>
+            L’app lit tes pas, ta distance, ton énergie, tes minutes d’exercice, ton sommeil, ton cœur au repos, ta VFC et les séances de ta montre. Rien à installer, rien à lancer : ça se met à jour à chaque ouverture.
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn primary"
+              disabled={busy !== null}
+              onClick={() =>
+                run('native', async () => {
+                  await connectNativeHealth();
+                  const r = await syncNativeHealth(true);
+                  toast(r?.added ? `Santé synchronisée, ${r.added} séance(s) de la montre importée(s)` : 'Santé synchronisée');
+                })
+              }
+            >
+              {busy === 'native' ? 'Lecture…' : 'Autoriser et synchroniser'}
+            </button>
+          </div>
+          <p className="small faint" style={{ margin: 0 }}>
+            Pour changer les autorisations plus tard : Réglages de l’iPhone, Santé, Accès aux données, Shred.
+          </p>
+        </section>
+      ) : (
+        <section className="card stack" style={{ gap: 6 }}>
+          <div style={{ fontWeight: 800 }}>Sans raccourci : l’app iPhone</div>
+          <p className="small muted" style={{ margin: 0 }}>
+            Une app web ne peut pas lire Apple Santé (Apple le réserve aux apps installées). La version iPhone de Shred le fait directement, sans raccourci, et importe aussi les séances de ta montre. Pour les sorties, tu peux aussi relier Strava.
+          </p>
+        </section>
+      )}
       <section className="stack">
         <p className="small" style={{ margin: 0 }}>
           {today?.at ? `Dernière synchro Santé aujourd’hui à ${timeOf(today.at)}.` : Object.keys(s.health).length ? 'Pas encore de synchro aujourd’hui.' : 'Jamais synchronisé.'}

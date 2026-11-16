@@ -4,7 +4,9 @@
 // et n'envoie que cette clé. Le serveur n'en garde qu'une empreinte HMAC avec un sel aléatoire.
 // Une seconde clé, dérivée elle aussi du mot de passe, chiffre la sauvegarde sur le téléphone :
 // le serveur (et l'administrateur) ne peuvent pas lire les séances et les repas sauvegardés.
+import { forgetMember } from './club';
 import { type Env, HttpError, json, readJson } from './env';
+import { disconnectStrava } from './strava';
 import {
   type Account,
   authenticate,
@@ -17,6 +19,7 @@ import {
   saveIndex,
   sha256hex,
   type User,
+  userStore,
 } from './users';
 
 const SESSION_TTL = 180 * 86400;
@@ -155,8 +158,10 @@ async function accountByEmail(env: Env, email: string): Promise<Account | null> 
   return id ? getAccount(env, id) : null;
 }
 
-/** Efface un compte et toutes ses données (clés u:<id>:…). */
+/** Efface un compte et toutes ses données (clés u:<id>:…), y compris ses publications du club et Strava. */
 export async function purgeAccount(env: Env, acct: Account) {
+  await forgetMember(env, acct).catch(() => undefined);
+  await disconnectStrava(env, userStore(env.KV, acct.id)).catch(() => undefined);
   let cursor: string | undefined;
   do {
     const page = await env.KV.list({ prefix: `u:${acct.id}:`, cursor });

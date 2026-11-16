@@ -1,0 +1,262 @@
+// Club (fil, photos, kudos, commentaires, mentions, abonnements, notifications) et connexion Strava, de bout en bout.
+import { build } from 'esbuild';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const dir = mkdtempSync(join(tmpdir(), 'shred-club-'));
+await build({
+  entryPoints: ['worker/index.ts', 'worker/club.ts', 'worker/strava.ts', 'src/lib/crypto.ts'],
+  bundle: true,
+  format: 'esm',
+  platform: 'neutral',
+  outdir: dir,
+  logLevel: 'error',
+  external: ['cloudflare:*'],
+});
+const worker = (await import(pathToFileURL(join(dir, 'worker/index.js')).href)).default;
+const club = await import(pathToFileURL(join(dir, 'worker/club.js')).href);
+const strava = await import(pathToFileURL(join(dir, 'worker/strava.js')).href);
+const kdf = await import(pathToFileURL(join(dir, 'src/lib/crypto.js')).href);
+
+let failures = 0;
+const check = (name, cond, extra = '') => {
+  console.log(`${cond ? 'OK  ' : 'FAIL'} ${name}${extra ? ` — ${extra}` : ''}`);
+  if (!cond) failures++;
+};
+
+/* KV en mémoire (valeurs texte ou binaires, métadonnées). */
+const kv = new Map();
+const KV = {
+  async get(k, type) {
+    const e = kv.get(k);
+    if (!e) return null;
+    return type === 'arrayBuffer' ? e.value : e.value;
+  },
+  async getWithMetadata(k) {
+    const e = kv.get(k);
+    return { value: e?.value ?? null, metadata: e?.metadata ?? null };
+  },
+  async put(k, value, opts = {}) {
+    kv.set(k, { value, metadata: opts.metadata ?? null });
+  },
+  async delete(k) {
+    kv.delete(k);
+  },
+  async list({ prefix = '' } = {}) {
+    return { keys: [...kv.keys()].filter((k) => k.startsWith(prefix)).map((name) => ({ name })), list_complete: true };
+  },
+};
+
+/* Stockage de Durable Object en mémoire, trié comme le vrai (list avec prefix, reverse, limit, end). */
+const mem = new Map();
+const storage = {
+  async get(k) {
+    return structuredClone(mem.get(k));
+  },
+  async put(k, v) {
+    mem.set(k, structuredClone(v));
+  },
+  async delete(k) {
+    for (const key of Array.isArray(k) ? k : [k]) mem.delete(key);
+  },
+  async list({ prefix = '', reverse = false, limit = Infinity, end, start } = {}) {
+    let keys = [...mem.keys()].filter((k) => k.startsWith(prefix)).sort();
+    if (start) keys = keys.filter((k) => k >= start);
+    if (end) keys = keys.filter((k) => k < end);
+    if (reverse) keys.reverse();
+    return new Map(keys.slice(0, limit).map((k) => [k, structuredClone(mem.get(k))]));
+  },
+};
+const room = new club.Club({ storage }, {});
+const env = {
+  ADMIN_CODE: 'code-admin-local-123',
+  MOCK_AI: '1',
+  KV,
+  ASSETS: { fetch: async () => new Response('app') },
+  CLUB: { idFromName: () => 'club', get: () => ({ fetch: (url, init) => room.fetch(new Request(url, init)) }) },
+};
+
+let ip = 1;
+async function call(path, { token, body, method } = {}) {
+  const res = await worker.fetch(
+    new Request(`https://shred.test${path}`, {
+      method: method ?? (body ? 'POST' : 'GET'),
+      headers: { 'content-type': 'application/json', 'cf-connecting-ip': `10.1.0.${ip++}`, ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+    env,
+  );
+  const type = res.headers.get('content-type') ?? '';
+  const data = type.includes('json') ? await res.json().catch(() => ({})) : type.startsWith('image/') ? new Uint8Array(await res.arrayBuffer()) : await res.text();
+  return { status: res.status, data, type };
+}
+
+async function register(email, name, invite) {
+  const keys = await kdf.deriveKeys(email, 'mot-de-passe-solide');
+  const r = await call('/api/auth/register', { body: { email, name, invite, key: keys.auth } });
+  return { token: r.data.token, id: r.data.user.id };
+}
+
+const selim = await register('selim@exemple.com', 'Selim', env.ADMIN_CODE);
+const inv = async () => (await call('/api/admin/invites', { token: selim.token, body: {} })).data.code;
+const ines = await register('ines@exemple.com', 'Inès', await inv());
+const yanis = await register('yanis@exemple.com', 'Yanis', await inv());
+
+/* ---------- Publication, photo, mention ---------- */
+
+const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+let r = await call('/api/club/posts', {
+  token: selim.token,
+  body: {
+    text: 'Grosse séance jambes avec @Inès',
+    mentions: [{ id: ines.id }, { id: 'inconnu-123456' }],
+    photos: [png],
+    session: { title: 'Bas du corps', kind: 'lifting', stats: [{ label: 'Séries', value: '18' }, { label: 'Volume', value: '6,2 t' }], date: '2026-11-16', evil: '<script>' },
+  },
+});
+check('publication créée', r.status === 200 && r.data.post.photos.length === 1, r.data.error);
+check('mentions vérifiées contre les membres', r.data.post.mentions.length === 1 && r.data.post.mentions[0].name === 'Inès');
+check('résumé de séance nettoyé', !JSON.stringify(r.data.post.session).includes('script') && r.data.post.session.stats.length === 2);
+const post1 = r.data.post;
+
+r = await call(`/api/club/photo/${post1.photos[0]}`, { token: ines.token });
+check('photo servie aux membres', r.status === 200 && r.type === 'image/png' && r.data.length > 20);
+r = await call(`/api/club/photo/${post1.photos[0]}`);
+check('photo refusée sans compte', r.status === 401);
+
+r = await call('/api/club/posts', { token: selim.token, body: { photos: ['data:text/html;base64,PGgxPg=='] } });
+check('fichier qui n’est pas une image refusé', r.status === 400);
+r = await call('/api/club/posts', { token: selim.token, body: { text: '   ' } });
+check('publication vide refusée', r.status === 400);
+
+r = await call('/api/club/notifications', { token: ines.token });
+check('la personne identifiée est prévenue', r.data.unread === 1 && r.data.notices[0].type === 'mention' && r.data.notices[0].actorName === 'Selim');
+
+/* ---------- Visibilité ---------- */
+
+await call('/api/club/posts', { token: yanis.token, body: { text: 'Footing tranquille', visibility: 'followers' } });
+await call('/api/club/posts', { token: yanis.token, body: { text: 'Note pour moi', visibility: 'private' } });
+r = await call('/api/club/feed', { token: selim.token });
+check('« abonnés » et « moi seul » cachés aux autres', r.data.posts.length === 1 && r.data.posts[0].id === post1.id, r.data.posts.map((p) => p.text).join(' | '));
+r = await call(`/api/club/follow/${yanis.id}`, { token: selim.token, body: {} });
+check('abonnement', r.data.following === true);
+r = await call('/api/club/feed', { token: selim.token });
+check('abonné : la sortie réservée aux abonnés apparaît, pas la note privée', r.data.posts.length === 2 && !r.data.posts.some((p) => p.text === 'Note pour moi'));
+r = await call('/api/club/feed', { token: yanis.token });
+check('l’auteur voit tout ce qu’il publie', r.data.posts.filter((p) => p.mine).length === 2);
+r = await call('/api/club/feed?filter=following', { token: ines.token });
+check('fil « abonnements » vide sans abonnement', r.data.posts.length === 0);
+r = await call(`/api/club/feed?filter=user:${selim.id}`, { token: ines.token });
+check('fil d’un membre', r.data.posts.length === 1 && r.data.posts[0].author === selim.id);
+r = await call('/api/club/notifications', { token: yanis.token });
+check('nouvel abonné notifié', r.data.notices.some((n) => n.type === 'follow' && n.actorName === 'Selim'));
+
+/* ---------- Kudos et commentaires ---------- */
+
+r = await call(`/api/club/posts/${post1.id}/kudos`, { token: ines.token, body: {} });
+check('kudos', r.data.post.kudos === 1 && r.data.post.kudoed);
+r = await call(`/api/club/posts/${post1.id}/kudos`, { token: ines.token, body: {} });
+check('kudos retiré au second appui', r.data.post.kudos === 0 && !r.data.post.kudoed);
+await call(`/api/club/posts/${post1.id}/kudos`, { token: yanis.token, body: {} });
+r = await call(`/api/club/posts/${post1.id}/comments`, { token: yanis.token, body: { text: 'Propre ! @Inès tu viens la prochaine fois ?', mentions: [{ id: ines.id }] } });
+check('commentaire', r.status === 200 && r.data.post.comments === 1);
+const c1 = r.data.comment;
+r = await call('/api/club/notifications', { token: selim.token });
+check('l’auteur est prévenu du commentaire et du kudos', r.data.notices.some((n) => n.type === 'comment') && r.data.notices.some((n) => n.type === 'kudos'));
+r = await call('/api/club/notifications', { token: ines.token });
+check('mention dans un commentaire notifiée', r.data.notices.filter((n) => n.type === 'mention').length === 2);
+await call('/api/club/notifications/read', { token: ines.token, body: {} });
+r = await call('/api/club/notifications', { token: ines.token });
+check('notifications lues', r.data.unread === 0);
+r = await call(`/api/club/posts/${post1.id}`, { token: ines.token });
+check('détail avec les commentaires', r.data.comments.length === 1 && r.data.comments[0].authorName === 'Yanis');
+r = await call(`/api/club/posts/${post1.id}/comments/${c1.id}`, { token: ines.token, method: 'DELETE' });
+check('on ne supprime pas le commentaire d’un autre', r.status === 403);
+r = await call(`/api/club/posts/${post1.id}/comments/${c1.id}`, { token: selim.token, method: 'DELETE' });
+check('l’auteur de la publication peut retirer un commentaire', r.status === 200 && r.data.post.comments === 0);
+
+/* ---------- Membres, photo de profil, suppression ---------- */
+
+r = await call('/api/club/avatar', { token: ines.token, method: 'PUT', body: { photo: png } });
+check('photo de profil', r.status === 200 && r.data.avatar);
+r = await call('/api/club/members', { token: selim.token });
+const me = r.data.members.find((m) => m.me);
+const ines2 = r.data.members.find((m) => m.id === ines.id);
+check('membres : abonnements, publications, avatar', me.posts === 1 && r.data.members.find((m) => m.id === yanis.id).following && ines2.avatar);
+r = await call(`/api/club/posts/${post1.id}`, { token: ines.token, method: 'DELETE' });
+check('on ne supprime pas la publication d’un autre', r.status === 403);
+r = await call(`/api/club/posts/${post1.id}`, { token: selim.token, method: 'DELETE' });
+check('suppression : la photo part avec', r.status === 200 && !kv.has(`club:photo:${post1.photos[0]}`));
+
+// Pagination : 25 publications, deux pages.
+for (let i = 0; i < 25; i++) await call('/api/club/posts', { token: ines.token, body: { text: `Séance ${i}` } });
+r = await call('/api/club/feed', { token: selim.token });
+const page2 = await call(`/api/club/feed?before=${encodeURIComponent(r.data.next)}`, { token: selim.token });
+check('fil paginé, sans doublon', r.data.posts.length === 20 && r.data.next && page2.data.posts.length === 6 && !page2.data.posts.some((p) => r.data.posts.some((q) => q.id === p.id)), `${r.data.posts.length} + ${page2.data.posts.length}`);
+check('le plus récent en premier', r.data.posts[0].text === 'Séance 24');
+
+/* ---------- Strava ---------- */
+
+r = await call('/api/strava/status', { token: selim.token });
+check('Strava non configuré : statut clair', r.data.configured === false && r.data.connected === false);
+r = await call('/api/strava/connect', { token: selim.token, body: {} });
+check('Strava non configuré : connexion refusée proprement', r.status === 503);
+
+env.STRAVA_CLIENT_ID = '12345';
+env.STRAVA_CLIENT_SECRET = 'secret';
+const realFetch = globalThis.fetch;
+let tokenCalls = 0;
+let activityAuth = '';
+let revoke = false;
+globalThis.fetch = async (input, init) => {
+  const u = String(input instanceof Request ? input.url : input);
+  if (u === 'https://www.strava.com/oauth/token') {
+    tokenCalls++;
+    const p = new URLSearchParams(String(init.body));
+    if (p.get('grant_type') === 'authorization_code')
+      return Response.json({ access_token: 'acc-1', refresh_token: 'ref-1', expires_at: Math.floor(Date.now() / 1000) - 10, athlete: { id: 7, firstname: 'Selim', lastname: 'Jabnoun' } });
+    return Response.json({ access_token: 'acc-2', refresh_token: 'ref-2', expires_at: Math.floor(Date.now() / 1000) + 21600 });
+  }
+  if (u.startsWith('https://www.strava.com/api/v3/athlete/activities')) {
+    activityAuth = init.headers.authorization;
+    if (revoke) return new Response('{}', { status: 401 });
+    return Response.json([
+      { id: 99, name: 'Sortie du soir', sport_type: 'Run', start_date_local: '2026-11-15T18:02:00Z', moving_time: 2730, distance: 8420, total_elevation_gain: 41, average_heartrate: 151.2 },
+      { id: 100, name: 'Home trainer', sport_type: 'VirtualRide', start_date_local: '2026-11-14T07:00:00Z', moving_time: 3600, distance: 30100, kilojoules: 640 },
+      { id: 101, name: 'Sans durée', sport_type: 'Run', start_date_local: '2026-11-13T07:00:00Z', moving_time: 0 },
+    ]);
+  }
+  if (u === 'https://www.strava.com/oauth/deauthorize') return new Response('{}');
+  return realFetch(input, init);
+};
+
+r = await call('/api/strava/connect', { token: selim.token, body: {} });
+const auth = new URL(r.data.url);
+const state = auth.searchParams.get('state');
+check('lien d’autorisation Strava', auth.hostname === 'www.strava.com' && auth.searchParams.get('redirect_uri') === 'https://shred.test/api/strava/callback' && auth.searchParams.get('scope').includes('activity:read_all'));
+r = await call(`/api/strava/callback?state=${state}&code=abc&scope=read,activity:read_all`);
+check('retour de Strava : compte relié', r.status === 200 && r.data.includes('Strava est relié') && kv.has(`u:${selim.id}:strava`));
+r = await call(`/api/strava/callback?state=${state}&code=abc&scope=read,activity:read_all`);
+check('un lien de connexion ne sert qu’une fois', r.data.includes('expiré'));
+r = await call('/api/strava/status', { token: selim.token });
+check('statut : relié, prénom et initiale', r.data.connected && r.data.athlete === 'Selim J');
+check('les jetons ne sortent jamais du serveur', !JSON.stringify(r.data).includes('acc-') && !JSON.stringify(r.data).includes('ref-'));
+r = await call('/api/strava/sync', { token: selim.token, body: {} });
+check('jeton expiré : rafraîchi avant la synchro', tokenCalls === 2 && activityAuth === 'Bearer acc-2');
+check('sorties importées et résumées', r.data.activities.length === 2 && r.data.activities[0].id === 'strava:99' && r.data.activities[0].sport === 'run' && r.data.activities[0].km === 8.42 && r.data.activities[0].min === 45.5);
+check('vélo virtuel : sport et calories', r.data.activities[1].sport === 'bike' && r.data.activities[1].kcal === 640);
+check('heure locale gardée telle quelle', r.data.activities[0].start === '2026-11-15T18:02:00');
+await call('/api/strava/sync', { token: selim.token, body: {} });
+check('jeton encore valable : pas de nouveau rafraîchissement', tokenCalls === 2);
+r = await call('/api/strava/callback?error=access_denied&state=x');
+check('autorisation refusée : page claire', r.data.includes('annulée'));
+revoke = true;
+r = await call('/api/strava/sync', { token: selim.token, body: {} });
+check('accès retiré côté Strava : déconnecté proprement', r.status === 409 && !kv.has(`u:${selim.id}:strava`));
+check('mapActivity ignore les entrées incomplètes', strava.mapActivity({ id: 1, sport_type: 'Run' }) === null);
+globalThis.fetch = realFetch;
+
+console.log(failures ? `\n${failures} échec(s)` : '\nTout est bon.');
+process.exit(failures ? 1 : 0);

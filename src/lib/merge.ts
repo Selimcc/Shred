@@ -26,6 +26,10 @@ export function mergeDay(a: DayLog, b: DayLog): DayLog {
   if (other.swaps) out.swaps = { ...other.swaps, ...out.swaps };
   if (other.extra) for (const x of other.extra) if (!out.extra?.some((y) => y.key === x.key)) (out.extra ??= []).push(x);
   if (other.skipped) out.skipped = [...new Set([...(out.skipped ?? []), ...other.skipped])];
+  if (other.activities?.length) {
+    const ids = new Set((out.activities ?? []).map((x) => x.id));
+    for (const x of other.activities) if (!ids.has(x.id)) (out.activities ??= []).push(structuredClone(x));
+  }
   return out;
 }
 

@@ -1,7 +1,7 @@
 // Les chiffres d'Apple Santé sur 7 jours : sommeil, pas, minutes d'exercice, cœur au repos, VFC.
 import { useState } from 'react';
 import { addDays, formatNumber, WEEKDAY_LETTERS, WEEKDAY_NAMES, weekdayOf } from '../lib/date';
-import { useCountUp } from './Charts';
+import { RollingNumber } from './RollingNumber';
 import type { AppState, HealthDay } from '../lib/store';
 
 type Key = 'sleepMin' | 'steps' | 'exerciseMin' | 'restingHr' | 'hrv' | 'distanceKm';
@@ -76,7 +76,6 @@ function HealthCard({ m, days, values, now, trend, good }: { m: Metric; days: st
   const latestIdx = values.map((v, i) => (v !== undefined ? i : -1)).filter((i) => i >= 0).pop() ?? -1;
   const idx = pick ?? latestIdx;
   const value = idx >= 0 ? values[idx] : undefined;
-  const counted = useCountUp(value ?? 0, 500);
   const label = pick === null ? (idx === days.length - 1 ? 'aujourd’hui' : WEEKDAY_NAMES[weekdayOf(days[idx] ?? days[0])].toLowerCase()) : WEEKDAY_NAMES[weekdayOf(days[idx])].toLowerCase();
   return (
     <div className="card health-card">
@@ -85,7 +84,7 @@ function HealthCard({ m, days, values, now, trend, good }: { m: Metric; days: st
         {value !== undefined && <span className="faint">, {label}</span>}
       </div>
       <div className="health-value">
-        {value !== undefined ? m.format(pick === null ? counted : value) : '–'}
+        {value !== undefined ? <RollingNumber value={value} format={m.format} /> : '–'}
         {m.unit && <small>{m.unit}</small>}
       </div>
       <MiniBars days={days} values={values} color={m.color} goal={m.goal} pick={pick} onPick={setPick} />

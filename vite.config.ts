@@ -5,7 +5,8 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 export default defineConfig(({ mode }) => ({
   plugins: [react(), ...(mode === 'demo' ? [viteSingleFile()] : [])],
   build: {
-    outDir: mode === 'demo' ? 'dist-demo' : 'dist',
+    // native : la version embarquée dans l'app iPhone (Capacitor), qui parle au Worker par VITE_API_BASE.
+    outDir: mode === 'demo' ? 'dist-demo' : mode === 'native' ? 'dist-native' : 'dist',
     // En mode démo tout est inliné dans un seul fichier HTML (aperçu partageable).
     copyPublicDir: mode !== 'demo',
   },

@@ -12,6 +12,7 @@ import { ReportSheet } from '../components/ReportSheet';
 import { photoDue } from '../components/BodyPhotos';
 import { gymDuration, runShortcut, STEP_GOAL, timeOf } from '../lib/health';
 import { SessionProfile } from '../components/SessionProfile';
+import { RollingNumber } from '../components/RollingNumber';
 import { blocksSeconds, hardSeconds, repMeters, sessionBlocks } from '../../shared/effort';
 import { DISCIPLINE_NAMES } from '../../shared/catalog';
 import { disciplinesOf } from '../../shared/effort';
@@ -118,7 +119,7 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
         </div>
         <span className="stat-pill flame" title={`Jours de série, ${flames.tierInfo.name}`} aria-label={`${st.current} jours de série`}>
           <Flame tier={flames.tier} size={18} animated={st.todayValidated} />
-          {st.current}
+          <RollingNumber value={st.current} />
         </span>
         {st.freezes > 0 && (
           <span className="stat-pill ice" title="Gels de série" aria-label={`${st.freezes} gels`}>
@@ -146,17 +147,24 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
         {endurance && (
           <div className="hero-stats">
             <div>
-              <b>{blocksSeconds(blocks) >= 3600 ? `${Math.floor(blocksSeconds(blocks) / 3600)}h${String(Math.round((blocksSeconds(blocks) % 3600) / 60)).padStart(2, '0')}` : Math.round(blocksSeconds(blocks) / 60)}</b>
+              <b>
+                <RollingNumber
+                  value={blocksSeconds(blocks)}
+                  format={(v) => (v >= 3600 ? `${Math.floor(v / 3600)}h${String(Math.round((v % 3600) / 60)).padStart(2, '0')}` : String(Math.round(v / 60)))}
+                />
+              </b>
               <span>{blocksSeconds(blocks) >= 3600 ? 'durée' : 'minutes'}</span>
             </div>
             {meters > 0 && (
               <div>
-                <b>{swimOnly ? formatNumber(Math.round(meters / 100) * 100) : formatNumber(Math.round(meters / 100) / 10, 1)}</b>
+                <b>
+                  <RollingNumber value={meters} format={(v) => (swimOnly ? formatNumber(Math.round(v / 100) * 100) : formatNumber(Math.round(v / 100) / 10, 1))} />
+                </b>
                 <span>{swimOnly ? 'mètres' : `km${sports.length > 1 ? '' : sports[0] === 'bike' ? ' à vélo' : ''}`}</span>
               </div>
             )}
             <div>
-              <b>{hard >= 60 ? Math.round(hard / 60) : sports.length > 1 ? sports.length : '–'}</b>
+              <b>{hard >= 60 ? <RollingNumber value={Math.round(hard / 60)} /> : sports.length > 1 ? sports.length : '–'}</b>
               <span>{hard >= 60 ? 'min intenses' : sports.length > 1 ? sports.map((d) => DISCIPLINE_NAMES[d].toLowerCase()).join(' + ') : 'tout en aisance'}</span>
             </div>
           </div>
@@ -165,18 +173,22 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
           <div className="hero-stats">
             {session.lifting && (
               <div>
-                <b>{session.exercises.length}</b>
+                <b>
+                  <RollingNumber value={session.exercises.length} />
+                </b>
                 <span>exercices</span>
               </div>
             )}
             <div>
-              <b>{session.duration.replace(/\s*min/, '')}</b>
+              <b>
+                <RollingNumber value={0} format={() => session.duration.replace(/\s*min/, '')} />
+              </b>
               <span>{/min/.test(session.duration) ? 'minutes' : 'durée'}</span>
             </div>
             {session.lifting && (
               <div>
                 <b>
-                  {day.mainDone ? prog.total : prog.done}/{prog.total}
+                  <RollingNumber value={day.mainDone ? prog.total : prog.done} format={(v) => `${Math.round(v)}/${prog.total}`} />
                 </b>
                 <span>séries</span>
               </div>
@@ -225,7 +237,7 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
             <div className="macro-grid">
               <div className="macro">
                 <b>
-                  {formatNumber(remaining)}
+                  <RollingNumber value={remaining} format={(v) => formatNumber(v)} />
                   <small>kcal</small>
                 </b>
                 <span>restantes sur {formatNumber(s.settings.targets.kcal)}</span>
@@ -235,7 +247,7 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
               </div>
               <div className="macro">
                 <b>
-                  {formatNumber(t.protein)}
+                  <RollingNumber value={t.protein} format={(v) => formatNumber(v)} />
                   <small>g</small>
                 </b>
                 <span>protéines sur {s.settings.targets.protein} g</span>
@@ -278,7 +290,9 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
                   <Icon name={on ? 'check' : h.icon} size={16} />
                   {live ? (
                     <>
-                      <span className="num">{formatNumber(steps!)} pas</span>
+                      <span className="num">
+                        <RollingNumber value={steps!} format={(v) => formatNumber(v)} /> pas
+                      </span>
                       <span className="chip-pct num">{pct} %</span>
                     </>
                   ) : (

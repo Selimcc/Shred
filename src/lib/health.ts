@@ -18,7 +18,7 @@ interface Remote {
   >;
 }
 
-function apply(days: Record<string, HealthDay>) {
+export function applyHealthDays(days: Record<string, HealthDay>) {
   // Rien de neuf : on ne touche pas à l'état (pas de sauvegarde inutile).
   const s = getState();
   const changed = Object.entries(days).some(([date, h]) => {
@@ -63,7 +63,7 @@ export function syncHealth(force = false): Promise<void> {
           ...(i > 0 && i % 7 !== 3 && i % 7 !== 0 ? { gymIn: `${date}T16:40:00Z`, gymOut: `${date}T17:55:00Z`, gymVisits: 1 } : {}),
         };
       }
-      apply(demo);
+      applyHealthDays(demo);
       return;
     }
     if (!signedIn()) return;
@@ -86,7 +86,7 @@ export function syncHealth(force = false): Promise<void> {
           gymVisits: v.gym?.visits,
         };
       }
-      apply(days);
+      applyHealthDays(days);
     } catch {
       // Hors ligne ou serveur indisponible : on garde les dernières valeurs connues.
     }

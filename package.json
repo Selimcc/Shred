@@ -1,7 +1,7 @@
 {
   "name": "shred",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.10.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,11 +11,16 @@
     "build:demo": "vite build --mode demo",
     "deploy": "npm run build && wrangler deploy",
     "vapid": "node scripts/gen-vapid.mjs",
-    "test": "node scripts/test-webpush.mjs && node scripts/test-reminders.mjs && node scripts/test-health.mjs && node scripts/test-auth.mjs && node scripts/test-knowledge.mjs && node scripts/test-flames.mjs && node scripts/test-coaching.mjs && node scripts/test-advisor.mjs && node scripts/test-dynamic.mjs && node scripts/test-sync.mjs && node scripts/test-endurance.mjs",
+    "test": "node scripts/test-webpush.mjs && node scripts/test-reminders.mjs && node scripts/test-health.mjs && node scripts/test-auth.mjs && node scripts/test-knowledge.mjs && node scripts/test-flames.mjs && node scripts/test-coaching.mjs && node scripts/test-advisor.mjs && node scripts/test-dynamic.mjs && node scripts/test-sync.mjs && node scripts/test-endurance.mjs && node scripts/test-club.mjs && node scripts/test-social.mjs",
     "setup": "node scripts/setup.mjs",
-    "admin": "node scripts/admin.mjs"
+    "admin": "node scripts/admin.mjs",
+    "build:native": "vite build --mode native",
+    "build:ios": "vite build --mode native && cap sync ios",
+    "ios": "cap open ios"
   },
   "dependencies": {
+    "@capacitor/core": "8.6.0",
+    "@capgo/capacitor-health": "8.11.14",
     "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource-variable/nunito": "^5.3.0",
     "@zxing/browser": "^0.1.5",
@@ -24,6 +29,8 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.6.0",
+    "@capacitor/ios": "8.6.0",
     "@cloudflare/workers-types": "^5.20261013.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

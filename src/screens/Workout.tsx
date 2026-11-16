@@ -19,6 +19,7 @@ import { planWeek } from '../../shared/program';
 import { repMeters } from '../../shared/effort';
 import { hasProfile, SessionProfile } from '../components/SessionProfile';
 import { ExercisePicker } from './ProgramEditor';
+import { RollingNumber } from '../components/RollingNumber';
 
 const fmtRest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60}` : ''}` : `${sec} s`);
 
@@ -78,7 +79,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
           <Ring value={day.mainDone ? 1 : prog.done} max={day.mainDone ? 1 : prog.total} color={day.mainDone ? 'var(--mint)' : 'var(--ink)'} size={76} stroke={6} label={session.lifting ? 'Séries faites' : 'Blocs faits'}>
             <div>
               <div className="num" style={{ fontWeight: 760, fontStretch: '72%', fontSize: '1.35rem', lineHeight: 1 }}>
-                {prog.done}
+                <RollingNumber value={prog.done} />
               </div>
               <div className="faint" style={{ fontSize: '0.7rem', fontWeight: 600 }}>
                 sur {prog.total}
@@ -253,6 +254,9 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
               <div style={{ fontWeight: 800 }}>Séance terminée</div>
               <div className="small muted">Note tes repas pour valider la journée.</div>
             </div>
+            <button className="btn small primary" onClick={() => window.dispatchEvent(new CustomEvent('shred:share', { detail: { date: today } }))}>
+              Partager
+            </button>
             <button className="link small" onClick={() => finishSession(today, false)}>
               Annuler
             </button>

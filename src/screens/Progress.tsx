@@ -14,11 +14,11 @@ import { focusPlan } from '../lib/advisor';
 import { gymDuration } from '../lib/health';
 import { Flame } from '../components/Flame';
 import { flameInfo, TIERS, tierAt } from '../lib/flames';
-import { Community } from './Community';
 import type { SettingsPage } from './Settings';
 import { ReportSheet } from '../components/ReportSheet';
 import { weeklyReport } from '../lib/report';
-import { fmtHours, LiftChart, Sparkline, useCountUp, WeekLoadChart } from '../components/Charts';
+import { fmtHours, LiftChart, Sparkline, WeekLoadChart } from '../components/Charts';
+import { RollingNumber } from '../components/RollingNumber';
 import { liftSeries, recentRecords, rollingWeeks, totalMinutes, trackedLifts, trainingWeeks } from '../lib/training';
 import { DISCIPLINE_NAMES } from '../../shared/catalog';
 import type { Discipline } from '../../shared/types';
@@ -27,7 +27,6 @@ const WEEKS = 12;
 
 export function Progress({ today, openSettings, openCoach }: { today: string; openSettings: (page?: SettingsPage) => void; openCoach: () => void }) {
   const s = useApp();
-  const [view, setView] = useState<'me' | 'others'>('me');
   const st = streakInfo(s, today);
   const lvl = levelFor(totalXp(s));
   const series = weightSeries(s, 56, today);
@@ -42,27 +41,14 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
     <>
       <header className="topbar">
         <div>
-          <div className="date">{view === 'me' ? `Depuis le ${formatShort(s.createdAt)}` : 'Les autres testeurs'}</div>
-          <h1>{view === 'me' ? 'Ma fiche' : 'Profils'}</h1>
+          <div className="date">Depuis le {formatShort(s.createdAt)}</div>
+          <h1>Ma fiche</h1>
         </div>
         <button className="icon-btn" onClick={() => openSettings()} aria-label="Réglages">
           <Icon name="gear" />
         </button>
       </header>
 
-      <div className="seg" role="tablist" aria-label="Fiche" style={{ marginBottom: 16 }}>
-        <button role="tab" aria-selected={view === 'me'} className={view === 'me' ? 'on' : ''} onClick={() => setView('me')}>
-          Moi
-        </button>
-        <button role="tab" aria-selected={view === 'others'} className={view === 'others' ? 'on' : ''} onClick={() => setView('others')}>
-          Testeurs
-        </button>
-      </div>
-
-      {view === 'others' ? (
-        <Community openPrivacy={() => openSettings('publicProfile')} />
-      ) : (
-        <>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
         {(
@@ -148,8 +134,6 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
           })}
         </div>
       </section>
-        </>
-      )}
     </>
   );
 }
@@ -461,11 +445,10 @@ function Reports({ today, openCoach }: { today: string; openCoach: () => void })
 }
 
 function Tile({ value, label, color }: { value: number; label: string; color: string }) {
-  const v = useCountUp(value);
   return (
     <div className="card" style={{ padding: '12px 10px', textAlign: 'center' }}>
       <div className="display num" style={{ fontSize: '1.8rem', color }}>
-        {Math.round(v)}
+        <RollingNumber value={value} />
       </div>
       <div className="small muted" style={{ marginTop: 4 }}>
         {label}
@@ -485,7 +468,6 @@ function WeekHero({ today }: { today: string }) {
   const prev = weeks.slice(-5, -1).filter((w) => w.monday >= mondayOf(s.createdAt));
   const avg = prev.length ? prev.reduce((n, w) => n + totalMinutes(w), 0) / prev.length : null;
   const total = totalMinutes(now);
-  const shown = useCountUp(total);
   if (!weeks.some((w) => totalMinutes(w) > 0)) return null;
   const delta = avg && avg > 10 ? (total - avg) / avg : null;
   const dayIndex = (new Date(`${today}T12:00:00`).getDay() + 6) % 7;
@@ -500,7 +482,9 @@ function WeekHero({ today }: { today: string }) {
       </div>
       <div className="card week-hero">
         <div className="week-hero-figure">
-          <b className="display num">{fmtHours(shown)}</b>
+          <b className="display num">
+            <RollingNumber value={total} format={fmtHours} />
+          </b>
           <span className={`small ${delta === null ? 'muted' : delta >= 0 ? 'trend-good' : 'muted'}`}>
             {delta === null
               ? 'd’entraînement cette semaine'
@@ -546,13 +530,12 @@ function DistanceTile({ d, values }: { d: Discipline; values: number[] }) {
   const now = values[values.length - 1];
   const before = values[values.length - 2] ?? 0;
   const swim = d === 'swim';
-  const v = useCountUp(swim ? now * 1000 : now);
   const diff = swim ? (now - before) * 1000 : now - before;
   return (
     <div className="card distance-tile">
       <div className="small muted">{DISCIPLINE_NAMES[d]}</div>
       <div className="distance-value num">
-        {swim ? formatNumber(Math.round(v / 50) * 50) : formatNumber(v, v >= 100 ? 0 : 1)}
+        <RollingNumber value={swim ? now * 1000 : now} format={(v) => (swim ? formatNumber(Math.round(v / 50) * 50) : formatNumber(v, v >= 100 ? 0 : 1))} />
         <small>{swim ? 'm' : 'km'}</small>
       </div>
       <Sparkline values={values} color={DISC_VAR[d] ?? 'var(--d-other)'} label={`${DISCIPLINE_NAMES[d]} : 8 dernières semaines`} />

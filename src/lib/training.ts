@@ -33,9 +33,25 @@ export function dayTraining(s: AppState, date: string): Training {
   const session = sessionFor(s, date);
   const byKey = new Map<string, Exercise>(session.exercises.map((x) => [x.key, x]));
   let any = false;
+  // Les sorties importées comptent avec leurs vrais chiffres ; les blocs qu'elles ont validés ne comptent pas deux fois.
+  const linked = new Set<string>();
+  let watchLift = 0;
+  for (const a of day.activities ?? []) {
+    for (const k of a.linked ?? []) linked.add(k);
+    if (a.sport === 'walk') continue;
+    any = true;
+    // La muscu de la montre et les séries notées décrivent la même séance : on garde la plus longue des deux.
+    if (a.sport === 'lift') {
+      watchLift += a.min;
+      continue;
+    }
+    const b: Bucket = a.sport === 'run' || a.sport === 'bike' || a.sport === 'swim' ? a.sport : 'other';
+    out.min[b] += a.min;
+    if (a.km && a.sport !== 'other') out.km[a.sport as Discipline] = (out.km[a.sport as Discipline] ?? 0) + a.km;
+  }
   for (const [key, logs] of Object.entries(day.sets)) {
     const done = logs.filter((l) => l.done);
-    if (!done.length) continue;
+    if (!done.length || linked.has(key)) continue;
     const ex = byKey.get(key) ?? resolveExercise({ key }, s.customExercises);
     if (ex.discipline && ex.discipline !== 'combat') {
       if (ex.discipline === 'walk') continue;
@@ -55,6 +71,7 @@ export function dayTraining(s: AppState, date: string): Training {
     const b: Bucket = ex.kind === 'cardio' || entry?.group === 'cardio' ? 'other' : 'lift';
     out.min[b] += (done.length * (40 + Math.min(ex.rest, 180))) / 60;
   }
+  out.min.lift = Math.max(out.min.lift, watchLift);
   if (any || day.mainDone) out.sessions = 1;
   return out;
 }
