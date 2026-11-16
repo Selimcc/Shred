@@ -416,7 +416,8 @@ function stub(env: Env) {
 async function callClub<T>(env: Env, user: User, path: string, body: Record<string, unknown> = {}): Promise<T & { pushes: Push[]; error?: string }> {
   const res = await stub(env).fetch(`https://club${path}`, {
     method: 'POST',
-    body: JSON.stringify({ viewer: user.id, viewerName: user.name, admin: user.role === 'admin', ...body }),
+    // L'identité passe en dernier : aucun champ du corps ne peut la remplacer.
+    body: JSON.stringify({ ...body, viewer: user.id, viewerName: user.name, admin: user.role === 'admin' }),
   });
   const data = (await res.json()) as T & { pushes: Push[]; error?: string };
   if (data.error === 'not-found') throw new HttpError(404, 'Publication introuvable');

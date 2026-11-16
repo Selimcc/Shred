@@ -19,7 +19,7 @@ const TITLES: Record<Exclude<Mode, 'start'>, string> = {
 
 function inviteFromUrl(): string {
   try {
-    return new URLSearchParams(location.search).get('invite') ?? '';
+    return (new URLSearchParams(location.search).get('invite') ?? '').replace(/[^A-Za-z0-9-]/g, '').slice(0, 40);
   } catch {
     return '';
   }

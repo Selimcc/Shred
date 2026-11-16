@@ -2,7 +2,7 @@
 // tu choisis la quantité et le repas. Les produits déjà scannés restent à portée de main.
 import { type TouchEvent, useEffect, useRef, useState } from 'react';
 import { addMeal } from '../lib/actions';
-import { codeVariants, confirmer, scanRegion, sharpenBars, validBarcode } from '../lib/barcode';
+import { codeVariants, confirmer, offImage, offText, scanRegion, sharpenBars, validBarcode } from '../lib/barcode';
 import { formatNumber } from '../lib/date';
 import type { MealSlot } from '../../shared/types';
 import { Icon } from './Icon';
@@ -52,6 +52,8 @@ export async function lookupProduct(ean: string): Promise<Product | null> {
   return null;
 }
 
+const clamp = (v: number, max: number) => Math.max(0, Math.min(v, max));
+
 async function fetchProduct(ean: string): Promise<Product | null> {
   const fields = 'product_name,product_name_fr,brands,nutriments,serving_quantity,image_front_small_url';
   const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(ean)}.json?fields=${fields}`);
@@ -64,11 +66,16 @@ async function fetchProduct(ean: string): Promise<Product | null> {
   const kcal = num(n['energy-kcal_100g']) || Math.round(num(n['energy_100g']) / 4.184);
   const product: Product = {
     ean,
-    name: String(p.product_name_fr || p.product_name || 'Produit sans nom'),
-    brand: p.brands ? String(p.brands).split(',')[0].trim() : undefined,
-    image: p.image_front_small_url ? String(p.image_front_small_url) : undefined,
-    per100: { kcal: Math.round(kcal), protein: num(n.proteins_100g), carbs: num(n.carbohydrates_100g), fat: num(n.fat_100g) },
-    serving: num(p.serving_quantity) || undefined,
+    name: offText(p.product_name_fr || p.product_name, 80) || 'Produit sans nom',
+    brand: p.brands ? offText(String(p.brands).split(',')[0], 40) || undefined : undefined,
+    image: offImage(p.image_front_small_url),
+    per100: {
+      kcal: clamp(Math.round(kcal), 950),
+      protein: clamp(num(n.proteins_100g), 100),
+      carbs: clamp(num(n.carbohydrates_100g), 100),
+      fat: clamp(num(n.fat_100g), 100),
+    },
+    serving: clamp(num(p.serving_quantity), 5000) || undefined,
   };
   remember(product);
   return product;

@@ -40,12 +40,30 @@ Audit of the whole app (Worker, Durable Objects, web app, iPhone shell, CI) on 1
 | Low | Two sign-ups at the same instant could both take the last place of a group link. | Places are reserved with an atomic counter in the `USAGE` Durable Object before the account is created. |
 | Low | Dev tools (`wrangler` → `undici`) had known advisories. | `npm audit fix`: 0 vulnerabilities, shipped or dev. |
 
+## Injections (0.17.3)
+
+Review of every place where text from outside can reach code, a database or the AI.
+
+| Vector | Finding | Status |
+|---|---|---|
+| SQL injection | No SQL anywhere. KV and the Durable Objects use key-value calls; every id in a key comes from a strict route pattern (`[a-f0-9]{24}`, `[0-9a-f]{16}`…). | Not applicable |
+| Prompt injection, coach | The member's notes and program were written inside the coach's instructions. The day's state and history can contain product names from Open Food Facts, a base anyone can edit: a product named « ignore tes règles… » would have reached the AI. | Fixed. Instructions and data are separated: notes, program, day state, history and chat messages go in `<donnees>` blocks, the instructions say these blocks are never orders, and `cleanData` removes control and invisible characters and any tag that could close the block. The coach stays on sport, nutrition, sleep and recovery and does not reveal its instructions. |
+| Prompt injection, meal photo | Text on the photo (a label, a screen) or in the note could try to steer the analysis. | Fixed. The instructions say this text is data; the answer is forced through the `report_meal` tool, then every field is clamped (`sanitizeMeal`). Worst case: a wrong calorie estimate on the member's own meal. |
+| Barcodes and QR codes | The scanner only decodes EAN-13, EAN-8, UPC-A and UPC-E; a QR code is never read. A code is only used when it is all digits with a valid check digit, then twice in a row. | Sound |
+| Open Food Facts data | Name, brand and image of a product were used as sent. | Fixed. Text without control characters or `<>`, bounded length; images only from `https://…openfoodfacts.org`; nutrition values clamped (`offText`, `offImage` in `src/lib/barcode.ts`). |
+| Prototype pollution | The Health Shortcut body is copied key by key; a `__proto__` key could change that object's prototype. | Fixed. `__proto__`, `constructor`, `prototype` and long keys are ignored, at most 60 keys, nesting depth limited. |
+| Identity in club calls | The member's identity was merged before the request fields when calling the club. No route passed client fields there, but the order is now safe by construction. | Hardened |
+| HTML / XSS | React escapes every text; no `innerHTML`. The weekly report mail only goes to the member's own address. Strava pages only show fixed text. | Sound |
+| Regex and Overpass queries | Mention names and gym search text are escaped before entering a pattern or an Overpass query. | Sound |
+
+Tests: `scripts/test-injection.mjs`.
+
 ## Accepted
 
 | Severity | Finding | Why |
 |---|---|---|
 | Info | The backup key (`dataKey`) stays in the phone's storage: the app needs it to encrypt and decrypt. | With the CSP, no foreign script can run to read it, and the server never has it. |
-| Info | The AI coach receives the member's own notes and messages. | A member can only steer the answers they receive themselves; the API key and daily quota stay server-side. |
+| Info | A member can still try to talk the coach out of its role in their own chat. | They only affect their own answers; the coach refuses off-topic requests, and the API key and daily quota stay server-side. |
 
 ## For the admin
 

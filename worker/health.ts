@@ -112,25 +112,31 @@ export function sleepMinutes(body: Record<string, unknown>): number | undefined 
  * Raccourcis envoie parfois une liste (plusieurs échantillons), un objet, ou des clés avec un espace en
  * trop : on ramène chaque valeur à un nombre ou un texte simple, et chaque clé à sa forme propre.
  */
-function flatValue(v: unknown): unknown {
-  if (Array.isArray(v)) return v.length ? flatValue(v[0]) : undefined;
+function flatValue(v: unknown, depth = 0): unknown {
+  if (depth > 4) return undefined;
+  if (Array.isArray(v)) return v.length ? flatValue(v[0], depth + 1) : undefined;
   if (v && typeof v === 'object') {
     const o = v as Record<string, unknown>;
-    return flatValue(o.value ?? o.quantity ?? o.Valeur ?? Object.values(o)[0]);
+    return flatValue(o.value ?? o.quantity ?? o.Valeur ?? Object.values(o)[0], depth + 1);
   }
-  return v;
+  return typeof v === 'string' ? v.slice(0, 200) : v;
 }
+
+/** Clés qui modifieraient le prototype d'un objet JavaScript. */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const FIELDS = new Set(['steps', 'active_kcal', 'resting_kcal', 'sleep_min', 'sleep_h', 'resting_hr', 'hrv', 'exercise_min', 'distance_km', 'date']);
 
 export function cleanBody(raw: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (let [k, v] of Object.entries(raw ?? {})) {
+  for (let [k, v] of Object.entries(raw ?? {}).slice(0, 60)) {
     // Nom et valeur inversés dans le dictionnaire (« 3588 » = « steps ») : on remet dans le bon sens.
     if (typeof v === 'string' && FIELDS.has(v.trim().toLowerCase()) && !FIELDS.has(k.trim().toLowerCase())) [k, v] = [v, k];
     const value = flatValue(v);
+    const norm = k.trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (k.length > 60 || UNSAFE_KEYS.has(k) || UNSAFE_KEYS.has(norm)) continue;
     out[k] = value;
-    out[k.trim().toLowerCase().replace(/[\s-]+/g, '_')] = value;
+    out[norm] = value;
   }
   return out;
 }
