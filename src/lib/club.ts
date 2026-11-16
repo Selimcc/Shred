@@ -1,4 +1,4 @@
-// Le club côté app : fil, publication d'une séance (photos, @mentions, visibilité), kudos, commentaires,
+// Le club côté app : fil, publication d'une séance (photos, @mentions, visibilité), étincelles, commentaires,
 // membres et notifications. En mode démo, tout tourne en mémoire avec des membres fictifs.
 import { catalogEntry, DISCIPLINE_NAMES } from '../../shared/catalog';
 import { disciplinesOf, fmtClock, repSeconds, sessionBlocks } from '../../shared/effort';
@@ -38,8 +38,9 @@ export interface ClubPost {
   session?: SessionSummary;
   photos: string[];
   visibility: Visibility;
-  kudos: number;
-  kudoed: boolean;
+  /** Étincelles reçues, et la mienne. */
+  sparks: number;
+  sparked: boolean;
   mine: boolean;
   comments: number;
 }
@@ -62,13 +63,15 @@ export interface Member {
   following: boolean;
   followers: number;
   posts: number;
+  /** Étincelles reçues au total. */
+  sparks: number;
   avatar: string | null;
   profile?: { streak?: number; best?: number; flames?: number; tier?: number; level?: number; program?: string; radar?: { id: string; name: string; short: string; grade: string | null; score: number | null }[] };
 }
 
 export interface Notice {
   id: string;
-  type: 'mention' | 'comment' | 'kudos' | 'follow';
+  type: 'mention' | 'comment' | 'spark' | 'follow';
   actor: string;
   actorName: string;
   post?: string;
@@ -133,10 +136,11 @@ export function sessionSummary(s: AppState, date: string): SessionSummary | null
     return {
       title: session.name,
       kind: 'lifting',
+      // Une séance validée sans séries notées : juste son nom, pas de « 0 série ».
       stats: [
-        { label: 'Séries', value: String(sets) },
+        ...(sets > 0 ? [{ label: 'Séries', value: String(sets) }] : []),
         ...(volume > 0 ? [{ label: 'Volume', value: fmtVolume(volume) }] : []),
-        { label: 'Exercices', value: String(exercises) },
+        ...(exercises > 0 ? [{ label: 'Exercices', value: String(exercises) }] : []),
         ...(minutes >= 5 ? [{ label: 'Durée', value: fmtClock(minutes * 60) }] : []),
       ],
       ...(records.length ? { records } : {}),
@@ -219,7 +223,7 @@ export const club = {
   post: (id: string) => (DEMO ? demo.post(id) : api<{ post: ClubPost; comments: ClubComment[] }>(`/api/club/posts/${id}`)),
   create: (p: NewPost) => (DEMO ? demo.create(p) : api<{ post: ClubPost }>('/api/club/posts', { body: p })),
   remove: (id: string) => (DEMO ? demo.remove(id) : api(`/api/club/posts/${id}`, { method: 'DELETE' })),
-  kudos: (id: string) => (DEMO ? demo.kudos(id) : api<{ post: ClubPost }>(`/api/club/posts/${id}/kudos`, { body: {} })),
+  spark: (id: string) => (DEMO ? demo.spark(id) : api<{ post: ClubPost }>(`/api/club/posts/${id}/spark`, { body: {} })),
   comment: (id: string, text: string, mentions: Mention[]) =>
     DEMO ? demo.comment(id, text) : api<{ comment: ClubComment; post: ClubPost }>(`/api/club/posts/${id}/comments`, { body: { text, mentions } }),
   uncomment: (id: string, comment: string) => (DEMO ? demo.uncomment(id, comment) : api<{ post: ClubPost }>(`/api/club/posts/${id}/comments/${comment}`, { method: 'DELETE' })),
@@ -271,44 +275,44 @@ const demo = (() => {
   const now = Date.now();
   const me = 'demo';
   const members: Member[] = [
-    { id: me, name: 'Toi', me: true, following: false, followers: 3, posts: 0, avatar: null },
-    { id: 'm-camille', name: 'Camille', me: false, following: true, followers: 4, posts: 12, avatar: null, profile: { streak: 41, best: 41, tier: 3, level: 9, program: 'Semi-marathon du 22 mars' } },
-    { id: 'm-yanis', name: 'Yanis', me: false, following: true, followers: 3, posts: 9, avatar: null, profile: { streak: 17, best: 29, tier: 2, level: 7, program: 'PPL + Upper/Lower' } },
-    { id: 'm-ines', name: 'Inès', me: false, following: false, followers: 2, posts: 6, avatar: null, profile: { streak: 8, best: 22, tier: 1, level: 5, program: 'Bloc natation' } },
-    { id: 'm-leo', name: 'Léo', me: false, following: false, followers: 2, posts: 7, avatar: null, profile: { streak: 3, best: 14, tier: 1, level: 4, program: 'Cyclosportive 160 km' } },
+    { id: me, name: 'Toi', me: true, following: false, followers: 3, posts: 0, sparks: 0, avatar: null },
+    { id: 'm-camille', name: 'Camille', me: false, following: true, followers: 4, posts: 12, sparks: 61, avatar: null, profile: { streak: 41, best: 41, tier: 3, level: 9, program: 'Semi-marathon du 22 mars' } },
+    { id: 'm-yanis', name: 'Yanis', me: false, following: true, followers: 3, posts: 9, sparks: 44, avatar: null, profile: { streak: 17, best: 29, tier: 2, level: 7, program: 'PPL + Upper/Lower' } },
+    { id: 'm-ines', name: 'Inès', me: false, following: false, followers: 2, posts: 6, sparks: 23, avatar: null, profile: { streak: 8, best: 22, tier: 1, level: 5, program: 'Bloc natation' } },
+    { id: 'm-leo', name: 'Léo', me: false, following: false, followers: 2, posts: 7, sparks: 19, avatar: null, profile: { streak: 3, best: 14, tier: 1, level: 4, program: 'Cyclosportive 160 km' } },
   ];
   const intervals: [number, number][] = [[1, 900], [2, 300], ...Array.from({ length: 6 }, (_, i) => (i < 5 ? [[5, 230], [1, 90]] : [[5, 230]])).flat() as [number, number][], [1, 600]];
   const swimSet: [number, number][] = [[1, 420], [2, 280], ...Array.from({ length: 10 }, () => [[4, 108], [1, 15]]).flat() as [number, number][], [1, 280]];
   const ride: [number, number][] = [[1, 900], [2, 3600], [3, 900], [2, 1800], [3, 600], [2, 1500], [1, 300]];
-  type Stored = Omit<ClubPost, 'kudos' | 'kudoed' | 'mine'> & { kudosBy: string[] };
+  type Stored = Omit<ClubPost, 'sparks' | 'sparked' | 'mine'> & { sparksBy: string[] };
   const posts: Stored[] = [
     {
       id: 'p-camille', author: 'm-camille', authorName: 'Camille', at: now - 2 * H, visibility: 'all', photos: [], comments: 2,
       text: '6 × 800 sous la pluie, toutes au même chrono. La prépa semi avance.',
       mentions: [],
       session: { title: 'Fractionné', kind: 'cardio', sports: ['run'], date: dayKey(), stats: [{ label: 'Durée', value: '52 min' }, { label: 'Distance', value: '9,4 km' }, { label: 'Intense', value: '23 min' }], profile: intervals },
-      kudosBy: ['m-yanis', 'm-ines', 'm-leo'],
+      sparksBy: ['m-yanis', 'm-ines', 'm-leo'],
     },
     {
       id: 'p-yanis', author: 'm-yanis', authorName: 'Yanis', at: now - 5 * H, visibility: 'all', photos: [], comments: 0,
       text: 'Record au développé couché ! Merci @Toi pour la parade.',
       mentions: [{ id: me, name: 'Toi' }],
       session: { title: 'Push', kind: 'lifting', date: dayKey(), stats: [{ label: 'Séries', value: '18' }, { label: 'Volume', value: '7,4 t' }, { label: 'Exercices', value: '6' }, { label: 'Durée', value: '1 h 05' }], records: ['Développé couché 92,5 kg × 5'] },
-      kudosBy: ['m-camille', 'm-ines', 'm-leo', 'm-x1', 'm-x2'],
+      sparksBy: ['m-camille', 'm-ines', 'm-leo', 'm-x1', 'm-x2'],
     },
     {
       id: 'p-ines', author: 'm-ines', authorName: 'Inès', at: now - 26 * H, visibility: 'all', photos: [], comments: 1,
       text: 'Premier 10 × 100 sous 1:50. Les éducatifs paient.',
       mentions: [],
       session: { title: 'Natation seuil', kind: 'cardio', sports: ['swim'], date: addDays(dayKey(), -1), stats: [{ label: 'Durée', value: '48 min' }, { label: 'Distance', value: '2 400 m' }, { label: 'Intense', value: '18 min' }], profile: swimSet },
-      kudosBy: ['m-camille', 'm-yanis'],
+      sparksBy: ['m-camille', 'm-yanis'],
     },
     {
       id: 'p-leo', author: 'm-leo', authorName: 'Léo', at: now - 50 * H, visibility: 'all', photos: [], comments: 0,
       text: 'Sortie longue, quatre côtes et le vent de face au retour.',
       mentions: [],
       session: { title: 'Sortie longue vélo', kind: 'cardio', sports: ['bike'], date: addDays(dayKey(), -2), stats: [{ label: 'Durée', value: '2 h 40' }, { label: 'Distance', value: '78,3 km' }], profile: ride },
-      kudosBy: ['m-camille'],
+      sparksBy: ['m-camille'],
     },
   ];
   const comments: ClubComment[] = [
@@ -323,8 +327,8 @@ const demo = (() => {
   let readAt = now - 40 * H;
   const images = new Map<string, string>();
   const view = (p: Stored): ClubPost => {
-    const { kudosBy, ...rest } = p;
-    return { ...rest, kudos: kudosBy.length, kudoed: kudosBy.includes(me), mine: p.author === me };
+    const { sparksBy, ...rest } = p;
+    return { ...rest, sparks: sparksBy.length, sparked: sparksBy.includes(me), mine: p.author === me };
   };
   const find = (id: string) => {
     const p = posts.find((x) => x.id === id);
@@ -350,13 +354,14 @@ const demo = (() => {
         images.set(photoPath(id), data);
         return id;
       });
-      const p: Stored = { id: `p-${Date.now()}`, author: me, authorName: members[0].name, at: Date.now(), text: n.text, mentions: n.mentions, session: n.session, photos, visibility: n.visibility, comments: 0, kudosBy: [] };
+      const p: Stored = { id: `p-${Date.now()}`, author: me, authorName: members[0].name, at: Date.now(), text: n.text, mentions: n.mentions, session: n.session, photos, visibility: n.visibility, comments: 0, sparksBy: [] };
       posts.unshift(p);
       members[0].posts++;
       // Les copains réagissent vite, c'est une démo.
       setTimeout(() => {
-        p.kudosBy.push('m-camille', 'm-yanis');
-        notices.unshift({ id: `n-${Date.now()}`, type: 'kudos', actor: 'm-camille', actorName: 'Camille', post: p.id, text: n.session?.title ?? n.text.slice(0, 80), at: Date.now() });
+        p.sparksBy.push('m-camille', 'm-yanis');
+        members[0].sparks += 2;
+        notices.unshift({ id: `n-${Date.now()}`, type: 'spark', actor: 'm-camille', actorName: 'Camille', post: p.id, text: n.session?.title ?? n.text.slice(0, 80), at: Date.now() });
       }, 4000);
       return wait({ post: view(p) });
     },
@@ -364,9 +369,9 @@ const demo = (() => {
       posts.splice(posts.indexOf(find(id)), 1);
       return wait({ ok: true });
     },
-    kudos: (id: string) => {
+    spark: (id: string) => {
       const p = find(id);
-      p.kudosBy = p.kudosBy.includes(me) ? p.kudosBy.filter((x) => x !== me) : [...p.kudosBy, me];
+      p.sparksBy = p.sparksBy.includes(me) ? p.sparksBy.filter((x) => x !== me) : [...p.sparksBy, me];
       return wait({ post: view(p) });
     },
     comment: (id: string, text: string) => {

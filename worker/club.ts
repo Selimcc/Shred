@@ -1,5 +1,5 @@
-// Le club : un fil de séances partagées entre les membres (comme Strava), avec photos, kudos, commentaires,
-// mentions @, abonnements et notifications. Tout vit dans un seul Durable Object (cohérent, sans course
+// Le club : un fil de séances partagées entre les membres, avec photos, étincelles (on en envoie une pour
+// saluer une séance, elle rapporte de l'XP à son auteur), commentaires, mentions @, abonnements et notifications. Tout vit dans un seul Durable Object (cohérent, sans course
 // entre deux écritures) ; les photos sont rangées dans KV. Rien de la sauvegarde chiffrée n'est lu ici :
 // chacun choisit ce qu'il publie, séance par séance.
 import { type Env, HttpError, json, readJson } from './env';
@@ -37,7 +37,8 @@ export interface Post {
   session?: SessionSummary;
   photos: string[];
   visibility: Visibility;
-  kudos: string[];
+  /** Membres qui ont envoyé une étincelle. */
+  sparks: string[];
   comments: number;
 }
 
@@ -51,7 +52,7 @@ export interface Comment {
   mentions: Mention[];
 }
 
-export type NoticeType = 'mention' | 'comment' | 'kudos' | 'follow';
+export type NoticeType = 'mention' | 'comment' | 'spark' | 'follow';
 
 export interface Notice {
   id: string;
@@ -211,17 +212,24 @@ export class Club {
         await this.db.delete([found.key, `pid:${found.post.id}`, ...comments.keys()]);
         const n = (await this.db.get<number>(`count:${found.post.author}`)) ?? 1;
         await this.db.put(`count:${found.post.author}`, Math.max(0, n - 1));
+        // Les étincelles de la publication supprimée ne comptent plus.
+        const sp = (await this.db.get<number>(`sp:${found.post.author}`)) ?? 0;
+        await this.db.put(`sp:${found.post.author}`, Math.max(0, sp - found.post.sparks.length));
         return out({ ok: true, photos: found.post.photos });
       }
 
-      case '/kudos': {
+      case '/spark': {
         const found = await this.getPost(String(b.id));
         if (!found || !this.canSee(found.post, viewer, await this.following(viewer))) return out({ error: 'not-found' });
         const p = found.post;
-        const had = p.kudos.includes(viewer);
-        p.kudos = had ? p.kudos.filter((x) => x !== viewer) : [...p.kudos, viewer];
+        if (p.author === viewer) return out({ error: 'self' });
+        const had = p.sparks.includes(viewer);
+        p.sparks = had ? p.sparks.filter((x) => x !== viewer) : [...p.sparks, viewer];
         await this.db.put(found.key, p);
-        if (!had) await this.notify(p.author, { type: 'kudos', actor: viewer, actorName: b.viewerName, post: p.id, text: p.session?.title ?? p.text.slice(0, 80) });
+        // Le total reçu par l'auteur : il devient de l'XP dans son app.
+        const total = (await this.db.get<number>(`sp:${p.author}`)) ?? 0;
+        await this.db.put(`sp:${p.author}`, Math.max(0, total + (had ? -1 : 1)));
+        if (!had) await this.notify(p.author, { type: 'spark', actor: viewer, actorName: b.viewerName, post: p.id, text: p.session?.title ?? p.text.slice(0, 80) });
         return out({ post: p });
       }
 
@@ -279,7 +287,12 @@ export class Club {
         const ids = (b.ids as string[]) ?? [];
         const following = await this.following(viewer);
         const rows = await Promise.all(
-          ids.map(async (id) => ({ id, followers: ((await this.db.get<string[]>(`fb:${id}`)) ?? []).length, posts: (await this.db.get<number>(`count:${id}`)) ?? 0 })),
+          ids.map(async (id) => ({
+            id,
+            followers: ((await this.db.get<string[]>(`fb:${id}`)) ?? []).length,
+            posts: (await this.db.get<number>(`count:${id}`)) ?? 0,
+            sparks: (await this.db.get<number>(`sp:${id}`)) ?? 0,
+          })),
         );
         return out({ following, rows });
       }
@@ -306,7 +319,7 @@ export class Club {
           const comments = await this.db.list({ prefix: `c:${p.id}:` });
           await this.db.delete([key, `pid:${p.id}`, ...comments.keys()]);
         }
-        await this.db.delete([`f:${viewer}`, `fb:${viewer}`, `count:${viewer}`, `nr:${viewer}`]);
+        await this.db.delete([`f:${viewer}`, `fb:${viewer}`, `count:${viewer}`, `nr:${viewer}`, `sp:${viewer}`]);
         return out({ ok: true, photos });
       }
     }
@@ -329,6 +342,7 @@ async function callClub<T>(env: Env, user: User, path: string, body: Record<stri
   const data = (await res.json()) as T & { pushes: Push[]; error?: string };
   if (data.error === 'not-found') throw new HttpError(404, 'Publication introuvable');
   if (data.error === 'forbidden') throw new HttpError(403, 'Tu ne peux pas supprimer ça');
+  if (data.error === 'self') throw new HttpError(400, 'Pas d’étincelle pour soi-même');
   if (data.error) throw new HttpError(400, data.error);
   return data;
 }
@@ -408,7 +422,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
       ...(session ? { session } : {}),
       photos,
       visibility: b.visibility === 'followers' || b.visibility === 'private' ? b.visibility : 'all',
-      kudos: [],
+      sparks: [],
       comments: 0,
     };
     const data = await callClub<{ post: Post }>(env, user, '/create', { post });
@@ -416,7 +430,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
     return json({ post: view(data.post, user) });
   }
 
-  const one = pathname.match(/^\/api\/club\/posts\/([a-f0-9]{24})(?:\/(kudos|comments))?$/);
+  const one = pathname.match(/^\/api\/club\/posts\/([a-f0-9]{24})(?:\/(spark|comments))?$/);
   if (one) {
     const [, id, sub] = one;
     if (!sub && method === 'GET') {
@@ -428,8 +442,8 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
       await Promise.all(data.photos.map((p) => env.KV.delete(`club:photo:${p}`)));
       return json({ ok: true });
     }
-    if (sub === 'kudos' && method === 'POST') {
-      const data = await callClub<{ post: Post }>(env, user, '/kudos', { id });
+    if (sub === 'spark' && method === 'POST') {
+      const data = await callClub<{ post: Post }>(env, user, '/spark', { id });
       return json({ post: view(data.post, user) });
     }
     if (sub === 'comments' && method === 'POST') {
@@ -473,7 +487,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
 
   if (pathname === '/api/club/members' && method === 'GET') {
     const accounts = await listAccounts(env);
-    const data = await callClub<{ following: string[]; rows: { id: string; followers: number; posts: number }[] }>(env, user, '/social', { ids: accounts.map((a) => a.id) });
+    const data = await callClub<{ following: string[]; rows: { id: string; followers: number; posts: number; sparks: number }[] }>(env, user, '/social', { ids: accounts.map((a) => a.id) });
     const avatars = await Promise.all(accounts.map((a) => userStore(env.KV, a.id).get('avatar')));
     const profiles = await Promise.all(accounts.map((a) => loadJson<{ visible: boolean; data?: Record<string, unknown> }>(env.KV, `u:${a.id}:profile`)));
     const members = accounts.map((a, i) => {
@@ -486,6 +500,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
         following: data.following.includes(a.id),
         followers: row?.followers ?? 0,
         posts: row?.posts ?? 0,
+        sparks: row?.sparks ?? 0,
         avatar: avatars[i] ?? null,
         ...(p?.visible ? { profile: p.data ?? {} } : {}),
       };
@@ -513,10 +528,10 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
   throw new HttpError(404, 'Route inconnue');
 }
 
-/** Ce que l'app reçoit : la liste des kudos devient un compte, avec « j'ai aimé » et les premiers prénoms. */
+/** Ce que l'app reçoit : la liste des étincelles devient un compte, avec « j'en ai envoyé une ». */
 function view(p: Post, user: User) {
-  const { kudos, ...rest } = p;
-  return { ...rest, kudos: kudos.length, kudoed: kudos.includes(user.id), mine: p.author === user.id };
+  const { sparks, ...rest } = p;
+  return { ...rest, sparks: sparks.length, sparked: sparks.includes(user.id), mine: p.author === user.id };
 }
 
 /** À la suppression d'un compte : on efface aussi sa trace dans le club. */

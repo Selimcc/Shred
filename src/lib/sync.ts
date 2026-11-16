@@ -9,6 +9,7 @@ import { syncNativeHealth } from './nativeHealth';
 import { stravaStatus, syncStrava } from './strava';
 import { toast } from '../components/ui';
 import type { ImportResult } from './activities';
+import { startMoments } from './moments';
 import { dayValidated, mealsCount, reconcileStreak, sessionFor, streakInfo } from './logic';
 import { signedIn } from './session';
 import { getState, readDay, setState, subscribe } from './store';
@@ -61,6 +62,7 @@ export function startSync() {
     if (w && today > addDays(w, 6)) setState((d) => closeDeload(d, today));
   };
   tick();
+  startMoments();
   subscribe(() => schedule());
   startBackup();
   startProfileSync();
@@ -83,9 +85,9 @@ export function startSync() {
 
 /** Une sortie importée a validé la séance du jour : on le dit. */
 function announce(r: ImportResult | null) {
-  const v = r?.validated.filter((x) => x.date === dayKey())[0];
-  if (v) toast(`Séance « ${v.name} » validée par ta sortie`);
-  else if (r?.added) toast(`${r.added} sortie${r.added > 1 ? 's' : ''} importée${r.added > 1 ? 's' : ''}`);
+  // Une séance du jour validée par la sortie : Pulse la fête (voir moments.ts), pas besoin de message en plus.
+  if (r?.validated.some((x) => x.date === dayKey())) return;
+  if (r?.added) toast(`${r.added} sortie${r.added > 1 ? 's' : ''} importée${r.added > 1 ? 's' : ''}`);
 }
 
 /** Retour de la page d'autorisation Strava : on vérifie que le compte est relié, puis on importe. */

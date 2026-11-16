@@ -216,6 +216,8 @@ export interface AppState {
   health: Record<string, HealthDay>;
   /** Strava relié : qui, et la dernière synchro. Les jetons restent sur le serveur. */
   strava?: { athlete?: string; connectedAt?: string; lastSync?: string };
+  /** Club : étincelles reçues (elles comptent dans l'XP). */
+  club?: { sparks: number };
   ui: {
     celebrated?: string;
     /** La mascotte a déjà apporté la première flamme. */
@@ -336,6 +338,7 @@ export function migrate(saved: Partial<AppState> & { settings?: Partial<Settings
     health: { ...saved.health },
     ui: { ...saved.ui },
     ...(saved.strava ? { strava: saved.strava } : {}),
+    ...(saved.club ? { club: saved.club } : {}),
   };
 }
 

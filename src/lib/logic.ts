@@ -185,8 +185,12 @@ export function totalXp(s: AppState): number {
   const rule = ruleOf(s);
   let xp = Object.keys(s.days).reduce((n, d) => n + dayXp(s, d, rule), 0);
   xp += Object.keys(s.body.weight).length * 5;
+  // Chaque étincelle reçue dans le club rapporte 5 XP.
+  xp += (s.club?.sparks ?? 0) * SPARK_XP;
   return xp;
 }
+
+export const SPARK_XP = 5;
 
 /** Niveau n atteint à 250 × n(n−1)/2 XP. */
 export function levelFor(xp: number) {

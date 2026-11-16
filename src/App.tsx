@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Celebration } from './components/Celebration';
+import { PulseMoment } from './components/PulseMoment';
 import { Icon } from './components/Icon';
 import { AskHost, ToastHost } from './components/ui';
 import { DEMO } from './lib/api';
@@ -128,6 +129,7 @@ export function App() {
       {settings && <Settings initialPage={settings} onClose={() => setSettings(null)} />}
 
       <Celebration today={today} />
+      <PulseMoment />
 
       <ToastHost />
       <AskHost />

@@ -15,7 +15,7 @@ import { type PushSubscriptionData, sendPush } from './webpush';
 export { RestTimer } from './timers';
 export { Club } from './club';
 
-const VERSION = '0.10.0';
+const VERSION = '0.11.0';
 
 function cors(res: Response): Response {
   const h = new Headers(res.headers);

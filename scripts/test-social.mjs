@@ -10,6 +10,8 @@ await build({
   stdin: {
     contents: `
       export { importActivities } from './src/lib/activities';
+      export { isRecord } from './src/lib/moments';
+      export { totalXp } from './src/lib/logic';
       export { sessionSummary, shareableDays, mentionQuery, matchMembers, splitMentions, keptMentions } from './src/lib/club';
       export { dayTraining } from './src/lib/training';
       export { sessionFor, workoutOk } from './src/lib/logic';
@@ -98,6 +100,15 @@ check('muscu de la montre et séries notées : pas de temps compté deux fois', 
 check('record du jour mis en avant', sumLift.records?.length === 1 && sumLift.records[0].includes('70'), sumLift.records?.join());
 check('journées à partager, la plus récente d’abord', k.shareableDays(k.getState(), today, 7).length >= 2);
 check('jour sans rien : rien à publier', k.sessionSummary(k.getState(), k.addDays(today, -100)) === null);
+
+/* ---------- Records et étincelles ---------- */
+
+check('record : la meilleure série du jour bat l’historique', k.isRecord(k.getState(), ex.key, liftDay, 0)?.w === 70);
+check('record : pas sur la 2e série, plus faible que la 1re', k.isRecord(k.getState(), ex.key, liftDay, 1) === null);
+check('pas de record au tout premier essai d’un exercice', k.isRecord(k.getState(), ex.key, k.addDays(liftDay, -7), 0) === null);
+const xp0 = k.totalXp(k.getState());
+k.setState((d) => void (d.club = { sparks: 4 }));
+check('étincelles reçues : 5 XP chacune', k.totalXp(k.getState()) - xp0 === 20);
 
 /* ---------- Mentions ---------- */
 

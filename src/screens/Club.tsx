@@ -1,5 +1,5 @@
 // Le club : le fil des séances des membres, comme sur Strava. Publier sa séance avec des photos,
-// identifier quelqu'un avec @, donner des kudos, commenter, suivre les autres, être prévenu.
+// identifier quelqu'un avec @, envoyer une étincelle (elle rapporte de l'XP à l'auteur), commenter, suivre, être prévenu.
 import { type ChangeEvent, type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 import { DISCIPLINE_ICON, Icon } from '../components/Icon';
 import { Radar } from '../components/Radar';
@@ -29,7 +29,9 @@ import {
 import { dayKey, formatShort } from '../lib/date';
 import { prepareImage } from '../lib/image';
 import { signedIn } from '../lib/session';
-import { useApp } from '../lib/store';
+import { getState, setState, useApp } from '../lib/store';
+import { moment } from '../lib/moments';
+import { SPARK_XP } from '../lib/logic';
 
 type View = 'feed' | 'following' | 'members';
 
@@ -109,6 +111,14 @@ export function Club({ openSettings, compose, onComposed, openPost }: { openSett
       }
       setMembers(m.members);
       setNotices({ list: n.notices, unread: n.unread });
+      // Les étincelles reçues deviennent de l'XP.
+      const mine = m.members.find((x) => x.me);
+      const before = getState().club?.sparks;
+      if (mine && mine.sparks !== (before ?? 0)) {
+        setState((d) => void (d.club = { sparks: mine.sparks }));
+        const gained = mine.sparks - (before ?? 0);
+        if (before !== undefined && gained > 0) moment('spark', `+${gained} étincelle${gained > 1 ? 's' : ''}`, `Le club salue tes séances : +${gained * SPARK_XP} XP`);
+      }
     } catch (e) {
       setError(errorText(e));
     }
@@ -144,7 +154,7 @@ export function Club({ openSettings, compose, onComposed, openPost }: { openSett
         <div className="card stack" style={{ gap: 10 }}>
           <div style={{ fontWeight: 800 }}>Rejoins le club</div>
           <p className="small muted" style={{ margin: 0 }}>
-            Le club réunit les membres de ton serveur Shred : vous partagez vos séances, vos photos, vous vous identifiez et vous donnez des kudos. Il faut un compte pour y entrer.
+            Le club réunit les membres de ton serveur Shred : vous partagez vos séances, vos photos, vous vous identifiez et vous vous envoyez des étincelles. Il faut un compte pour y entrer.
           </p>
           <button className="btn primary" onClick={openSettings}>
             Me connecter
@@ -381,19 +391,23 @@ function PostCard({
   onRemoved?: () => void;
   detail?: boolean;
 }) {
-  const [pop, setPop] = useState(false);
+  const [burst, setBurst] = useState(0);
   const [photo, setPhoto] = useState<number | null>(null);
-  const kudos = async () => {
+  const spark = async () => {
+    if (post.mine) return;
     // Réponse immédiate à l'écran, corrigée par le serveur ensuite.
-    const optimistic = { ...post, kudoed: !post.kudoed, kudos: post.kudos + (post.kudoed ? -1 : 1) };
+    const optimistic = { ...post, sparked: !post.sparked, sparks: post.sparks + (post.sparked ? -1 : 1) };
     onChange(optimistic);
-    if (!post.kudoed) {
-      setPop(true);
-      navigator.vibrate?.(12);
-      setTimeout(() => setPop(false), 450);
+    if (!post.sparked) {
+      setBurst((n) => n + 1);
+      try {
+        navigator.vibrate?.([8, 40, 14]);
+      } catch {
+        // pas de vibration sur iPhone
+      }
     }
     try {
-      onChange((await club.kudos(post.id)).post);
+      onChange((await club.spark(post.id)).post);
     } catch (e) {
       onChange(post);
       toast(errorText(e), true);
@@ -445,10 +459,19 @@ function PostCard({
       <Photos ids={post.photos} onOpen={setPhoto} />
 
       <footer className="post-actions">
-        <button className={`post-action ${post.kudoed ? 'on' : ''} ${pop ? 'pop' : ''}`} onClick={kudos} aria-pressed={post.kudoed} aria-label={post.kudoed ? 'Retirer tes kudos' : 'Donner des kudos'}>
-          <Icon name="flame" size={20} filled={post.kudoed} />
-          <RollingNumber value={post.kudos} />
-          <span className="small">kudos</span>
+        <button
+          className={`post-action spark-btn ${post.sparked ? 'on' : ''}`}
+          onClick={spark}
+          disabled={post.mine}
+          aria-pressed={post.sparked}
+          aria-label={post.mine ? `${post.sparks} étincelles reçues` : post.sparked ? 'Reprendre ton étincelle' : 'Envoyer une étincelle'}
+        >
+          <span className="spark-icon" key={burst}>
+            <Icon name="spark" size={20} filled={post.sparked} />
+            {burst > 0 && post.sparked && <SparkBurst />}
+          </span>
+          <RollingNumber value={post.sparks} />
+          <span className="small">{post.sparks > 1 ? 'étincelles' : 'étincelle'}</span>
         </button>
         <button className="post-action" onClick={onOpen} disabled={detail} aria-label="Commentaires">
           <Icon name="chat" size={19} />
@@ -463,6 +486,17 @@ function PostCard({
         </Sheet>
       )}
     </article>
+  );
+}
+
+/** Petites étincelles qui jaillissent autour du bouton. */
+function SparkBurst() {
+  return (
+    <span className="spark-burst" aria-hidden="true">
+      {Array.from({ length: 9 }, (_, i) => (
+        <i key={i} style={{ '--a': `${i * 40 + (i % 2) * 12}deg`, '--d': `${18 + (i % 3) * 7}px` } as CSSProperties} />
+      ))}
+    </span>
   );
 }
 
@@ -587,7 +621,11 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
     try {
       const { post } = await club.create({ text: text.trim(), mentions: keptMentions(text, mentions), session: summary, photos, visibility });
       onPosted(post);
-      toast(visibility === 'private' ? 'Gardé pour toi' : 'Publié dans le club');
+      if (visibility === 'private') toast('Gardé pour toi');
+      else {
+        const tagged = keptMentions(text, mentions).map((m) => m.name);
+        moment('post', 'Publié dans le club', tagged.length ? `${tagged.join(', ')} ${tagged.length > 1 ? 'vont' : 'va'} le voir.` : 'Les étincelles vont pleuvoir.');
+      }
       onClose();
     } catch (e) {
       toast(errorText(e), true);
@@ -809,6 +847,7 @@ function MemberSheet({ m: initial, onClose, onChange }: { m: Member; onClose: ()
   const stats = [
     [m.posts, m.posts > 1 ? 'publications' : 'publication'],
     [m.followers, m.followers > 1 ? 'abonnés' : 'abonné'],
+    [m.sparks, m.sparks > 1 ? 'étincelles' : 'étincelle'],
     ...(m.profile?.streak !== undefined ? [[m.profile.streak, 'série']] : []),
     ...(m.profile?.level !== undefined ? [[m.profile.level, 'niveau']] : []),
   ] as [number, string][];
@@ -877,7 +916,7 @@ function MemberSheet({ m: initial, onClose, onChange }: { m: Member; onClose: ()
 const NOTICE_TEXT: Record<Notice['type'], (n: Notice) => string> = {
   mention: (n) => `${n.actorName} t’a identifié${n.text ? ` : « ${n.text.slice(0, 70)} »` : ''}`,
   comment: (n) => `${n.actorName} a commenté ta séance${n.text ? ` : « ${n.text.slice(0, 70)} »` : ''}`,
-  kudos: (n) => `${n.actorName} a donné des kudos à ${n.text ? `« ${n.text.slice(0, 50)} »` : 'ta séance'}`,
+  spark: (n) => `${n.actorName} t’a envoyé une étincelle pour ${n.text ? `« ${n.text.slice(0, 50)} »` : 'ta séance'} (+5 XP)`,
   follow: (n) => `${n.actorName} suit tes séances`,
 };
 
@@ -885,7 +924,7 @@ function NoticesSheet({ notices, members, onClose, onOpen }: { notices: Notice[]
   return (
     <Sheet title="Notifications" onClose={onClose}>
       {notices.length === 0 ? (
-        <p className="muted">Rien pour l’instant. Les kudos, commentaires et mentions arrivent ici.</p>
+        <p className="muted">Rien pour l’instant. Les étincelles, commentaires et mentions arrivent ici.</p>
       ) : (
         <div className="group">
           {notices.map((n) => (
@@ -893,7 +932,7 @@ function NoticesSheet({ notices, members, onClose, onOpen }: { notices: Notice[]
               <span className="notice-avatar">
                 <MemberAvatar m={members.find((m) => m.id === n.actor) ?? { id: n.actor, name: n.actorName, avatar: null }} size={38} />
                 <span className={`notice-kind ${n.type}`}>
-                  <Icon name={n.type === 'kudos' ? 'flame' : n.type === 'follow' ? 'plus' : n.type === 'mention' ? 'at' : 'chat'} size={11} filled={n.type === 'kudos'} />
+                  <Icon name={n.type === 'spark' ? 'spark' : n.type === 'follow' ? 'plus' : n.type === 'mention' ? 'at' : 'chat'} size={11} filled={n.type === 'spark'} />
                 </span>
               </span>
               <div className="grow" style={{ minWidth: 0 }}>

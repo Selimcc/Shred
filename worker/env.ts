@@ -3,7 +3,7 @@ export interface Env {
   KV: KVNamespace;
   /** Minuteurs de repos (Durable Object) : notification à la fin du repos. */
   TIMERS?: DurableObjectNamespace;
-  /** Le club : fil, commentaires, kudos, abonnements (Durable Object unique). */
+  /** Le club : fil, étincelles, commentaires, abonnements (Durable Object unique). */
   CLUB?: DurableObjectNamespace;
 
   // Secrets (wrangler secret put …, ou .dev.vars en local)

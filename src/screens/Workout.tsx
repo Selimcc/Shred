@@ -20,6 +20,7 @@ import { repMeters } from '../../shared/effort';
 import { hasProfile, SessionProfile } from '../components/SessionProfile';
 import { ExercisePicker } from './ProgramEditor';
 import { RollingNumber } from '../components/RollingNumber';
+import { isRecord, moment } from '../lib/moments';
 
 const fmtRest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60}` : ''}` : `${sec} s`);
 
@@ -45,6 +46,9 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
 
   const onSet = (ex: Exercise, i: number) => {
     const done = toggleSet(today, ex, i);
+    // Nouveau record sur cette série : Pulse le salue.
+    const rec = done && !ex.noLoad ? isRecord(getState(), ex.key, today, i) : null;
+    if (rec) moment('record', `Record : ${ex.name.replace(/ \(.*\)$/, '')}`, `${fmtKg(rec.w)} × ${rec.r}, ton meilleur 1RM estimé`);
     if (done && ex.rest > 0) {
       setTimer({ end: Date.now() + ex.rest * 1000, total: ex.rest });
       const logs = (getState().days[today]?.sets[ex.key] ?? []).filter((l) => l.done).length;
@@ -59,8 +63,8 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
       const ok = await ask(`Tu as fait ${prog.done} séries sur ${prog.total}. Valider la séance quand même ?`, 'Valider');
       if (!ok) return;
     }
+    // Pulse fête la séance (moments.ts) dès que l'état change.
     finishSession(today, true);
-    toast('Séance validée, +50 XP');
   };
 
   return (

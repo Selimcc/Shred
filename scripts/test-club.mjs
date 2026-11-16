@@ -1,4 +1,4 @@
-// Club (fil, photos, kudos, commentaires, mentions, abonnements, notifications) et connexion Strava, de bout en bout.
+// Club (fil, photos, étincelles, commentaires, mentions, abonnements, notifications) et connexion Strava, de bout en bout.
 import { build } from 'esbuild';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -153,18 +153,21 @@ check('fil d’un membre', r.data.posts.length === 1 && r.data.posts[0].author =
 r = await call('/api/club/notifications', { token: yanis.token });
 check('nouvel abonné notifié', r.data.notices.some((n) => n.type === 'follow' && n.actorName === 'Selim'));
 
-/* ---------- Kudos et commentaires ---------- */
+/* ---------- Étincelles et commentaires ---------- */
 
-r = await call(`/api/club/posts/${post1.id}/kudos`, { token: ines.token, body: {} });
-check('kudos', r.data.post.kudos === 1 && r.data.post.kudoed);
-r = await call(`/api/club/posts/${post1.id}/kudos`, { token: ines.token, body: {} });
-check('kudos retiré au second appui', r.data.post.kudos === 0 && !r.data.post.kudoed);
-await call(`/api/club/posts/${post1.id}/kudos`, { token: yanis.token, body: {} });
+r = await call(`/api/club/posts/${post1.id}/spark`, { token: ines.token, body: {} });
+check('étincelle envoyée', r.data.post.sparks === 1 && r.data.post.sparked);
+r = await call(`/api/club/posts/${post1.id}/spark`, { token: ines.token, body: {} });
+check('étincelle reprise au second appui', r.data.post.sparks === 0 && !r.data.post.sparked);
+r = await call(`/api/club/posts/${post1.id}/spark`, { token: selim.token, body: {} });
+check('pas d’étincelle pour sa propre séance', r.status === 400);
+await call(`/api/club/posts/${post1.id}/spark`, { token: yanis.token, body: {} });
+await call(`/api/club/posts/${post1.id}/spark`, { token: ines.token, body: {} });
 r = await call(`/api/club/posts/${post1.id}/comments`, { token: yanis.token, body: { text: 'Propre ! @Inès tu viens la prochaine fois ?', mentions: [{ id: ines.id }] } });
 check('commentaire', r.status === 200 && r.data.post.comments === 1);
 const c1 = r.data.comment;
 r = await call('/api/club/notifications', { token: selim.token });
-check('l’auteur est prévenu du commentaire et du kudos', r.data.notices.some((n) => n.type === 'comment') && r.data.notices.some((n) => n.type === 'kudos'));
+check('l’auteur est prévenu du commentaire et des étincelles', r.data.notices.some((n) => n.type === 'comment') && r.data.notices.some((n) => n.type === 'spark'));
 r = await call('/api/club/notifications', { token: ines.token });
 check('mention dans un commentaire notifiée', r.data.notices.filter((n) => n.type === 'mention').length === 2);
 await call('/api/club/notifications/read', { token: ines.token, body: {} });
@@ -185,10 +188,13 @@ r = await call('/api/club/members', { token: selim.token });
 const me = r.data.members.find((m) => m.me);
 const ines2 = r.data.members.find((m) => m.id === ines.id);
 check('membres : abonnements, publications, avatar', me.posts === 1 && r.data.members.find((m) => m.id === yanis.id).following && ines2.avatar);
+check('étincelles reçues comptées pour l’auteur (elles deviennent de l’XP)', me.sparks === 2, String(me.sparks));
 r = await call(`/api/club/posts/${post1.id}`, { token: ines.token, method: 'DELETE' });
 check('on ne supprime pas la publication d’un autre', r.status === 403);
 r = await call(`/api/club/posts/${post1.id}`, { token: selim.token, method: 'DELETE' });
 check('suppression : la photo part avec', r.status === 200 && !kv.has(`club:photo:${post1.photos[0]}`));
+r = await call('/api/club/members', { token: selim.token });
+check('publication supprimée : ses étincelles ne comptent plus', r.data.members.find((m) => m.me).sparks === 0);
 
 // Pagination : 25 publications, deux pages.
 for (let i = 0; i < 25; i++) await call('/api/club/posts', { token: ines.token, body: { text: `Séance ${i}` } });

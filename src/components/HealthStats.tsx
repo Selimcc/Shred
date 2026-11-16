@@ -51,7 +51,14 @@ function MiniBars({
   const max = Math.max(goal ?? 0, ...values.map((v) => v ?? 0)) || 1;
   const focus = pick ?? values.length - 1;
   return (
-    <div className="mini-bars" onPointerLeave={() => onPick(null)}>
+    <div
+      className="mini-bars"
+      onPointerLeave={() => onPick(null)}
+      onPointerMove={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        onPick(Math.max(0, Math.min(values.length - 1, Math.floor(((e.clientX - r.left) / r.width) * values.length))));
+      }}
+    >
       {goal && <i className="mini-goal" style={{ bottom: `${(goal / max) * 100}%` }} aria-hidden="true" />}
       {values.map((v, i) => (
         <button
