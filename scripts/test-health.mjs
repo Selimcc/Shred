@@ -86,5 +86,14 @@ check('repos actif : rappel de marche', /5 000 pas/.test(rest?.body ?? ''), rest
 const recent = await h.recentHealth(store, 14, new Date('2026-10-13T20:00:00Z'));
 check('historique : santé et salle du jour', recent.days['2026-10-13']?.health?.steps === 10600 && !!recent.days['2026-10-13']?.gym?.out);
 
+// Sommeil, cœur, exercice (Raccourci étendu)
+check('sommeil en heures décimales', h.sleepMinutes({ sleep_h: '7,5' }) === 450);
+check('sommeil « 6 h 45 »', h.sleepMinutes({ sleep_h: '6 h 45' }) === 405);
+check('sommeil en minutes', h.sleepMinutes({ sleep_min: 412 }) === 412);
+const morning = await h.ingestHealth(store, { date: '2026-10-13', sleep_h: '7,2', resting_hr: '56 bpm', hrv: '63', exercise_min: 12, distance_km: '3,4 km' }, new Date('2026-10-13T20:30:00Z'));
+check('sommeil et cœur enregistrés', morning.sleepMin === 432 && morning.restingHr === 56 && morning.hrv === 63, JSON.stringify(morning));
+check('distance décimale', morning.distanceKm === 3.4);
+check('les pas déjà reçus restent', morning.steps === 10600);
+
 console.log(failures ? `\n${failures} échec(s)` : '\nTous les tests passent.');
 process.exit(failures ? 1 : 0);

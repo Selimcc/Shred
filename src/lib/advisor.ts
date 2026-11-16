@@ -8,6 +8,7 @@ import { catalogEntry } from '../../shared/catalog';
 import type { Exercise, MuscleGroup } from '../../shared/types';
 import { addDays } from './date';
 import type { AppState, SetLog } from './store';
+import { isDeload } from './recovery';
 import { e1rm, strengthProfile } from './strength';
 
 /** Charge réalisable pour `reps` reps en gardant `rir` reps en réserve. */
@@ -136,6 +137,12 @@ export function adviseLoad(s: AppState, ex: Exercise, date: string): LoadAdvice 
     text = `Forme basse : ${fmt(weight)} aujourd’hui (−7 %), mêmes reps, 2 reps en réserve. On remonte la prochaine fois.`;
   } else if (form === 'high' && trend !== 'stall' && trend !== 'down') {
     text += ' En forme : sur la dernière série, va jusqu’à 1 rep de l’échec.';
+  }
+  // Semaine de décharge : tout plus léger, pour repartir plus fort.
+  if (isDeload(s, date)) {
+    weight = floorTo(Math.min(weight, last.top) * 0.9, step);
+    sets = ex.sets;
+    text = `Semaine de décharge : ${fmt(weight)} (−10 %), ${sets} séries, 3 reps en réserve. Tu repars plus fort lundi.`;
   }
 
   const table = [3, 5, 6, 8, 10, 12, 15].map((r) => ({ reps: r, weight: floorTo(loadFor(oneRm, r), step) }));

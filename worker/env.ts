@@ -1,6 +1,8 @@
 export interface Env {
   ASSETS: Fetcher;
   KV: KVNamespace;
+  /** Minuteurs de repos (Durable Object) : notification à la fin du repos. */
+  TIMERS?: DurableObjectNamespace;
 
   // Secrets (wrangler secret put …, ou .dev.vars en local)
   ANTHROPIC_API_KEY?: string;

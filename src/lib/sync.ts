@@ -1,3 +1,4 @@
+import { closeDeload } from './recovery';
 import { api, DEMO } from './api';
 import { startBackup } from './backup';
 import { startProfileSync } from './profile';
@@ -52,6 +53,8 @@ export function startSync() {
   const tick = () => {
     const today = dayKey();
     if (getState().streak.through < addDays(today, -1)) setState((d) => reconcileStreak(d, today));
+    const w = getState().deload?.week;
+    if (w && today > addDays(w, 6)) setState((d) => closeDeload(d, today));
   };
   tick();
   subscribe(() => schedule());

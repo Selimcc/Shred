@@ -6,3 +6,4 @@ dist
 .shred-secrets.json
 .secrets-*.json
 dist-demo
+worker-dist

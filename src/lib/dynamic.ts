@@ -6,6 +6,7 @@ import { swapsFor, usable } from '../../shared/plans';
 import { estimateDuration, resolveExercise } from '../../shared/program';
 import type { Exercise, Session, SessionDef } from '../../shared/types';
 import { addDays } from './date';
+import { isDeload } from './recovery';
 import { type AppState, ensureDay, type Form, setState } from './store';
 
 export type SwapReason = 'busy' | 'broken' | 'pain' | 'vary';
@@ -62,7 +63,7 @@ export function alternatives(s: AppState, key: string, date: string, exclude: st
 export function adaptSession(def: SessionDef, base: Session, s: AppState, date: string): Session {
   const day = s.days[date];
   const custom = s.customExercises;
-  if (!day && !s.settings.broken) return base;
+  if (!day && !s.settings.broken && !s.deload?.week) return base;
   const exercises: Exercise[] = [];
   const used = new Set<string>();
   const planned = new Set(def.exercises.map((x) => x.key));
@@ -102,7 +103,9 @@ export function adaptSession(def: SessionDef, base: Session, s: AppState, date: 
   }
 
   let list = exercises;
-  if (day?.form === 'low') list = list.map((e, i) => (isLift(e) && e.sets >= 3 ? { ...e, sets: e.sets - (i === 0 ? 0 : 1) } : e));
+  // Décharge : un tiers de séries en moins sur la muscu.
+  if (isDeload(s, date)) list = list.map((e) => (isLift(e) ? { ...e, sets: Math.max(2, Math.ceil(e.sets * 0.6)) } : e));
+  else if (day?.form === 'low') list = list.map((e, i) => (isLift(e) && e.sets >= 3 ? { ...e, sets: e.sets - (i === 0 ? 0 : 1) } : e));
   if (day?.express) list = compress(list, day.express);
 
   return { ...base, exercises: list, duration: estimateDuration(list) };

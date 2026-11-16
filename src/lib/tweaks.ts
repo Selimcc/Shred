@@ -7,7 +7,8 @@ import { scheduleFor } from '../../shared/program';
 import { history } from './advisor';
 import { strengthProfile } from './strength';
 import { applyProgram, programFor } from './coaching';
-import { addDays, weekdayOf } from './date';
+import { addDays, dayKey, weekdayOf } from './date';
+import { DELOAD_AFTER, DELOAD_MAX, isDeload, startDeload, weeksInBlock } from './recovery';
 import { alternatives } from './dynamic';
 import { type AppState, getState, setState } from './store';
 
@@ -15,7 +16,8 @@ export type TweakAction =
   | { kind: 'add-set'; session: string; key: string }
   | { kind: 'add-exercise'; session: string; key: string }
   | { kind: 'swap'; from: string; to: string }
-  | { kind: 'days'; days: number };
+  | { kind: 'days'; days: number }
+  | { kind: 'deload' };
 
 export interface Tweak {
   id: string;
@@ -151,12 +153,34 @@ export function programTweaks(s: AppState, today: string): Tweak[] {
     });
   }
 
+  // 4. Une semaine de décharge après 6 à 8 semaines d'entraînement.
+  if (!isDeload(s, today)) {
+    const weeks = weeksInBlock(s, today);
+    const stalls = [...inProgram].filter((key) => {
+      const h = history(s, key, today, 4);
+      return h.length >= 4 && Math.max(...h.slice(0, 2).map((o) => o.best)) <= Math.max(...h.slice(2).map((o) => o.best)) * 1.005;
+    }).length;
+    if (weeks >= DELOAD_MAX || (weeks >= DELOAD_AFTER && stalls >= 2)) {
+      out.unshift({
+        id: `deload-${weeks}`,
+        title: `${weeks} semaines d’entraînement sans pause`,
+        text: `${stalls >= 2 ? `${stalls} exercices plafonnent. ` : ''}Une semaine de décharge (un tiers de séries en moins, charges −10 %) laisse le corps encaisser. Tu repars plus fort, sans perdre de muscle.`,
+        cta: 'Commencer la décharge',
+        action: { kind: 'deload' },
+      });
+    }
+  }
+
   const dismissed = s.ui.dismissedTweaks ?? {};
   return out.filter((t) => !dismissed[t.id] || dismissed[t.id] < addDays(today, -14)).slice(0, 3);
 }
 
-export function applyTweak(t: Tweak): string {
+export function applyTweak(t: Tweak, today = dayKey()): string {
   const action = t.action;
+  if (action.kind === 'deload') {
+    startDeload(today);
+    return 'Semaine de décharge lancée jusqu’à dimanche';
+  }
   if (action.kind === 'days') {
     setState((d) => void (d.settings.athlete.days = action.days));
     const s = getState();

@@ -12,7 +12,7 @@ interface Remote {
   days: Record<
     string,
     {
-      health: { steps?: number; activeKcal?: number; restingKcal?: number; at: string } | null;
+      health: { steps?: number; activeKcal?: number; restingKcal?: number; sleepMin?: number; restingHr?: number; hrv?: number; exerciseMin?: number; distanceKm?: number; at: string } | null;
       gym: { in?: string; out?: string; visits: number } | null;
     }
   >;
@@ -54,6 +54,11 @@ export function syncHealth(force = false): Promise<void> {
           steps: i === 0 ? 6240 : Math.round(6500 + Math.sin(i * 1.9) * 2600 + (i % 3) * 700),
           active: i === 0 ? 380 : Math.round(420 + Math.sin(i * 1.3) * 140),
           resting: 1720,
+          sleepMin: Math.round(430 + Math.sin(i * 2.3) * 55 - (i === 0 ? 70 : 0)),
+          restingHr: Math.round(58 + Math.sin(i * 1.7) * 3 + (i === 0 ? 4 : 0)),
+          hrv: Math.round(62 + Math.sin(i * 1.1) * 9 - (i === 0 ? 14 : 0)),
+          exerciseMin: Math.round(38 + Math.sin(i * 1.5) * 20),
+          distanceKm: Math.round((4.8 + Math.sin(i * 1.9) * 1.9) * 10) / 10,
           at: new Date().toISOString(),
           ...(i > 0 && i % 7 !== 3 && i % 7 !== 0 ? { gymIn: `${date}T16:40:00Z`, gymOut: `${date}T17:55:00Z`, gymVisits: 1 } : {}),
         };
@@ -70,6 +75,11 @@ export function syncHealth(force = false): Promise<void> {
           steps: v.health?.steps,
           active: v.health?.activeKcal,
           resting: v.health?.restingKcal,
+          sleepMin: v.health?.sleepMin,
+          restingHr: v.health?.restingHr,
+          hrv: v.health?.hrv,
+          exerciseMin: v.health?.exerciseMin,
+          distanceKm: v.health?.distanceKm,
           at: v.health?.at,
           gymIn: v.gym?.in,
           gymOut: v.gym?.out,

@@ -12,23 +12,25 @@ A training and nutrition companion that installs on the phone like a native app:
 ## Highlights
 
 - **Local-first PWA.** Everything runs on the phone and works offline at the gym. The network is only needed for the AI and the reminders. No App Store, no Play Store.
-- **End-to-end encrypted backup.** The password never leaves the device: PBKDF2-SHA256 (600k iterations) then HKDF derive a login key and a data key. The server stores a salted HMAC of the login key and an AES-GCM blob it cannot read.
+- **End-to-end encrypted backup.** The password never leaves the device: PBKDF2-SHA256 (600k iterations) then HKDF derive a login key and a data key. The server stores a salted HMAC of the login key and an AES-GCM blob it cannot read. When two devices diverge, the backups are merged day by day (sets, meals, habits, weigh-ins, health) instead of one overwriting the other.
 - **Web Push written from scratch.** VAPID signing and `aes128gcm` payload encryption on WebCrypto, with no dependency, tested against the reference implementation. A Cloudflare cron checks every 15 minutes and stays silent once the day is complete.
 - **AI coach with local retrieval.** The history is split into documents (days, weeks, per-exercise history, weight, profile) and indexed on the phone with BM25, recency and gym synonyms. Only the relevant snippets go to the model, which keeps answers grounded and token costs low.
 - **Program generator.** Splits built from the target physique, priorities, available days, session length and the equipment of your gym, with weekly volume per muscle and a preview before applying.
 - **One-command deploy** to Cloudflare's free tier, about 20 active users before needing the $5 plan.
-- **212 test assertions** (encryption, reminders over simulated days, auth, retrieval, streak rules, generator, nutrition) plus strict TypeScript on both front and back.
+- **248 test assertions** (encryption, reminders over simulated days, auth, retrieval, streak rules, generator, backup merge, deload, health parsing) plus strict TypeScript on both front and back.
+- **Continuous deployment.** Every push is type-checked, tested and built; a green push to `main` is deployed to Cloudflare and smoke-tested.
 
 ## Features
 
 | | |
 | --- | --- |
-| **Workout** | Today's session, sets with load and reps, suggested next load when the top of the rep range is reached, swap/skip/add exercises, 30 or 45 min express mode, ~80 exercises with demos |
-| **Nutrition** | Calorie and macro targets (Mifflin-St Jeor), meal photo analysis, weekly meal plan with batch cooking and a shopping list, dish suggestions for the remaining macros |
-| **Streak** | Daily goal, streak freezes, flame tiers, XP, an original mascot and celebration animations (SVG/CSS, respects reduced motion) |
+| **Workout** | Today's session, sets with load and reps, suggested next load, swap/skip/add exercises (broken machines are swapped for a week), 30 or 45 min express mode, rest-timer notification on a locked phone (Durable Object alarm), automatic deload week every 6 to 8 weeks, ~80 exercises with demos |
+| **Nutrition** | Calorie and macro targets (Mifflin-St Jeor), barcode scanner (Open Food Facts, native BarcodeDetector or ZXing on iPhone), meal photo analysis, weekly meal plan with batch cooking and a shopping list, dish suggestions for the remaining macros |
+| **Streak** | Daily goal (half of the session, a started cardio session or 30 min at the gym is enough; rest days only need meals), streak freezes, flame tiers, XP, an original mascot and celebration animations (SVG/CSS, respects reduced motion) |
+| **Progress** | Weight trend, waist, weekly physique photos (front, side, back) compared side by side and kept on the device, strength profile, volume per muscle |
 | **Coach** | Chat that knows your program, your day and your history; weekly report with one-tap adjustments; strength profile graded A to E per muscle group |
 | **Plans** | 10K, half, marathon and Hyrox plans dated to race day, paces from a recent time (Riegel) |
-| **Integrations** | Apple Health steps and energy plus gym check-ins through iOS Shortcuts, weekly report by email (Resend) |
+| **Integrations** | Apple Health through iOS Shortcuts: steps, energy, sleep, resting heart rate, HRV, exercise minutes, distance (sleep and HRV suggest the day's readiness), gym check-ins, weekly report by email (Resend) |
 | **Accounts** | Invite-only, multiple users per server, admin page and CLI, opt-in public profiles |
 
 ## Architecture
@@ -75,12 +77,25 @@ The script logs into Cloudflare, creates the KV namespace, asks for the VAPID co
 
 On iPhone, add the app to the home screen from Safari and open it from the icon before enabling reminders: web push on iOS only works for installed apps (iOS 16.4+).
 
+### Continuous deployment
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request: `npm ci`, typecheck, the test suites, the production and demo builds, and a `wrangler deploy --dry-run` of the Worker. When a push to `main` passes, the `deploy` job uploads the built app with `wrangler deploy` and checks that `/api/version` reports the new version.
+
+It needs two repository secrets (Settings > Secrets and variables > Actions):
+
+| Secret | Where to get it |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard > My Profile > API Tokens > Create Token > "Edit Cloudflare Workers" template |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard > Workers & Pages, right column |
+
+Without them the checks still run and the deploy job is skipped with a warning. Worker secrets (`ANTHROPIC_API_KEY`, VAPID keys, `ADMIN_CODE`) stay on Cloudflare and are not needed in GitHub. The pipeline can also be started by hand from the Actions tab (`workflow_dispatch`).
+
 **Cost:** Cloudflare's free tier covers about 20 active users. A meal photo analysis costs under one cent and a coach message a fraction of a cent. `DAILY_AI_LIMIT` and `GUEST_AI_LIMIT` cap AI requests per day.
 
 ## Tests
 
 ```bash
-npm test           # push encryption, VAPID, reminders, health, auth, encrypted backup, retrieval, streak, coaching, generator
+npm test           # push encryption, VAPID, reminders, health, auth, encrypted backup and merge, retrieval, streak, coaching, generator, deload, rest timer
 npm run typecheck  # front and Worker
 ```
 

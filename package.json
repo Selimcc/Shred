@@ -1,7 +1,7 @@
 {
   "name": "shred",
   "private": true,
-  "version": "0.7.1",
+  "version": "0.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,13 +11,15 @@
     "build:demo": "vite build --mode demo",
     "deploy": "npm run build && wrangler deploy",
     "vapid": "node scripts/gen-vapid.mjs",
-    "test": "node scripts/test-webpush.mjs && node scripts/test-reminders.mjs && node scripts/test-health.mjs && node scripts/test-auth.mjs && node scripts/test-knowledge.mjs && node scripts/test-flames.mjs && node scripts/test-coaching.mjs && node scripts/test-advisor.mjs && node scripts/test-dynamic.mjs",
+    "test": "node scripts/test-webpush.mjs && node scripts/test-reminders.mjs && node scripts/test-health.mjs && node scripts/test-auth.mjs && node scripts/test-knowledge.mjs && node scripts/test-flames.mjs && node scripts/test-coaching.mjs && node scripts/test-advisor.mjs && node scripts/test-dynamic.mjs && node scripts/test-sync.mjs",
     "setup": "node scripts/setup.mjs",
     "admin": "node scripts/admin.mjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource-variable/nunito": "^5.3.0",
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

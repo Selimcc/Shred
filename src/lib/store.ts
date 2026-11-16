@@ -35,7 +35,7 @@ export interface MealEntry extends Macros {
   id: string;
   slot: MealSlot;
   label: string;
-  source: 'plan' | 'photo' | 'manual';
+  source: 'plan' | 'photo' | 'manual' | 'scan';
   planId?: string;
   photoId?: string;
   items?: MealItem[];
@@ -138,10 +138,24 @@ export interface ChatMessage {
   sources?: string[];
 }
 
+export type Pose = 'front' | 'side' | 'back';
+
+export interface BodyPhoto {
+  id: string;
+  date: string;
+  pose: Pose;
+}
+
 export interface HealthDay {
   steps?: number;
   active?: number;
   resting?: number;
+  /** Sommeil de la nuit (minutes), cœur au repos (bpm), VFC (ms), minutes d'exercice, distance (km). */
+  sleepMin?: number;
+  restingHr?: number;
+  hrv?: number;
+  exerciseMin?: number;
+  distanceKm?: number;
   /** Heure de la dernière synchro Apple Santé (ISO). */
   at?: string;
   gymIn?: string;
@@ -153,7 +167,12 @@ export interface AppState {
   version: 1;
   createdAt: string;
   days: Record<string, DayLog>;
-  body: { weight: Record<string, number>; waist: Record<string, number> };
+  body: {
+    weight: Record<string, number>;
+    waist: Record<string, number>;
+    /** Photos de physique : l'image reste sur l'appareil (IndexedDB), seules ces infos sont sauvegardées. */
+    photos?: BodyPhoto[];
+  };
   streak: {
     /** Série acquise jusqu'au jour `through` inclus. */
     banked: number;
@@ -188,6 +207,8 @@ export interface AppState {
   prep?: MealPrep;
   /** Programmes remplacés (le plus récent d'abord), pour revenir en arrière. */
   programHistory?: { program: Program; replacedAt: string }[];
+  /** Semaine de décharge : lundi de la semaine en cours de décharge, et fin de la dernière. */
+  deload?: { week?: string; lastEnd?: string };
 }
 
 const KEY = 'shred:v1';

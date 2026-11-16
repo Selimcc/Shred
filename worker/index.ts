@@ -7,9 +7,12 @@ import { getBackup, putBackup } from './backup';
 import { profileRoutes } from './profiles';
 import { emailReady, sendReport } from './report';
 import { authenticate, ensureIndexed, loadJson, type User } from './users';
+import { restRoute } from './timers';
 import { type PushSubscriptionData, sendPush } from './webpush';
 
-const VERSION = '0.7.1';
+export { RestTimer } from './timers';
+
+const VERSION = '0.8.0';
 
 function cors(res: Response): Response {
   const h = new Headers(res.headers);
@@ -84,6 +87,9 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const { pathname } = url;
   const method = req.method;
 
+  // Public : version déployée (vérifiée par la CI après chaque déploiement).
+  if (pathname === '/api/version' && method === 'GET') return json({ version: VERSION });
+
   const open = await authRoutes(req, env, pathname);
   if (open) return open;
 
@@ -129,6 +135,8 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
     ]);
     return json({ ok: true, config: cfg });
   }
+
+  if (pathname === '/api/push/rest' && (method === 'POST' || method === 'DELETE')) return restRoute(req, env, user);
 
   if (pathname === '/api/push/unsubscribe' && method === 'POST') {
     await store.delete('sub');

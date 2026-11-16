@@ -18,9 +18,20 @@ import { useApp } from '../lib/store';
 type LinkKey = 'health' | 'gymIn' | 'gymOut';
 
 const SHORTCUTS: { key: LinkKey; name: string; module: 'health' | 'gym'; what: string }[] = [
-  { key: 'health', name: 'Shred Santé', module: 'health', what: 'envoie tes pas et tes calories' },
+  { key: 'health', name: 'Shred Santé', module: 'health', what: 'envoie pas, calories, sommeil, cœur et minutes d’exercice' },
   { key: 'gymIn', name: 'Shred Arrivée', module: 'gym', what: 'signale ton arrivée à la salle' },
   { key: 'gymOut', name: 'Shred Départ', module: 'gym', what: 'signale ton départ' },
+];
+
+const HEALTH_FIELDS: [string, string][] = [
+  ['steps', 'Nombre de pas, total du jour'],
+  ['active_kcal', 'Énergie active, total du jour'],
+  ['resting_kcal', 'Énergie au repos, total du jour'],
+  ['sleep_h', 'Analyse du sommeil, durée « Endormi » de la nuit (en heures, 7,5) ou sleep_min en minutes'],
+  ['resting_hr', 'Fréquence cardiaque au repos (bpm)'],
+  ['hrv', 'Variabilité de la fréquence cardiaque (ms)'],
+  ['exercise_min', 'Minutes d’exercice, total du jour'],
+  ['distance_km', 'Distance de marche et de course (km)'],
 ];
 
 export function HealthPage() {
@@ -117,7 +128,7 @@ export function HealthPage() {
             </button>
           </div>
           <p className="small faint" style={{ margin: 0 }}>
-            La clé ne sert qu’à envoyer tes pas, tes calories et tes passages à la salle. Elle ne donne accès à rien d’autre.
+            La clé ne sert qu’à envoyer tes chiffres Santé et tes passages à la salle. Elle ne donne accès à rien d’autre.
           </p>
 
           <div className="group">
@@ -149,6 +160,29 @@ export function HealthPage() {
             <div>· « Heure de la journée » à 21:00, pour le bilan du soir.</div>
             {s.settings.modules.gym && <div>· « Arrivée » et « Départ » sur l’adresse de ta salle, avec Shred Arrivée et Shred Départ.</div>}
           </div>
+
+          <details className="small">
+            <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Ajouter le sommeil, le cœur et l’exercice au raccourci</summary>
+            <div className="stack" style={{ gap: 8, marginTop: 10 }}>
+              <p className="muted" style={{ margin: 0 }}>
+                Dans le raccourci Shred Santé, ajoute une action « Rechercher des échantillons de santé » par donnée (période : aujourd’hui, ou la nuit
+                dernière pour le sommeil), puis ajoute la valeur au dictionnaire envoyé avec la clé indiquée. Chaque clé est facultative.
+              </p>
+              <div className="group">
+                {HEALTH_FIELDS.map(([k, what]) => (
+                  <div className="row" key={k} style={{ minHeight: 48 }}>
+                    <code className="num" style={{ minWidth: 108 }}>
+                      {k}
+                    </code>
+                    <span className="grow muted">{what}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="faint" style={{ margin: 0 }}>
+                Le sommeil sert aussi à la forme du jour : après une nuit courte ou une VFC basse, Pulse te propose le mode Fatigué.
+              </p>
+            </div>
+          </details>
 
           <details className="small">
             <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Configuration à la main</summary>

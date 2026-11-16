@@ -9,7 +9,9 @@ import { exerciseFrames, exerciseInfo, videoUrl } from '../lib/exercise-info';
 import { adviseLoad, loadFor } from '../lib/advisor';
 import { e1rm } from '../lib/strength';
 import { fmtKg, formatSets, HALF_SESSION, lastPerformance, nextTarget, ruleOf, sessionFor, setProgress, workoutOk } from '../lib/logic';
-import { type Form, readDay, type SetLog, useApp } from '../lib/store';
+import { type Form, getState, readDay, type SetLog, useApp } from '../lib/store';
+import { cancelRestPush, scheduleRestPush } from '../lib/restPush';
+import { formHint, isDeload, stopDeload } from '../lib/recovery';
 import { addExtra, alternatives, BROKEN_DAYS, isBroken, markRepaired, removeExtra, setExpress, setForm, skipExercise, swapExercise, SWAP_REASONS, type SwapReason, undoSwap } from '../lib/dynamic';
 import { applyTweak, dismissTweak, programTweaks } from '../lib/tweaks';
 import { catalogEntry } from '../../shared/catalog';
@@ -29,11 +31,17 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
   const [adding, setAdding] = useState(false);
   const tweaks = programTweaks(s, today);
   const broken = Object.entries(s.settings.broken ?? {}).filter(([key]) => isBroken(s, key, today));
+  const hint = formHint(s, today);
   const planned = scheduleFor(s.program, today)[weekdayOf(today)];
 
   const onSet = (ex: Exercise, i: number) => {
     const done = toggleSet(today, ex, i);
-    if (done && ex.rest > 0) setTimer({ end: Date.now() + ex.rest * 1000, total: ex.rest });
+    if (done && ex.rest > 0) {
+      setTimer({ end: Date.now() + ex.rest * 1000, total: ex.rest });
+      const logs = (getState().days[today]?.sets[ex.key] ?? []).filter((l) => l.done).length;
+      const next = logs < ex.sets ? `${ex.name}, série ${logs + 1}` : session.exercises[session.exercises.indexOf(ex) + 1]?.name;
+      scheduleRestPush(ex.rest, next);
+    }
   };
 
   const finish = async () => {
@@ -91,6 +99,31 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
           <Icon name="list" size={16} /> Mon programme
         </button>
       </div>
+
+      {isDeload(s, today) && session.lifting && (
+        <div className="card notice" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <Icon name="moon" size={18} />
+          <div className="grow small">
+            <b>Semaine de décharge</b> jusqu’à dimanche : un tiers de séries en moins, charges −10 %.
+          </div>
+          <button className="link small" onClick={stopDeload}>
+            Arrêter
+          </button>
+        </div>
+      )}
+
+      {session.lifting && !day.mainDone && hint && !day.form && hint.form !== 'ok' && (
+        <div className="form-hint">
+          <Icon name="moon" size={16} />
+          <p className="small grow" style={{ margin: 0 }}>
+            {hint.reasons.join(', ')}.{' '}
+            {hint.form === 'low' ? 'Pulse te conseille le mode Fatigué aujourd’hui.' : 'Bonne récup : profites-en pour pousser.'}
+          </p>
+          <button className="btn small" onClick={() => setForm(today, hint.form)}>
+            {hint.form === 'low' ? 'Fatigué' : 'En forme'}
+          </button>
+        </div>
+      )}
 
       {session.lifting && !day.mainDone && (
         <div className="day-controls">
@@ -222,8 +255,14 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
         <RestTimer
           key={timer.end}
           {...timer}
-          onAdd={(n) => setTimer({ ...timer, end: timer.end + n * 1000 })}
-          onClose={() => setTimer(null)}
+          onAdd={(n) => {
+            setTimer({ ...timer, end: timer.end + n * 1000 });
+            scheduleRestPush((timer.end + n * 1000 - Date.now()) / 1000);
+          }}
+          onClose={() => {
+            if (timer.end - Date.now() > 3000) cancelRestPush();
+            setTimer(null);
+          }}
         />
       )}
 
@@ -697,6 +736,14 @@ function RestTimer({ end, total, onAdd, onClose }: { end: number; total: number;
     return () => clearInterval(id);
   }, []);
   const left = Math.max(0, Math.ceil((end - now) / 1000));
+  const cancelled = useRef(false);
+  // App à l'écran juste avant la fin : pas besoin de la notification du serveur.
+  useEffect(() => {
+    if (left <= 3 && left > 0 && !cancelled.current && document.visibilityState === 'visible') {
+      cancelled.current = true;
+      cancelRestPush();
+    }
+  }, [left]);
   useEffect(() => {
     if (left === 0 && !buzzed.current) {
       buzzed.current = true;

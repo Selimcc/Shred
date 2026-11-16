@@ -45,10 +45,22 @@ A PWA cannot read Apple Health; only native apps can. The bridge is the iOS Shor
 - **Arrival / Departure** automations on the gym's address call `/api/gym/checkin` and `/api/gym/checkout`. On arrival, a notification opens today's workout.
 
 ```json
-{ "steps": 8432, "active_kcal": 412.5, "resting_kcal": 1715, "date": "2026-10-13" }
+{
+  "steps": 8432, "active_kcal": 412.5, "resting_kcal": 1715,
+  "sleep_h": "7,2", "resting_hr": 56, "hrv": 63, "exercise_min": 34, "distance_km": "5,8",
+  "date": "2026-10-13"
+}
 ```
 
-French-formatted numbers ("8 432", "412,5 kcal") are accepted; `date` is optional (today by default, up to 7 days back).
+Every field is optional. French-formatted numbers ("8 432", "412,5 kcal", "6 h 45") are accepted; `sleep_min` works instead of `sleep_h`; `date` is optional (today by default, up to 7 days back). Cumulative values (steps, energy, exercise minutes, distance) keep the highest total of the day; sleep, resting heart rate and HRV keep the latest value. A short night, an HRV 20 % under the 14-day average or a resting heart rate 5 bpm above it makes the workout screen suggest the "tired" mode.
+
+## Backup merge
+
+When the phone and the account hold different data (two devices, or a phone used offline), `src/lib/merge.ts` merges them instead of asking which one to overwrite: days are united and, for a day present on both sides, sets keep the longest log per exercise, meals are united by id, habits and "session done" are OR-ed. Weigh-ins, waist, health and photo metadata are united too. Settings, program and meal plan come from the side edited most recently. A copy of the phone's state is kept in `localStorage` (`shred:before-merge`) before each merge.
+
+## Rest timer notifications
+
+A web app cannot schedule a local notification on iOS. When a set is checked, the app asks the Worker to notify it at the end of the rest; a Durable Object (`worker/timers.ts`, one per user) sets an alarm and sends the Web Push at that second, so it arrives on a locked phone. If the app is on screen three seconds before the end, it cancels the alarm and the on-screen timer is enough.
 
 ## Training logic
 

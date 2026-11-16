@@ -1,7 +1,8 @@
+import { BodyPhotos } from '../components/BodyPhotos';
+import { HealthStats } from '../components/HealthStats';
 import { useState } from 'react';
 import { Icon } from '../components/Icon';
 import { Radar } from '../components/Radar';
-import { StepsChart } from '../components/StepsChart';
 import { toast } from '../components/ui';
 import { WeightChart } from '../components/WeightChart';
 import { logBody, parseDecimal } from '../lib/actions';
@@ -126,6 +127,7 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
       )}
 
       {mod.weight && <Waist today={today} />}
+      {mod.weight && <BodyPhotos today={today} />}
 
       <section className="section">
         <div className="section-head">
@@ -365,12 +367,10 @@ function ActivitySection({ today }: { today: string }) {
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Activité</h2>
-        <span className="small muted">Apple Santé</span>
+        <h2>Santé</h2>
+        <span className="small muted">Apple Santé, 7 jours</span>
       </div>
-      <div className="card">
-        <StepsChart health={s.health} today={today} />
-      </div>
+      <HealthStats s={s} today={today} />
       <p className="small muted" style={{ margin: '10px 2px 0' }}>
         {visits.length
           ? `${visits.length} passage${visits.length > 1 ? 's' : ''} à la salle ces 7 derniers jours${avg ? `, ${avg} min en moyenne` : ''}.${lastVisit && gymDuration(lastVisit) ? ` Dernière séance : ${gymDuration(lastVisit)}.` : ''}`

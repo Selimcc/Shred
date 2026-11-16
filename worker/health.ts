@@ -8,8 +8,20 @@ export interface HealthDay {
   steps?: number;
   activeKcal?: number;
   restingKcal?: number;
+  /** Sommeil de la nuit précédente, en minutes. */
+  sleepMin?: number;
+  /** Fréquence cardiaque au repos (bpm) et variabilité (VFC, ms). */
+  restingHr?: number;
+  hrv?: number;
+  /** Minutes d'exercice (anneau vert d'Apple) et distance marche + course en km. */
+  exerciseMin?: number;
+  distanceKm?: number;
   at: string;
 }
+
+/** Valeurs qui s'accumulent dans la journée (on garde la plus grande) et valeurs ponctuelles (la dernière compte). */
+const CUMULATIVE = ['steps', 'activeKcal', 'restingKcal', 'exerciseMin', 'distanceKm'] as const;
+const LATEST = ['sleepMin', 'restingHr', 'hrv'] as const;
 
 export interface GymDay {
   in?: string;
@@ -45,15 +57,45 @@ function addDays(date: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Décimal à la française ou non (« 7,5 »), arrondi à `digits` chiffres. */
+export function toDecimal(v: unknown, max: number, digits = 1): number | undefined {
+  let n: number | undefined;
+  if (typeof v === 'number') n = v;
+  else if (typeof v === 'string') {
+    const m = v.replace(/[\s  ]/g, '').replace(',', '.').match(/-?\d+(?:\.\d+)?/);
+    n = m ? Number(m[0]) : undefined;
+  }
+  if (n === undefined || !Number.isFinite(n) || n < 0 || n > max) return undefined;
+  const f = 10 ** digits;
+  return Math.round(n * f) / f;
+}
+
 /** Les totaux du jour ne font que monter : on garde le plus grand pour ne pas écraser une bonne valeur par un envoi vide. */
 export function mergeHealth(prev: HealthDay | null, next: Omit<HealthDay, 'at'>, at: string): HealthDay {
   const max = (a?: number, b?: number) => (a === undefined ? b : b === undefined ? a : Math.max(a, b));
-  return {
-    steps: max(prev?.steps, next.steps),
-    activeKcal: max(prev?.activeKcal, next.activeKcal),
-    restingKcal: max(prev?.restingKcal, next.restingKcal),
-    at,
-  };
+  const out: HealthDay = { at };
+  for (const k of CUMULATIVE) {
+    const v = max(prev?.[k], next[k]);
+    if (v !== undefined) out[k] = v;
+  }
+  for (const k of LATEST) {
+    const v = next[k] ?? prev?.[k];
+    if (v !== undefined) out[k] = v;
+  }
+  return out;
+}
+
+/** Sommeil envoyé en minutes (sleep_min) ou en heures (sleep_h, « 7,5 » ou « 7 h 30 »). */
+export function sleepMinutes(body: Record<string, unknown>): number | undefined {
+  const min = toNumber(body.sleep_min ?? body.sleepMin, 24 * 60);
+  if (min !== undefined) return min;
+  const raw = body.sleep_h ?? body.sleep;
+  if (typeof raw === 'string') {
+    const hm = raw.match(/(\d+)\s*h\s*(\d+)?/i);
+    if (hm) return Number(hm[1]) * 60 + Number(hm[2] ?? 0);
+  }
+  const h = toDecimal(raw, 24, 2);
+  return h === undefined ? undefined : Math.round(h * 60);
 }
 
 export async function ingestHealth(store: Store, body: Record<string, unknown>, now = new Date()) {
@@ -62,13 +104,18 @@ export async function ingestHealth(store: Store, body: Record<string, unknown>, 
   const date = typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : today;
   if (date > today || date < addDays(today, -7)) throw new HttpError(400, 'Date hors de la fenêtre des 7 derniers jours');
 
-  const incoming = {
+  const incoming: Omit<HealthDay, 'at'> = {
     steps: toNumber(body.steps, 200_000),
     activeKcal: toNumber(body.active_kcal ?? body.activeKcal, 20_000),
     restingKcal: toNumber(body.resting_kcal ?? body.restingKcal, 20_000),
+    sleepMin: sleepMinutes(body),
+    restingHr: toNumber(body.resting_hr ?? body.restingHr, 250),
+    hrv: toNumber(body.hrv, 400),
+    exerciseMin: toNumber(body.exercise_min ?? body.exerciseMin, 1440),
+    distanceKm: toDecimal(body.distance_km ?? body.distanceKm, 300),
   };
-  if (incoming.steps === undefined && incoming.activeKcal === undefined && incoming.restingKcal === undefined) {
-    throw new HttpError(400, 'Aucune valeur lisible : envoie steps, active_kcal ou resting_kcal');
+  if (Object.values(incoming).every((v) => v === undefined)) {
+    throw new HttpError(400, 'Aucune valeur lisible : envoie steps, active_kcal, resting_kcal, sleep_h, resting_hr, hrv, exercise_min ou distance_km');
   }
   const key = `health:${date}`;
   const prev = await loadJson<HealthDay>(store, key);
@@ -85,8 +132,10 @@ export async function ingestHealth(store: Store, body: Record<string, unknown>, 
  */
 export function worthSaving(prev: HealthDay, next: HealthDay, now: Date): boolean {
   const gain = (a?: number, b?: number) => (b ?? 0) - (a ?? 0);
+  // Sommeil, cœur : une nouvelle valeur s'enregistre tout de suite.
+  if (LATEST.some((k) => next[k] !== undefined && next[k] !== prev[k])) return true;
   const steps = gain(prev.steps, next.steps);
-  const kcal = gain(prev.activeKcal, next.activeKcal) + gain(prev.restingKcal, next.restingKcal);
+  const kcal = gain(prev.activeKcal, next.activeKcal) + gain(prev.restingKcal, next.restingKcal) + gain(prev.exerciseMin, next.exerciseMin) * 5;
   if (steps <= 0 && kcal <= 0) return false;
   const age = now.getTime() - new Date(prev.at).getTime();
   return age >= 15 * 60_000 || steps >= 1000 || kcal >= 100;

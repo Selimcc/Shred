@@ -1,3 +1,4 @@
+import { ScanSheet } from '../components/ScanSheet';
 import { useEffect, useRef, useState } from 'react';
 import { type MealSlot, SLOTS } from '../../shared/program';
 import { mealPhotoPrompt, openInClaude } from '../lib/ai';
@@ -33,6 +34,7 @@ export function Food({ today, openCoach }: { today: string; openCoach: () => voi
   const [photo, setPhoto] = useState<File | null>(null);
   const [manual, setManual] = useState<MealSlot | null>(null);
   const [suggest, setSuggest] = useState(false);
+  const [scan, setScan] = useState(false);
 
   return (
     <>
@@ -64,13 +66,17 @@ export function Food({ today, openCoach }: { today: string; openCoach: () => voi
       {s.settings.modules.health && <Balance today={today} eaten={t.kcal} />}
 
       <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-        <button className="btn primary" style={{ flex: 1.4, minHeight: 58 }} onClick={() => fileRef.current?.click()}>
+        <button className="btn primary" style={{ flex: 1.2, minHeight: 58 }} onClick={() => fileRef.current?.click()}>
           <Icon name="camera" /> Photographier
         </button>
-        <button className="btn" style={{ flex: 1, minHeight: 58 }} onClick={() => setSuggest(true)}>
-          <Icon name="bolt" /> Proposer un plat
+        <button className="btn" style={{ flex: 1, minHeight: 58 }} onClick={() => setScan(true)}>
+          <Icon name="barcode" /> Scanner
         </button>
       </div>
+      <button className="btn block" style={{ marginTop: 10 }} onClick={() => setSuggest(true)}>
+        <Icon name="bolt" size={18} /> Proposer un plat pour ce qu’il me reste
+      </button>
+      {scan && <ScanSheet today={today} slot={slotForNow()} onClose={() => setScan(false)} />}
       <input
         ref={fileRef}
         type="file"

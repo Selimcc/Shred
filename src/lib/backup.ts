@@ -1,9 +1,10 @@
 // Sauvegarde du téléphone sur le compte, chiffrée avant l'envoi avec une clé tirée du mot de passe.
 // Permet de retrouver ses données sur un nouveau téléphone, et de passer de l'un à l'autre.
-import { choose, toast } from '../components/ui';
+import { toast } from '../components/ui';
 import { api, DEMO } from './api';
 import { type Sealed, seal, sha256, unseal } from './crypto';
 import { type Account, getSession, setSession } from './session';
+import { mergeStates, sameData } from './merge';
 import { type AppState, getState, migrate, replaceState, subscribe } from './store';
 
 /** Au plus une sauvegarde automatique tous les quarts d'heure (la base gratuite limite les écritures). */
@@ -129,9 +130,6 @@ export async function restore(remote: { state: AppState; savedAt: number }) {
   setSession((s) => (s.account ? { ...s, account: { ...s.account, syncedAt: remote.savedAt } } : s));
 }
 
-const when = (ms: number) =>
-  new Date(ms).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-
 /**
  * Compare le téléphone et le compte.
  * `mine` : les données du téléphone appartiennent déjà à ce compte.
@@ -158,19 +156,17 @@ export async function reconcile(acc: Account, mine: boolean): Promise<void> {
     toast('Données à jour depuis ton compte');
     return;
   }
-  const question = mine
-    ? `Ton compte a des données plus récentes, enregistrées depuis un autre appareil ${when(remote.savedAt)}. Lesquelles garder ? Les autres seront remplacées.`
-    : `Ce téléphone contient déjà des données, et ton compte aussi (sauvegarde du ${when(remote.savedAt)}). Lesquelles garder ? Les autres seront remplacées.`;
-  conflict = true;
-  const pick = await choose(question, [{ label: 'Celles de ce téléphone' }, { label: 'Celles du compte', tone: 'primary' }], 'Deux versions');
-  if (pick === null) {
-    // Fermé sans choisir : rien n'est écrasé, la question reviendra au prochain retour dans l'app.
-    lastCheck = 0;
-    return;
+  // Deux versions différentes : on fusionne jour par jour au lieu de demander laquelle écraser.
+  const local = getState();
+  try {
+    localStorage.setItem('shred:before-merge', JSON.stringify({ at: Date.now(), state: local }));
+  } catch {
+    // Pas de place pour la copie de secours : la fusion ne supprime rien de toute façon.
   }
-  conflict = false;
-  if (pick === 1) await restore(remote);
-  else await uploadBackup(true);
+  const merged = mergeStates(local, remote.state, mine && meta.dirty);
+  await restore({ state: merged, savedAt: remote.savedAt });
+  await uploadBackup(true);
+  if (!sameData(local, remote.state)) toast(mine ? 'Données fusionnées avec ton autre appareil' : 'Données de ce téléphone et du compte fusionnées');
 }
 
 /** Au démarrage et au retour dans l'app : sauvegarde ce qui a changé, récupère ce qui vient d'ailleurs. */

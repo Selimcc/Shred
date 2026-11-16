@@ -9,6 +9,7 @@ import { flameInfo } from '../lib/flames';
 import { lastWeekMonday, reportPending } from '../lib/report';
 import { planSummary } from '../../shared/plans';
 import { ReportSheet } from '../components/ReportSheet';
+import { photoDue } from '../components/BodyPhotos';
 import { gymDuration, runShortcut, timeOf } from '../lib/health';
 import {
   dayStatus,
@@ -246,6 +247,17 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
 
       {mod.weight && s.body.weight[today] === undefined && <WeighIn today={today} value={s.body.weight[today]} />}
 
+      {mod.weight && weekdayOf(today) === 0 && photoDue(s, today) && (
+        <button className="card report-banner" onClick={() => go('progress')}>
+          <Icon name="camera" size={22} />
+          <span style={{ flex: 1 }}>
+            <span style={{ display: 'block', fontWeight: 650 }}>Photo de la semaine</span>
+            <span className="small muted">Face et profil, même lumière que la dernière fois. Ça prend 30 secondes.</span>
+          </span>
+          <Icon name="chevron" size={18} />
+        </button>
+      )}
+
       <button className="card ask-pulse" onClick={() => go('coach')}>
         <Pulse mood="think" tier={flames.tier} size={40} />
         <span style={{ flex: 1 }}>
@@ -337,6 +349,7 @@ function Activity({ today, openSettings }: { today: string; openSettings: () => 
   // Plus de deux heures sans nouvelles de Santé : un bouton relance le raccourci.
   const stale = s.settings.modules.health && /iPhone|iPad/.test(navigator.userAgent) && (!h?.at || Date.now() - new Date(h.at).getTime() > 2 * 3600_000);
   const parts: string[] = [];
+  if (h?.sleepMin !== undefined) parts.push(`${Math.floor(h.sleepMin / 60)} h ${String(h.sleepMin % 60).padStart(2, '0')} de sommeil`);
   if (h?.steps !== undefined) parts.push(`${formatNumber(h.steps)} pas`);
   if (h?.active !== undefined) parts.push(`${formatNumber(h.active)} kcal brûlées en activité`);
   return (
