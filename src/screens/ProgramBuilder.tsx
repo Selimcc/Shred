@@ -5,7 +5,7 @@ import type { Athlete, Experience, RaceDistance, Sport } from '../../shared/athl
 import { catalogEntry } from '../../shared/catalog';
 import { PHYSIQUES, programVolume, regionName, targetsFor } from '../../shared/generator';
 import { scheduleFor } from '../../shared/program';
-import { Braise } from '../components/Braise';
+import { Pulse } from '../components/Pulse';
 import { Field } from '../components/form';
 import { Icon } from '../components/Icon';
 import { ask, toast } from '../components/ui';
@@ -67,8 +67,8 @@ export function ProgramBuilder({ onDone }: { onDone: () => void }) {
   return (
     <div className="stack builder" style={{ gap: 22 }}>
       <div className="builder-hero">
-        <Braise mood="think" size={64} />
-        <p style={{ margin: 0, fontWeight: 700 }}>
+        <Pulse mood="think" size={64} />
+        <p className="muted" style={{ margin: 0 }}>
           Dis-moi le physique que tu vises et ton rythme : je construis le split, les exercices et le volume par muscle. Tu vois tout avant d’appliquer.
         </p>
       </div>

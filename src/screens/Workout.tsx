@@ -48,39 +48,37 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
 
   return (
     <>
-      <header className="topbar" style={{ alignItems: 'flex-start' }}>
-        <div style={{ minWidth: 0 }}>
+      <header className="workout-head">
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div className="date">
             {day.session && day.session !== planned ? `À la place de ${findSession(s.program, planned).name}` : WEEKDAY_NAMES[weekdayOf(today)]}
           </div>
-          <h1 className="display" style={{ fontSize: '2.4rem' }}>
-            {session.name}
-          </h1>
-          <div className="muted small" style={{ marginTop: 6 }}>
+          <h1 className="display workout-title">{session.name}</h1>
+          <p className="muted" style={{ margin: '8px 0 0' }}>
             {session.focus}
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-            <button className="btn small" onClick={() => setPicker(true)}>
-              Changer de séance
-            </button>
-            <button className="btn small" onClick={editProgram}>
-              Modifier le programme
-            </button>
-          </div>
+          </p>
         </div>
         {session.lifting && (
-          <Ring value={day.mainDone ? 1 : prog.done} max={day.mainDone ? 1 : prog.total} color={day.mainDone ? 'var(--green)' : 'var(--blue)'} size={84} stroke={9} label="Séries faites">
+          <Ring value={day.mainDone ? 1 : prog.done} max={day.mainDone ? 1 : prog.total} color={day.mainDone ? 'var(--mint)' : 'var(--ink)'} size={76} stroke={6} label="Séries faites">
             <div>
-              <div className="num" style={{ fontWeight: 900, fontSize: '1.15rem' }}>
+              <div className="num" style={{ fontWeight: 760, fontStretch: '72%', fontSize: '1.35rem', lineHeight: 1 }}>
                 {prog.done}
               </div>
-              <div className="faint" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
+              <div className="faint" style={{ fontSize: '0.7rem', fontWeight: 600 }}>
                 sur {prog.total}
               </div>
             </div>
           </Ring>
         )}
       </header>
+      <div className="workout-actions">
+        <button className="btn small" onClick={() => setPicker(true)}>
+          <Icon name="swap" size={16} /> Changer de séance
+        </button>
+        <button className="btn small" onClick={editProgram}>
+          <Icon name="list" size={16} /> Mon programme
+        </button>
+      </div>
 
       {session.lifting && !day.mainDone && (
         <div className="day-controls">
@@ -135,7 +133,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
           {tweaks.slice(0, 1).map((t) => (
             <div key={t.id} className="card tweak">
               <div className="tweak-head">
-                <Icon name="sparkle" size={16} /> Braise te propose
+                <Icon name="sparkle" size={16} /> Pulse te propose
               </div>
               <div style={{ fontWeight: 800 }}>{t.title}</div>
               <div className="small muted">{t.text}</div>
@@ -374,7 +372,7 @@ function ExerciseCard({
       )}
       {!last && ex.change && loaded && !complete && (
         <p className="small advice" style={{ margin: '8px 0 0' }}>
-          <Icon name="bolt" size={13} /> Nouvel exercice pour toi : commence léger, garde 2 à 3 reps en réserve sur la 1re série, puis ajuste. La prochaine fois, Braise aura tes chiffres.
+          <Icon name="bolt" size={13} /> Nouvel exercice pour toi : commence léger, garde 2 à 3 reps en réserve sur la 1re série, puis ajuste. La prochaine fois, Pulse aura tes chiffres.
         </p>
       )}
 
@@ -433,7 +431,7 @@ function SwapSheet({ ex, date, sessionId, taken, onClose }: { ex: Exercise; date
           ))}
         </div>
         <p className="small muted" style={{ margin: 0 }}>
-          {reason === 'broken' && `Braise le remplacera automatiquement pendant ${BROKEN_DAYS} jours, puis te reproposera la machine.`}
+          {reason === 'broken' && `Pulse le remplacera automatiquement pendant ${BROKEN_DAYS} jours, puis te reproposera la machine.`}
           {reason === 'busy' && 'Juste pour aujourd’hui : ton programme ne change pas.'}
           {reason === 'pain' && 'Choisis un mouvement qui ne fait pas mal, charge modérée. Si la douleur dure, montre-la à un pro.'}
           {reason === 'vary' && 'Varier de temps en temps relance la progression. Coche « garder » pour l’adopter.'}

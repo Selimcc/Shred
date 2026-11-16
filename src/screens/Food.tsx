@@ -55,7 +55,7 @@ export function Food({ today, openCoach }: { today: string; openCoach: () => voi
           </div>
         </Ring>
         <div className="stack" style={{ flex: 1, gap: 10, minWidth: 0 }}>
-          <MacroLine label="Protéines" value={t.protein} max={target.protein} tone="green" />
+          <MacroLine label="Protéines" value={t.protein} max={target.protein} tone="blue" />
           <MacroLine label="Glucides" value={t.carbs} max={target.carbs} />
           <MacroLine label="Lipides" value={t.fat} max={target.fat} tone="yellow" />
         </div>
@@ -189,7 +189,7 @@ function Balance({ today, eaten }: { today: string; eaten: number }) {
   );
 }
 
-function MacroLine({ label, value, max, tone }: { label: string; value: number; max: number; tone?: 'green' | 'yellow' }) {
+function MacroLine({ label, value, max, tone }: { label: string; value: number; max: number; tone?: 'green' | 'yellow' | 'blue' }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }} className="small">
@@ -373,7 +373,7 @@ function PhotoSheet({ file, today, onClose }: { file: File; today: string; onClo
           <button className="btn primary block" onClick={analyze} disabled={!prepared || busy}>
             {busy ? (
               <>
-                <span className="spinner" style={{ borderTopColor: '#fff', width: 18, height: 18 }} /> Analyse en cours
+                <span className="spinner" style={{ borderTopColor: 'var(--on-accent)', width: 18, height: 18 }} /> Analyse en cours
               </>
             ) : (
               'Estimer les calories'

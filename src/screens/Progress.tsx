@@ -45,7 +45,7 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
         </button>
       </header>
 
-      <div className="seg" role="tablist" aria-label="Fiche">
+      <div className="seg" role="tablist" aria-label="Fiche" style={{ marginBottom: 16 }}>
         <button role="tab" aria-selected={view === 'me'} className={view === 'me' ? 'on' : ''} onClick={() => setView('me')}>
           Moi
         </button>

@@ -48,7 +48,7 @@ export function Radar({ groups, weakestId }: { groups: GroupScore[]; weakestId?:
         const top = Math.sin(angle(i)) < -0.1;
         const weak = g.id === weakestId;
         const fill = weak ? 'var(--red)' : g.grade === 'A' ? 'var(--gold)' : g.grade === 'B' ? 'var(--blue)' : 'var(--surface-2)';
-        const ink = weak || g.grade === 'B' ? '#ffffff' : g.grade === 'A' ? '#2a1d00' : 'var(--ink)';
+        const ink = weak || g.grade === 'B' || g.grade === 'A' ? 'var(--on-accent)' : 'var(--ink)';
         return (
           <g key={g.id}>
             <rect x={x - 16} y={y - 14} width="32" height="28" rx="8" fill={fill} />

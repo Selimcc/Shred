@@ -26,7 +26,7 @@ import { findSession, planWeek } from '../../shared/program';
 import { planSummary } from '../../shared/plans';
 import { adaptCurrentProgram, restorePreviousProgram } from '../lib/coaching';
 import { PHYSIQUES, regionName } from '../../shared/generator';
-import { Braise } from '../components/Braise';
+import { Pulse } from '../components/Pulse';
 import { ProgramBuilder } from './ProgramBuilder';
 import { applyTweak, dismissTweak, programTweaks } from '../lib/tweaks';
 import { addDays, dayKey, formatShort } from '../lib/date';
@@ -63,7 +63,7 @@ export function ProgramEditor() {
 
       <section className="card stack builder-card" style={{ gap: 10 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <Braise mood="happy" size={52} />
+          <Pulse mood="happy" size={52} />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 850 }}>{s.settings.athlete.physique ? PHYSIQUES[s.settings.athlete.physique].label : 'Programme sur mesure'}</div>
             <div className="small muted">
@@ -104,7 +104,7 @@ export function ProgramEditor() {
 
       {tweaks.length > 0 && (
         <section className="stack" style={{ gap: 10 }}>
-          <h2>Propositions de Braise</h2>
+          <h2>Propositions de Pulse</h2>
           {tweaks.map((t) => (
             <div key={t.id} className="card tweak">
               <div style={{ fontWeight: 800 }}>{t.title}</div>

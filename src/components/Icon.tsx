@@ -1,4 +1,5 @@
 const PATHS: Record<string, string> = {
+  home: 'M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1v-8.5Z',
   swap: 'M7 4 4 7l3 3M4 7h13M17 14l3 3-3 3M20 17H7',
   wrench: 'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4 2.6-2.6Z',
   skip: 'M5 5l9 7-9 7V5ZM18 5v14',
@@ -52,7 +53,7 @@ export function Icon({ name, size = 22, filled = false }: { name: keyof typeof P
       aria-hidden="true"
       fill={filled ? 'currentColor' : 'none'}
       stroke={filled ? 'none' : 'currentColor'}
-      strokeWidth={2}
+      strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
     >

@@ -32,7 +32,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   );
 }
 
-export function Bar({ value, max, tone }: { value: number; max: number; tone?: 'yellow' | 'green' | 'red' }) {
+export function Bar({ value, max, tone }: { value: number; max: number; tone?: 'yellow' | 'green' | 'red' | 'blue' }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
     <div className={`bar ${tone ?? ''}`} role="progressbar" aria-valuenow={Math.round(value)} aria-valuemax={max}>
