@@ -249,10 +249,10 @@ export async function placeRoutes(req: Request, env: Env, pathname: string): Pro
     const result = await cached(`music2:${country}:${q.toLowerCase()}`, 3 * 3600, async () => {
       const failed: string[] = [];
       const [apple, deezer] = await Promise.all([
-        fetcher(`https://itunes.apple.com/search?media=music&entity=song&limit=12&country=${country}&term=${encodeURIComponent(q)}`, { headers: { 'user-agent': UA } })
+        fetcher(`https://itunes.apple.com/search?media=music&entity=song&limit=12&country=${country}&term=${encodeURIComponent(q)}`, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(3500) })
           .then(async (res) => (res.ok ? toTracks(((await res.json()) as { results: Record<string, unknown>[] }).results ?? []) : (failed.push(`Apple ${res.status}`), [])))
           .catch(() => (failed.push('Apple réseau'), [] as Track[])),
-        fetcher(`https://api.deezer.com/search?limit=12&q=${encodeURIComponent(q)}`, { headers: { 'user-agent': UA } })
+        fetcher(`https://api.deezer.com/search?limit=12&q=${encodeURIComponent(q)}`, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(3500) })
           .then(async (res) => (res.ok ? fromDeezer(((await res.json()) as { data?: DeezerTrack[] }).data ?? []) : (failed.push(`Deezer ${res.status}`), [])))
           .catch(() => (failed.push('Deezer réseau'), [] as Track[])),
       ]);

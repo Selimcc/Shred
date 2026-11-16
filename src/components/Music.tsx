@@ -1,9 +1,9 @@
 // Musique d'une publication : la barre de lecture (pochette, titre, bouton lecture avec anneau d'avancement)
 // et le choix d'un morceau dans le composeur.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { errorText, Sheet } from './ui';
 import { Icon } from './Icon';
-import { isSoundCloud, playable, searchMusic, soundcloudTrack, SOURCE_NAME, stopMusic, toggle, type Track, usePlayer } from '../lib/music';
+import { isSoundCloud, playable, searchMusic, soundcloudTrack, SOURCE_NAME, stopIf, stopMusic, toggle, type Track, usePlayer, warm } from '../lib/music';
 
 function Artwork({ t, size }: { t: Track; size: number }) {
   return t.artwork ? (
@@ -31,11 +31,34 @@ function Glyph({ playing }: { playing: boolean }) {
   );
 }
 
-function RoundButton({ playing, progress = 0, label, onClick }: { playing: boolean; progress?: number; label: string; onClick: () => void }) {
+function RoundButton({
+  playing,
+  loading = false,
+  progress = 0,
+  label,
+  onClick,
+  onPress,
+}: {
+  playing: boolean;
+  loading?: boolean;
+  progress?: number;
+  label: string;
+  onClick: () => void;
+  onPress?: () => void;
+}) {
   const r = 21;
   const c = 2 * Math.PI * r;
   return (
-    <button type="button" className={`music-play ${playing ? 'on' : ''}`} onClick={onClick} aria-label={label} aria-pressed={playing}>
+    <button
+      type="button"
+      className={`music-play ${playing ? 'on' : ''} ${loading ? 'loading' : ''}`}
+      onClick={onClick}
+      onPointerDown={onPress}
+      onPointerEnter={onPress}
+      aria-label={label}
+      aria-pressed={playing}
+      aria-busy={loading}
+    >
       <svg className="music-ring" width="46" height="46" viewBox="0 0 46 46" aria-hidden="true">
         <circle cx="23" cy="23" r={r} className="music-ring-bg" />
         <circle cx="23" cy="23" r={r} className="music-ring-fg" strokeDasharray={c} strokeDashoffset={c * (1 - progress)} />
@@ -48,9 +71,18 @@ function RoundButton({ playing, progress = 0, label, onClick }: { playing: boole
 }
 
 function PlayButton({ t, playKey }: { t: Track; playKey: string }) {
-  const { playing, progress } = usePlayer(playKey);
+  const { playing, loading, progress } = usePlayer(playKey);
   if (!playable(t)) return null;
-  return <RoundButton playing={playing} progress={progress} label={playing ? 'Pause' : `Écouter ${t.title}`} onClick={() => toggle(t, playKey)} />;
+  return (
+    <RoundButton
+      playing={playing}
+      loading={loading}
+      progress={progress}
+      label={playing ? 'Pause' : `Écouter ${t.title}`}
+      onClick={() => toggle(t, playKey)}
+      onPress={() => warm(t)}
+    />
+  );
 }
 
 /** Petit égaliseur qui danse pendant la lecture. */
@@ -75,8 +107,20 @@ export function MusicBar({ t, playKey, onRemove }: { t: Track; playKey: string; 
   const [sc, setSc] = useState(false);
   const source = t.source ?? 'apple';
   const { playing } = usePlayer(playKey);
+  const box = useRef<HTMLDivElement>(null);
+  // Publication visible : on prépare déjà l'adresse de l'extrait. Elle disparaît : sa musique s'arrête.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return () => stopIf(playKey);
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && warm(t, 'url'), { rootMargin: '200px' });
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      stopIf(playKey);
+    };
+  }, [t.id, playKey]);
   return (
-    <div className="music-wrap">
+    <div className="music-wrap" ref={box}>
       <div className="music-bar">
         <Artwork t={t} size={40} />
         <div className="grow" style={{ minWidth: 0 }}>
@@ -120,35 +164,80 @@ export function MusicBar({ t, playKey, onRemove }: { t: Track; playKey: string; 
 }
 
 /** Choisir un morceau : recherche au fil de la frappe, écoute avant de choisir. */
+const searchCache = new Map<string, Track[]>();
+
+/** Lignes fantômes pendant la recherche : la place des résultats est déjà là. */
+function Ghosts({ n = 5 }: { n?: number }) {
+  return (
+    <div className="music-list" aria-hidden="true">
+      {Array.from({ length: n }, (_, i) => (
+        <div key={i} className="music-item ghost">
+          <span className="music-art skeleton" style={{ width: 48, height: 48 }} />
+          <div className="grow" style={{ display: 'grid', gap: 7 }}>
+            <span className="skeleton line" style={{ width: `${62 - i * 7}%` }} />
+            <span className="skeleton line short" style={{ width: `${38 + (i % 3) * 8}%` }} />
+          </div>
+          <span className="skeleton disc" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Choisir un morceau : recherche au fil de la frappe, écoute avant de choisir. */
 export function MusicPicker({ onPick, onClose }: { onPick: (t: Track) => void; onClose: () => void }) {
   const [q, setQ] = useState('');
   const [list, setList] = useState<Track[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const seq = useRef(0);
 
   useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) return setList([]);
+    if (term.length < 2) {
+      setList([]);
+      setBusy(false);
+      return;
+    }
+    const key = term.toLowerCase();
+    const hit = searchCache.get(key);
+    if (hit) {
+      setList(hit);
+      setBusy(false);
+      setError(null);
+      return;
+    }
     setBusy(true);
+    const id = ++seq.current;
     const t = setTimeout(() => {
       (isSoundCloud(term) ? soundcloudTrack(term).then((x) => [x]) : searchMusic(term)).then(
         (r) => {
+          searchCache.set(key, r);
+          if (id !== seq.current) return;
           setList(r);
           setError(null);
           setBusy(false);
+          // Les trois premiers extraits se chargent déjà : un toucher et ça joue.
+          r.slice(0, 3).forEach((x) => warm(x));
         },
         (e) => {
+          if (id !== seq.current) return;
           setList([]);
           setError(errorText(e));
           setBusy(false);
         },
       );
-    }, 350);
+    }, 220);
     return () => clearTimeout(t);
   }, [q]);
 
+  const close = () => {
+    stopMusic();
+    onClose();
+  };
+
   return (
-    <Sheet title="Ajouter une musique" onClose={onClose}>
+    <Sheet title="Ajouter une musique" onClose={close}>
       <div className="stack" style={{ gap: 12 }}>
         <input className="input" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Titre, artiste ou lien SoundCloud" aria-label="Chercher une musique" />
         {error && (
@@ -156,27 +245,36 @@ export function MusicPicker({ onPick, onClose }: { onPick: (t: Track) => void; o
             {error}
           </p>
         )}
-        {busy && list.length === 0 && <p className="small muted">Recherche…</p>}
+        {busy && list.length === 0 && <Ghosts />}
         {!busy && q.trim().length >= 2 && list.length === 0 && !error && <p className="small muted">Rien trouvé pour « {q.trim()} ».</p>}
-        <div className="music-list">
-          {list.map((t) => (
-            <div key={t.id} className="music-item">
-              <button type="button" className="music-pick" onClick={() => onPick(t)}>
-                <Artwork t={t} size={48} />
-                <div className="grow" style={{ minWidth: 0, textAlign: 'left' }}>
-                  <div className="ellipsis" style={{ fontWeight: 700 }}>
-                    {t.title}
+        {list.length > 0 && (
+          <div className={`music-list ${busy ? 'stale' : ''}`}>
+            {list.map((t) => (
+              <div key={`${t.source}:${t.id}`} className="music-item">
+                <button
+                  type="button"
+                  className="music-pick"
+                  onClick={() => {
+                    stopMusic();
+                    onPick(t);
+                  }}
+                >
+                  <Artwork t={t} size={48} />
+                  <div className="grow" style={{ minWidth: 0, textAlign: 'left' }}>
+                    <div className="ellipsis" style={{ fontWeight: 700 }}>
+                      {t.title}
+                    </div>
+                    <div className="small muted ellipsis">
+                      {t.artist}
+                      <span className="faint">, {SOURCE_NAME[t.source ?? 'apple']}</span>
+                    </div>
                   </div>
-                  <div className="small muted ellipsis">
-                    {t.artist}
-                    <span className="faint">, {SOURCE_NAME[t.source ?? 'apple']}</span>
-                  </div>
-                </div>
-              </button>
-              <PlayButton t={t} playKey={`pick:${t.id}`} />
-            </div>
-          ))}
-        </div>
+                </button>
+                <PlayButton t={t} playKey={`pick:${t.source}:${t.id}`} />
+              </div>
+            ))}
+          </div>
+        )}
         <p className="small faint" style={{ margin: 0 }}>
           Extraits de 30 secondes d’Apple Music et de Deezer. Pour un morceau entier, colle un lien SoundCloud.
         </p>

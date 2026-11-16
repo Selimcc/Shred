@@ -1,15 +1,18 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { UpdateScreen } from './components/UpdateScreen';
 import { DEMO } from './lib/api';
 import { isNative } from './lib/native';
 import { startSync } from './lib/sync';
 import './styles.css';
 import { carryInvite } from './lib/install';
+import { startUpdates } from './lib/update';
 
 carryInvite();
 
 startSync();
+startUpdates();
 
 // Dans l'app iPhone, pas de service worker : l'app est déjà installée et hors ligne.
 if (!DEMO && !isNative() && 'serviceWorker' in navigator) {
@@ -21,5 +24,6 @@ if (!DEMO && !isNative() && 'serviceWorker' in navigator) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
+    <UpdateScreen />
   </StrictMode>,
 );
