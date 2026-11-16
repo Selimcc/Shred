@@ -144,6 +144,10 @@ export class Usage {
         await this.db.put(`s:${String(b.id)}`, { at: Number(b.at), ver: String(b.ver ?? ''), plat: String(b.plat ?? '') });
         return Response.json({ ok: true });
       }
+      case '/unseen': {
+        await this.db.delete(`s:${String(b.id)}`);
+        return Response.json({ ok: true });
+      }
       case '/seen-all': {
         const list = await this.db.list<Seen>({ prefix: 's:' });
         return Response.json({ seen: Object.fromEntries([...list].map(([k, v]) => [k.slice(2), v])) });
@@ -214,6 +218,12 @@ export const presence = {
     const seen: Seen = { at: now, ver: ver.replace(/[^0-9a-z.+-]/gi, ''), plat };
     if (env.USAGE) await call(env, '/seen', { id, ...seen });
     else await env.KV.put(`seen:${id}`, JSON.stringify(seen));
+  },
+  /** Compte supprimé : sa trace de présence part aussi. */
+  async forget(env: Env, id: string): Promise<void> {
+    for (const k of lastMark.keys()) if (k.startsWith(`${id}|`)) lastMark.delete(k);
+    if (env.USAGE) await call(env, '/unseen', { id });
+    else await env.KV.delete(`seen:${id}`);
   },
   async all(env: Env, ids: string[]): Promise<Record<string, Seen>> {
     if (env.USAGE) return (await call<{ seen: Record<string, Seen> }>(env, '/seen-all', {})).seen;

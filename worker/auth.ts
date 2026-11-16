@@ -5,7 +5,7 @@
 // Une seconde clé, dérivée elle aussi du mot de passe, chiffre la sauvegarde sur le téléphone :
 // le serveur (et l'administrateur) ne peuvent pas lire les séances et les repas sauvegardés.
 import { SESSION_COOKIE, writeAccount } from './users';
-import { capDaily, counters } from './usage';
+import { capDaily, counters, presence } from './usage';
 import { freeHandle, releaseHandle } from './identity';
 import { forgetMember } from './club';
 import { type Env, HttpError, json, readJson } from './env';
@@ -204,6 +204,7 @@ async function accountByEmail(env: Env, email: string): Promise<Account | null> 
 export async function purgeAccount(env: Env, acct: Account) {
   await forgetMember(env, acct).catch(() => undefined);
   await releaseHandle(env, acct).catch(() => undefined);
+  await presence.forget(env, acct.id).catch(() => undefined);
   await disconnectStrava(env, userStore(env.KV, acct.id)).catch(() => undefined);
   let cursor: string | undefined;
   do {
