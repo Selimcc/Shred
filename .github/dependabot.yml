@@ -1,0 +1,15 @@
+# Alerte et propose une mise à jour quand une dépendance (npm ou action GitHub) a une faille connue.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev:
+        dependency-type: development
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

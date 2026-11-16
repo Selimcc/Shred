@@ -1,5 +1,7 @@
 # Security audit
 
+**Reporting a vulnerability:** please use GitHub's private reporting (Security tab, « Report a vulnerability »), not a public issue.
+
 Audit of the whole app (Worker, Durable Objects, web app, iPhone shell, CI) on 16 November 2026, version 0.17.1, then fixed in 0.17.2. Each finding has a severity, its status, and where it lives in the code.
 
 ## Fixed in this pass
@@ -58,6 +60,22 @@ Review of every place where text from outside can reach code, a database or the 
 
 Tests: `scripts/test-injection.mjs`.
 
+## Public repository (0.17.4)
+
+The repository is public (it hosts the demo on GitHub Pages), so anyone can read the code and every past commit, including commits that are no longer on `main` after a history rewrite: GitHub keeps them reachable by their id.
+
+| Question | Answer |
+|---|---|
+| Is a secret in the code or the history? | No. The 65 commits on GitHub and the older commits rewritten out of `main` were scanned for key formats (Anthropic, Resend, GitHub, Cloudflare, AWS, Google, private keys, VAPID, Strava) and secrets files (`.dev.vars`, `.shred-secrets.json`, `.env`). Only placeholder test values were found (`admin-code-123`…), which do not work in production. |
+| Can someone use what the code shows? | The code shows how the app works, not how to get in: every check runs on the server and depends on secrets kept in Cloudflare (API key, VAPID key, encryption root, `ADMIN_CODE`). The KV id in `wrangler.jsonc` is useless without the Cloudflare account. |
+| Can someone run an old, weaker version of the server? | Not any more. Cloudflare could serve older versions and test branches at preview addresses sharing the same data. `preview_urls: false` in `wrangler.jsonc`: only the production version answers. |
+| Can an old version of the app on a phone get round the fixes? | No. Every protection is on the server, which refuses what it must refuse whatever the app's version. The app also updates itself at launch. |
+| Can a new secret slip in by mistake? | Three barriers: `.gitignore` covers secrets files and key formats; a pre-commit hook (`.githooks/pre-commit`, enabled by `npm install`) blocks the commit; CI scans the tree and the whole history on every push (`scripts/check-secrets.mjs`). |
+| Outdated dependencies | Dependabot (`.github/dependabot.yml`) proposes updates for npm packages and GitHub Actions each week. |
+| Pull requests from strangers | CI runs them with a read-only token and no secrets. Deployment is done by Cloudflare from `main` only. |
+
+If a secret is ever pushed, deleting the commit is not enough: it has already been readable. Change the secret first (`wrangler secret put …`, or the provider's dashboard), then clean up.
+
 ## Accepted
 
 | Severity | Finding | Why |
@@ -66,6 +84,13 @@ Tests: `scripts/test-injection.mjs`.
 | Info | A member can still try to talk the coach out of its role in their own chat. | They only affect their own answers; the coach refuses off-topic requests, and the API key and daily quota stay server-side. |
 
 ## For the admin
+
+GitHub settings to switch on once (Settings of the repository; this cannot be done from the code):
+
+- **Code security:** enable *Secret scanning* and *Push protection* (GitHub then refuses a push containing a known key), *Dependabot alerts*, and *Private vulnerability reporting*.
+- **Rules, Rulesets:** a ruleset on `main` that blocks deletion and force pushes, with yourself as the only bypass (so you can still rewrite history on purpose).
+- **Actions, General:** « Require approval for all external contributors » for workflows from forks.
+- **Cloudflare, Workers Builds:** keep « Builds for non-production branches » off, or at least never for pull requests from forks.
 
 - Protect the Cloudflare and GitHub accounts with two-factor authentication: they hold everything.
 - A Shortcut key that was shown on screen (a screen recording, a screenshot) should be recreated in Settings, Connections, Apple Health (button « Nouvelle »).

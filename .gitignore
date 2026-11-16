@@ -10,3 +10,18 @@ worker-dist
 
 dist-native
 .env.native
+
+# Secrets : jamais dans le dépôt (public). Vérifié aussi par scripts/check-secrets.mjs.
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+!*.example
+*.pem
+*.p8
+*.p12
+*.pfx
+*.key
+*.keystore
+*.jks
+*.mobileprovision

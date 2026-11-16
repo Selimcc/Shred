@@ -1,0 +1,3 @@
+#!/bin/sh
+# Le dépôt est public : bloque le commit si un secret ou un fichier de secrets y entre.
+exec node scripts/check-secrets.mjs --staged

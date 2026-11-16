@@ -19,7 +19,7 @@ export { Usage } from './usage';
 export { seal as sealForTest, unseal as unsealForTest } from './seal';
 import { placeRoutes } from './places';
 
-const VERSION = '0.17.3';
+const VERSION = '0.17.4';
 
 /**
  * CORS : l'app web appelle l'API depuis la même adresse (pas besoin de CORS). Seules l'app iPhone (Capacitor)

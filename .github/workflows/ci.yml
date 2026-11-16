@@ -17,6 +17,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secrets:
+    # The repository is public: no key or secrets file may enter it, in the tree or in any commit.
+    name: Secret scan (tree and history)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: node scripts/check-secrets.mjs
+      - run: node scripts/check-secrets.mjs --history
+
   check:
     name: Typecheck, tests, build
     runs-on: ubuntu-latest

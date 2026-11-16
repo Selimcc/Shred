@@ -5,6 +5,11 @@
   "compatibility_date": "2026-10-01",
   "observability": { "enabled": true },
 
+  // Seule la version en production répond. Pas d'URL d'aperçu par version ou par branche : une ancienne
+  // version (ou une branche de test) servie à côté utiliserait les mêmes données avec un code dépassé.
+  "workers_dev": true,
+  "preview_urls": false,
+
   // Le front (dist/) et l'API sont servis par le même Worker : une seule URL, pas de CORS.
   "assets": {
     "directory": "./dist",

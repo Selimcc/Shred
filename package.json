@@ -1,11 +1,14 @@
 {
   "name": "shred",
   "private": true,
-  "version": "0.17.3",
+  "version": "0.17.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:api": "wrangler dev --test-scheduled",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "check:history": "node scripts/check-secrets.mjs --history",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.worker.json --noEmit",
     "build": "npm run typecheck && vite build",
     "build:demo": "vite build --mode demo",
