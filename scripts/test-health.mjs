@@ -91,6 +91,7 @@ check('sommeil en heures décimales', h.sleepMinutes({ sleep_h: '7,5' }) === 450
 check('sommeil « 6 h 45 »', h.sleepMinutes({ sleep_h: '6 h 45' }) === 405);
 check('sommeil en minutes', h.sleepMinutes({ sleep_min: 412 }) === 412);
 check('valeurs en liste ou en objet, clés avec espace : lues', (() => { const b = h.cleanBody({ 'steps ': [{ value: '8 432 pas' }], Active_Kcal: { quantity: 412 } }); return h.toNumber(b.steps, 1e6) === 8432 && h.toNumber(b.active_kcal, 1e6) === 412; })());
+check('nom et valeur inversés dans le raccourci : remis dans le bon sens', (() => { const b = h.cleanBody({ '3588': 'steps', '158,698': 'active_kcal', '': 'exercise_min', '2,74': 'distance_km' }); return h.toNumber(b.steps, 1e6) === 3588 && h.toNumber(b.active_kcal, 1e6) === 159 && h.toDecimal(b.distance_km, 300) === 2.7 && h.toNumber(b.exercise_min, 1440) === undefined; })());
 check('sommeil en secondes (durée de Raccourcis)', h.sleepMinutes({ sleep_min: 27120 }) === 452 && h.sleepMinutes({ sleep_min: '27 120' }) === 452);
 check('sommeil « 7:32:00 »', h.sleepMinutes({ sleep_min: '7:32:00' }) === 452 && h.sleepMinutes({ sleep_min: '7:32' }) === 452);
 const morning = await h.ingestHealth(store, { date: '2026-10-13', sleep_h: '7,2', resting_hr: '56 bpm', hrv: '63', exercise_min: 12, distance_km: '3,4 km' }, new Date('2026-10-13T20:30:00Z'));

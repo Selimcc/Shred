@@ -121,9 +121,13 @@ function flatValue(v: unknown): unknown {
   return v;
 }
 
+const FIELDS = new Set(['steps', 'active_kcal', 'resting_kcal', 'sleep_min', 'sleep_h', 'resting_hr', 'hrv', 'exercise_min', 'distance_km', 'date']);
+
 export function cleanBody(raw: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(raw ?? {})) {
+  for (let [k, v] of Object.entries(raw ?? {})) {
+    // Nom et valeur inversés dans le dictionnaire (« 3588 » = « steps ») : on remet dans le bon sens.
+    if (typeof v === 'string' && FIELDS.has(v.trim().toLowerCase()) && !FIELDS.has(k.trim().toLowerCase())) [k, v] = [v, k];
     const value = flatValue(v);
     out[k] = value;
     out[k.trim().toLowerCase().replace(/[\s-]+/g, '_')] = value;
