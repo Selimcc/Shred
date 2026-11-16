@@ -178,7 +178,7 @@ s3.settings.athlete = { ...s3.settings.athlete, physique: 'v-taper', priorities:
 s3.program = structuredClone(s3.program);
 for (const x of s3.program.sessions) x.exercises = x.exercises.filter((e) => k.regionOf(e.key) !== 'delts');
 const tw = k.programTweaks(s3, today);
-check('priorité sans volume : Braise propose d’en ajouter', tw.some((t) => t.id.startsWith('vol-delts')), tw.map((t) => t.id).join(','));
+check('priorité sans volume : Pulse propose d’en ajouter', tw.some((t) => t.id.startsWith('vol-delts')), tw.map((t) => t.id).join(','));
 k.replaceState(s3);
 const t0 = tw.find((t) => t.id.startsWith('vol-delts'));
 k.applyTweak(t0);

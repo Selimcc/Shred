@@ -1,8 +1,8 @@
-// La fête de fin de journée : flamme animée, et Kilo qui apporte la flamme la première fois et à chaque palier.
+// La fête de fin de journée : Pulse et le compteur de série, et un mot de Pulse la première fois et à chaque palier.
 import { type CSSProperties, useEffect } from 'react';
 import { celebrationFor, flameInfo, ladder, TIERS } from '../lib/flames';
 import { setState, useApp } from '../lib/store';
-import { Braise, Bubble } from './Braise';
+import { Bubble, Pulse } from './Pulse';
 
 /** Pseudo-hasard stable : la même fête se rejoue à l'identique. */
 const rand = (i: number, salt: number) => {
@@ -97,7 +97,7 @@ export function Celebration({ today }: { today: string }) {
   if (c.kind === 'first') {
     title = 'Ta première flamme';
     text = `Journée validée : ta série démarre. Tiens ${f.goal} jours pour gagner ta première vraie flamme.`;
-    bubble = 'Salut, moi c’est Braise ! Je suis ta série : plus tu tiens, plus je grandis.';
+    bubble = 'Salut, moi c’est Pulse ! Je brille avec ta série : plus tu tiens, plus je change de couleur.';
   } else if (c.kind === 'milestone') {
     title = `${c.days} jours : ${t.name}`;
     text = `Tu as tenu ${c.days} jours d’affilée. Prochaine flamme à ${next} jours.`;
@@ -129,7 +129,7 @@ export function Celebration({ today }: { today: string }) {
         <div className="flame-stage">
           <Embers colors={t.colors} />
           <div className="hero-flame">
-            <Braise mood="cheer" tier={tier} size={140} />
+            <Pulse mood="cheer" tier={tier} size={140} />
           </div>
         </div>
         {withKilo && <Bubble className="celebrate-bubble">{bubble}</Bubble>}

@@ -2,7 +2,7 @@
 import { type FormEvent, useState } from 'react';
 import { Field, PasswordInput } from '../components/form';
 import { Icon } from '../components/Icon';
-import { Braise } from '../components/Braise';
+import { Pulse } from '../components/Pulse';
 import { ask, errorText, toast } from '../components/ui';
 import { continueWithoutAccount, hasData, login, logout, MIN_PASSWORD, register, resetPassword } from '../lib/account';
 import type { Account } from '../lib/session';
@@ -70,7 +70,7 @@ export function Welcome({ expired }: { expired?: Account }) {
   return (
     <main className="app welcome">
       <header className="welcome-hero">
-        <Braise mood="cheer" tier={0} size={110} className="kilo-enter" />
+        <Pulse mood="cheer" tier={0} size={110} className="kilo-enter" />
         <h1 className="display">Shred</h1>
         <p className="muted">Ta séance, tes repas et ta série du jour. Une app privée, sur invitation.</p>
       </header>

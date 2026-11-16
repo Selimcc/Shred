@@ -1,4 +1,4 @@
-// Ajustements proposés par Braise d'après tes séances : priorité qui manque de volume, exercice
+// Ajustements proposés par Pulse d'après tes séances : priorité qui manque de volume, exercice
 // qui ne progresse plus, programme trop chargé pour ton rythme réel. Rien ne change sans ton accord.
 import { catalogEntry } from '../../shared/catalog';
 import { PATTERNS, type PatternId, programVolume, type Region, regionName, regionOf, targetsFor } from '../../shared/generator';

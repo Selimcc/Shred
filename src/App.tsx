@@ -19,12 +19,12 @@ export type Tab = 'today' | 'workout' | 'food' | 'coach' | 'progress';
 
 /** Onglets disponibles ; chacun peut dépendre d'un module ou du mode IA. */
 const TABS: { id: Tab; label: string; icon: string; enabled?: (s: AppState) => boolean; hidden?: boolean }[] = [
-  { id: 'today', label: 'Accueil', icon: 'flame' },
+  { id: 'today', label: 'Aujourd’hui', icon: 'home' },
   { id: 'workout', label: 'Séance', icon: 'dumbbell' },
   { id: 'food', label: 'Repas', icon: 'utensils', enabled: (s) => s.settings.modules.nutrition },
   { id: 'progress', label: 'Progrès', icon: 'chart' },
-  // Le coach s'ouvre en touchant Braise : pas d'onglet en plus.
-  { id: 'coach', label: 'Braise', icon: 'chat', enabled: (s) => s.settings.ai !== 'off', hidden: true },
+  // Le coach s'ouvre en touchant Pulse : pas d'onglet en plus.
+  { id: 'coach', label: 'Pulse', icon: 'chat', enabled: (s) => s.settings.ai !== 'off', hidden: true },
 ];
 
 function initialTab(): Tab {
@@ -81,10 +81,7 @@ export function App() {
   return (
     <>
       {DEMO && (
-        <div
-          className="small"
-          style={{ background: 'var(--gold-soft)', color: 'var(--ink)', textAlign: 'center', padding: '6px 12px' }}
-        >
+        <div className="small demo-banner">
           Aperçu avec données d’exemple. L’analyse photo et le coach sont simulés.
         </div>
       )}
@@ -106,7 +103,7 @@ export function App() {
               aria-current={tab === t.id ? 'page' : undefined}
             >
               <span className="pill">
-                <Icon name={t.icon} size={22} filled={t.icon === 'flame' && tab === t.id} />
+                <Icon name={t.icon} size={22} filled={false} />
               </span>
               {t.label}
             </button>

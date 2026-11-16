@@ -9,7 +9,7 @@ import { emailReady, sendReport } from './report';
 import { authenticate, ensureIndexed, loadJson, type User } from './users';
 import { type PushSubscriptionData, sendPush } from './webpush';
 
-const VERSION = '0.6.0';
+const VERSION = '0.7.0';
 
 function cors(res: Response): Response {
   const h = new Headers(res.headers);

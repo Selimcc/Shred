@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { athleteSummary, WEIGHT_GOALS } from '../../shared/athlete';
 import { DossierCard } from '../components/Dossier';
-import { Braise } from '../components/Braise';
+import { Pulse } from '../components/Pulse';
 import { flameInfo } from '../lib/flames';
 import { Icon } from '../components/Icon';
 import { errorText, toast } from '../components/ui';
@@ -139,14 +139,14 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: viaApp ? undefined : 'calc(100dvh - var(--tabbar) - 60px)' }}>
-      <button className="link small" style={{ marginBottom: 10 }} onClick={onBack}>
-        ← Accueil
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: viaApp ? undefined : 'calc(100dvh - var(--tabbar) - 120px)' }}>
+      <button className="link small" style={{ marginBottom: 14, alignSelf: 'flex-start', color: 'var(--ink-2)' }} onClick={onBack}>
+        ← Aujourd’hui
       </button>
-      <header className="topbar" style={{ justifyContent: 'flex-start' }}>
-        <Braise mood="think" tier={flameInfo(s, today).tier} size={58} />
+      <header className="topbar coach-head" style={{ justifyContent: 'flex-start' }}>
+        <Pulse mood="think" tier={flameInfo(s, today).tier} size={56} />
         <div style={{ flex: 1 }}>
-          <h1>Braise, ton coach</h1>
+          <h1>Pulse, ton coach</h1>
           <div className="date">{viaApp ? 'Je t’ouvre Claude avec ton contexte, sans frais' : 'Je connais ton programme et ta journée'}</div>
         </div>
         {!viaApp && messages.length > 0 && (
@@ -185,8 +185,8 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
                 maxWidth: '86%',
                 padding: '10px 14px',
                 borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                background: m.role === 'user' ? 'var(--blue)' : 'var(--surface)',
-                color: m.role === 'user' ? '#fff' : 'var(--ink)',
+                background: m.role === 'user' ? 'var(--ink)' : 'var(--surface)',
+                color: m.role === 'user' ? 'var(--on-accent)' : 'var(--ink)',
                                 whiteSpace: 'pre-wrap',
                 lineHeight: 1.45,
               }}
@@ -217,7 +217,7 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
         style={{
           // Conversation intégrée : la saisie reste en bas. Mode app Claude : rien à faire défiler dessous.
           position: viaApp ? 'static' : 'sticky',
-          bottom: 'calc(var(--tabbar) + env(safe-area-inset-bottom) + 8px)',
+          bottom: 'calc(var(--tabbar) + env(safe-area-inset-bottom) + 18px)',
           paddingTop: 12,
           background: viaApp ? 'none' : 'linear-gradient(to bottom, transparent, var(--bg) 30%)',
         }}
@@ -242,7 +242,7 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
             className="input"
             rows={1}
             style={{ resize: 'none', maxHeight: 120 }}
-            placeholder={viaApp ? 'Ta question pour Braise' : 'Écris à Braise'}
+            placeholder={viaApp ? 'Ta question pour Pulse' : 'Écris à Pulse'}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
