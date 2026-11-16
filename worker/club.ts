@@ -3,6 +3,7 @@
 // entre deux écritures) ; les photos sont rangées dans KV. Rien de la sauvegarde chiffrée n'est lu ici :
 // chacun choisit ce qu'il publie, séance par séance.
 import { sanitizeTrack, type Track } from './places';
+import { capDaily } from './usage';
 import { type Env, HttpError, json, readJson } from './env';
 import { vapidFromEnv } from './reminders';
 import { getAccount, listAccounts, loadJson, type User, userStore } from './users';
@@ -464,6 +465,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
   }
 
   if (pathname === '/api/club/posts' && method === 'POST') {
+    await capDaily(env, user.id, 'post');
     const b = await readJson<{ text?: string; session?: unknown; photos?: unknown[]; visibility?: Visibility; mentions?: unknown; music?: unknown }>(req, 5_000_000);
     const music = sanitizeTrack(b.music);
     const text = str(b.text, LIMITS.text);
@@ -509,10 +511,12 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
       return json({ ok: true });
     }
     if (sub === 'spark' && method === 'POST') {
+      await capDaily(env, user.id, 'spark');
       const data = await callClub<{ post: Post }>(env, user, '/spark', { id });
       return json({ post: view(data.post, user) });
     }
     if (sub === 'comments' && method === 'POST') {
+      await capDaily(env, user.id, 'comment');
       const b = await readJson<{ text?: string; mentions?: unknown }>(req, 10_000);
       const text = str(b.text, LIMITS.comment);
       if (!text) throw new HttpError(400, 'Commentaire vide');
@@ -538,6 +542,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
   }
 
   if (pathname === '/api/club/avatar' && method === 'PUT') {
+    await capDaily(env, user.id, 'avatar');
     const b = await readJson<{ photo?: string | null }>(req, 1_500_000);
     if (!b.photo) {
       await env.KV.delete(`club:avatar:${user.id}`);
@@ -576,6 +581,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
 
   const follow = pathname.match(/^\/api\/club\/follow\/([A-Za-z0-9_-]{6,64})$/);
   if (follow && method === 'POST') {
+    await capDaily(env, user.id, 'follow');
     if (!(await getAccount(env, follow[1]))) throw new HttpError(404, 'Membre introuvable');
     const data = await callClub<{ following: boolean }>(env, user, '/follow', { target: follow[1] });
     await later(data.pushes);
@@ -583,6 +589,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
   }
 
   if (pathname === '/api/club/challenges' && method === 'POST') {
+    await capDaily(env, user.id, 'challenge');
     const b = await readJson<{ to?: string; hours?: number; text?: string }>(req, 5_000);
     const to = String(b.to ?? '');
     const target = /^[A-Za-z0-9_-]{6,64}$/.test(to) ? await getAccount(env, to) : null;

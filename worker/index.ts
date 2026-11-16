@@ -18,14 +18,59 @@ export { Club } from './club';
 export { Usage } from './usage';
 import { placeRoutes } from './places';
 
-const VERSION = '0.17.0';
+const VERSION = '0.17.1';
 
-function cors(res: Response): Response {
+/**
+ * CORS : l'app web appelle l'API depuis la même adresse (pas besoin de CORS). Seules l'app iPhone (Capacitor)
+ * et le serveur de développement viennent d'ailleurs : on ne répond qu'à elles.
+ */
+const ALLOWED_ORIGINS = new Set(['capacitor://localhost', 'https://localhost', 'http://localhost', 'http://localhost:5173', 'http://localhost:8787']);
+
+function cors(res: Response, origin: string | null): Response {
   const h = new Headers(res.headers);
-  h.set('Access-Control-Allow-Origin', '*');
-  h.set('Access-Control-Allow-Headers', 'authorization, content-type');
-  h.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    h.set('Access-Control-Allow-Origin', origin);
+    h.set('Vary', 'Origin');
+    h.set('Access-Control-Allow-Headers', 'authorization, content-type');
+    h.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  }
+  h.set('X-Content-Type-Options', 'nosniff');
+  h.set('Referrer-Policy', 'no-referrer');
   return new Response(res.body, { status: res.status, headers: h });
+}
+
+/**
+ * En-têtes de sécurité de l'app : seuls les scripts de Shred peuvent s'exécuter (une injection de script ne
+ * peut pas voler la session), pas d'affichage dans le cadre d'un autre site, HTTPS obligatoire.
+ */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https:",
+  'frame-src https://w.soundcloud.com',
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+export function secureAsset(res: Response): Response {
+  const h = new Headers(res.headers);
+  h.set('X-Content-Type-Options', 'nosniff');
+  h.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  h.set('Strict-Transport-Security', 'max-age=31536000');
+  h.set('Permissions-Policy', 'camera=(self), geolocation=(self), microphone=(), payment=(), usb=()');
+  if ((h.get('content-type') ?? '').includes('text/html')) {
+    h.set('Content-Security-Policy', CSP);
+    h.set('X-Frame-Options', 'DENY');
+  }
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
 }
 
 /** Requêtes IA autorisées par jour : l'administrateur paie la clé, il fixe la part des invités. */
@@ -77,12 +122,25 @@ function sanitizeCfg(input: Partial<UserCfg> | undefined, current: UserCfg): Use
   return cfg;
 }
 
+/** Les seuls services de notification connus (Apple, Google, Mozilla, Microsoft) : pas d'adresse arbitraire. */
+export function pushHostOk(endpoint: string): boolean {
+  try {
+    const u = new URL(endpoint);
+    return (
+      u.protocol === 'https:' &&
+      /(^|\.)(push\.apple\.com|fcm\.googleapis\.com|android\.googleapis\.com|push\.services\.mozilla\.com|notify\.windows\.com)$/.test(u.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function isSubscription(v: unknown): v is PushSubscriptionData {
   const s = v as PushSubscriptionData;
   return (
     !!s &&
     typeof s.endpoint === 'string' &&
-    s.endpoint.startsWith('https://') &&
+    pushHostOk(s.endpoint) &&
     typeof s.keys?.p256dh === 'string' &&
     typeof s.keys?.auth === 'string'
   );
@@ -107,7 +165,7 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
     return json({ limits: FREE, mode: await currentMode(env), days: days.map((d) => summary(d)), tracked: Boolean(env.USAGE) });
   }
 
-  const place = await placeRoutes(req, env, pathname);
+  const place = await placeRoutes(req, env, pathname, user.id);
   if (place) return place;
 
   const acct =
@@ -263,19 +321,19 @@ export default {
     }
     if (!url.pathname.startsWith('/api/')) {
       // App privée : on demande aux moteurs de recherche de ne pas l'indexer.
-      const res = await env.ASSETS.fetch(req);
-      const h = new Headers(res.headers);
-      h.set('X-Robots-Tag', 'noindex, nofollow');
-      return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+      const res = secureAsset(await env.ASSETS.fetch(req));
+      res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+      return res;
     }
-    if (req.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
+    const origin = req.headers.get('origin');
+    if (req.method === 'OPTIONS') return cors(new Response(null, { status: 204 }), origin);
     try {
       const res = await route(req, env, url, ctx);
-      return cors(res);
+      return secureAsset(cors(res, origin));
     } catch (e) {
-      if (e instanceof HttpError) return cors(json({ error: e.message }, e.status));
+      if (e instanceof HttpError) return cors(json({ error: e.message }, e.status), origin);
       console.error(e);
-      return cors(json({ error: 'Erreur serveur' }, 500));
+      return cors(json({ error: 'Erreur serveur' }, 500), origin);
     }
   },
 

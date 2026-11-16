@@ -1,0 +1,10 @@
+# En-têtes de sécurité des fichiers de l'app (servis directement par Cloudflare, sans passer par le Worker).
+# La même politique est appliquée par le Worker à ses propres réponses (worker/index.ts).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self' https:; frame-src https://w.soundcloud.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000
+  Permissions-Policy: camera=(self), geolocation=(self), microphone=(), payment=(), usb=()
+  X-Robots-Tag: noindex, nofollow

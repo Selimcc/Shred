@@ -54,7 +54,7 @@ Phone (installed PWA)                 Cloudflare Workers (free tier)            
 └────────────────────────┘ ◄─────── └──────────────────────────────┘
 ```
 
-A single Worker serves the app and the API on the same origin, so there is no CORS. The training program is data (`shared/`), shared by the front and the Worker; the code only interprets it. More detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+A single Worker serves the app and the API on the same origin, so there is no CORS. The training program is data (`shared/`), shared by the front and the Worker; the code only interprets it. More detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); security review in [docs/SECURITY.md](docs/SECURITY.md).
 
 **Stack:** React 19, TypeScript, Vite, Cloudflare Workers + KV + Cron Triggers, Web Push, WebCrypto, Anthropic API (vision and chat).
 

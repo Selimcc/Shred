@@ -8,7 +8,7 @@
 //
 // Quand les écritures KV du jour approchent de la limite, l'app passe en mode économie : la santé et la
 // sauvegarde s'enregistrent moins souvent, et l'administrateur est prévenu une fois.
-import type { Env } from './env';
+import { type Env, HttpError } from './env';
 
 /** Plan Workers gratuit (developers.cloudflare.com, novembre 2026). Remise à zéro à 00:00 UTC. */
 export const FREE = {
@@ -309,4 +309,26 @@ export function summary(u: DayUsage, now = new Date()) {
       .sort((a, b) => b[1] - a[1])
       .map(([name, n]) => ({ name, n })),
   };
+}
+
+/**
+ * Plafond par membre et par jour pour ce qui écrit ou coûte (publications, commentaires, photos, recherches) :
+ * un compte abusif ne peut pas épuiser le plan gratuit pour tout le monde.
+ */
+export const DAILY_CAPS = {
+  post: 30,
+  comment: 150,
+  spark: 300,
+  avatar: 15,
+  challenge: 20,
+  follow: 200,
+  places: 120,
+  music: 400,
+} as const;
+
+export async function capDaily(env: Env, userId: string, kind: keyof typeof DAILY_CAPS): Promise<void> {
+  const n = await counters.incr(env, `q:${kind}:${userId}:${utcDay()}`, 2 * 86400);
+  if (n > DAILY_CAPS[kind]) {
+    throw new HttpError(429, 'Limite du jour atteinte pour cette action, réessaie demain');
+  }
 }

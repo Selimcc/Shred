@@ -228,6 +228,11 @@ export async function authRoutes(req: Request, env: Env, pathname: string): Prom
     let inviteKey: string | null = null;
     let invite: Invite | null = null;
     if (env.ADMIN_CODE && raw && (await sameText(raw, env.ADMIN_CODE))) {
+      // Le code administrateur ne sert qu'à créer le premier compte : s'il fuit ensuite, il n'ouvre rien.
+      if ((await listAccounts(env)).some((a) => a.role === 'admin')) {
+        await strike(env, [`reg:${ip(req)}`]);
+        throw new HttpError(403, 'Code administrateur déjà utilisé. Demande une invitation à l’administrateur.');
+      }
       role = 'admin';
     } else {
       const code = normCode(raw);

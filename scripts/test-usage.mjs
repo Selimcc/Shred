@@ -231,6 +231,24 @@ check('lien hors Apple refusé', places.sanitizeTrack({ ...t, link: 'https://evi
 check('extrait audio hors Apple retiré', places.sanitizeTrack({ ...t, preview: 'https://evil.example/a.mp3' })?.preview === undefined);
 check('pochette hors Apple refusée', places.sanitizeTrack({ ...t, artwork: 'http://is1-ssl.mzstatic.com/a.jpg' }) === undefined);
 
+/* ---------- Sécurité ---------- */
+
+const keys2 = await kdf.deriveKeys('pirate@exemple.com', 'mot-de-passe-solide');
+r = await call('/api/auth/register', { body: { email: 'pirate@exemple.com', name: 'Pirate', invite: env.ADMIN_CODE, key: keys2.auth } });
+check('code administrateur : inutilisable une fois le premier admin créé', r.status === 403 && /déjà utilisé/.test(r.data.error), r.data.error);
+check('services de notification connus seulement', mod.pushHostOk('https://web.push.apple.com/abc') && mod.pushHostOk('https://fcm.googleapis.com/fcm/send/x') && !mod.pushHostOk('https://evil.example/x') && !mod.pushHostOk('https://fcm.googleapis.com.evil.example/x') && !mod.pushHostOk('http://fcm.googleapis.com/x'));
+const html = mod.secureAsset(new Response('<html></html>', { headers: { 'content-type': 'text/html; charset=utf-8' } }));
+check('page de l’app : scripts de Shred seulement, pas dans un cadre', /script-src 'self'(;|$)/.test(html.headers.get('content-security-policy') ?? '') && html.headers.get('x-frame-options') === 'DENY' && html.headers.get('x-content-type-options') === 'nosniff');
+const img = mod.secureAsset(new Response('x', { headers: { 'content-type': 'image/png' } }));
+check('fichiers : nosniff, sans CSP inutile', img.headers.get('x-content-type-options') === 'nosniff' && !img.headers.get('content-security-policy'));
+const foreign = await worker.fetch(new Request('https://shred.test/api/version', { headers: { origin: 'https://evil.example' } }), env, ctx);
+check('autre site : pas d’accès CORS à l’API', !foreign.headers.get('access-control-allow-origin'));
+const native = await worker.fetch(new Request('https://shred.test/api/version', { headers: { origin: 'capacitor://localhost' } }), env, ctx);
+check('app iPhone : accès CORS autorisé', native.headers.get('access-control-allow-origin') === 'capacitor://localhost');
+let last;
+for (let i = 0; i < 16; i++) last = await call('/api/club/avatar', { token, method: 'PUT', body: { photo: null } });
+check('plafond du jour par membre (photo de profil : 15)', last.status === 429 && /Limite du jour/.test(last.data.error), String(last.status));
+
 /* ---------- Installation depuis un lien d'invitation ---------- */
 
 const man = await worker.fetch(new Request('https://shred.test/manifest.webmanifest?invite=K7QX2-M9PLD'), env, ctx);

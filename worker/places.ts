@@ -5,6 +5,7 @@
 // - musiques pour les publications du club : Apple Music et Deezer (extraits de 30 s, sans clé), et les liens
 //   SoundCloud collés (morceau entier dans le lecteur de SoundCloud).
 import { type Env, HttpError, json } from './env';
+import { capDaily } from './usage';
 
 export interface Place {
   id: string;
@@ -203,10 +204,13 @@ const num = (v: string | null, min: number, max: number) => {
   return v !== null && Number.isFinite(n) && n >= min && n <= max ? n : null;
 };
 
-export async function placeRoutes(req: Request, env: Env, pathname: string): Promise<Response | null> {
+export async function placeRoutes(req: Request, env: Env, pathname: string, userId = ''): Promise<Response | null> {
   if (req.method !== 'GET') return null;
   const url = new URL(req.url);
   const fetcher = (env as Env & { FETCH?: typeof fetch }).FETCH ?? fetch;
+
+  if (pathname === '/api/places/gyms' || pathname === '/api/places/geocode') await capDaily(env, userId, 'places');
+  if (pathname.startsWith('/api/music/')) await capDaily(env, userId, 'music');
 
   if (pathname === '/api/places/gyms') {
     const lat = num(url.searchParams.get('lat'), -90, 90);
