@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Celebration } from './components/Celebration';
+import { DemoInviteHost, demoInvite } from './components/DemoInvite';
 import { PulseMoment } from './components/PulseMoment';
 import { Icon } from './components/Icon';
 import { AskHost, ToastHost } from './components/ui';
@@ -24,7 +25,8 @@ const TABS: { id: Tab; label: string; icon: string; enabled?: (s: AppState) => b
   { id: 'today', label: 'Aujourd’hui', icon: 'home' },
   { id: 'workout', label: 'Séance', icon: 'dumbbell' },
   { id: 'food', label: 'Repas', icon: 'utensils', enabled: (s) => s.settings.modules.nutrition },
-  { id: 'club', label: 'Club', icon: 'users' },
+  // Pas de club dans la démo publique : profils, photos et publications sont réservés à la vraie app.
+  { id: 'club', label: 'Club', icon: 'users', enabled: () => !DEMO },
   { id: 'progress', label: 'Progrès', icon: 'chart' },
   // Le coach s'ouvre en touchant Pulse : pas d'onglet en plus.
   { id: 'coach', label: 'Pulse', icon: 'chat', enabled: (s) => s.settings.ai !== 'off', hidden: true },
@@ -64,6 +66,7 @@ export function App() {
     navigator.serviceWorker?.addEventListener('message', onMsg);
     // « Partager au club » depuis la séance : on ouvre le club avec la publication prête.
     const onShare = (e: Event) => {
+      if (DEMO) return demoInvite('Le club n’est pas disponible dans la démo.');
       setCompose((e as CustomEvent<{ date: string }>).detail.date);
       go('club');
     };
@@ -96,9 +99,13 @@ export function App() {
     <>
       {DEMO && (
         <div className="small demo-banner">
-          Aperçu avec données d’exemple. L’analyse photo et le coach sont simulés.
+          Démo avec données d’exemple, rien n’est enregistré.{' '}
+          <button className="demo-banner-link" onClick={() => demoInvite()}>
+            Utiliser la vraie app
+          </button>
         </div>
       )}
+      {DEMO && <DemoInviteHost />}
       <main className="app">
         {tab === 'today' && <Today today={today} go={go} openSettings={() => setSettings('menu')} />}
         {tab === 'workout' && <Workout today={today} editProgram={() => setSettings('program')} />}
