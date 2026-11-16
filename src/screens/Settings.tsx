@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { canMorph, type NavDir, navigate } from '../lib/nav';
 import { HABIT_ICONS, SLOTS } from '../../shared/program';
 import type { MealSlot } from '../../shared/types';
 import { DossierCard } from '../components/Dossier';
@@ -42,6 +43,7 @@ import { MemberAvatar } from './Club';
 import { useMe } from '../lib/me';
 import { club } from '../lib/club';
 import { UsagePage } from './Usage';
+import { AdminPanel } from './AdminPanel';
 
 export type SettingsPage =
   | 'menu'
@@ -56,6 +58,7 @@ export type SettingsPage =
   | 'health'
   | 'account'
   | 'testers'
+  | 'admin'
   | 'publicProfile'
   | 'athlete'
   | 'gym'
@@ -77,7 +80,8 @@ const TITLES: Record<SettingsPage, string> = {
   notifications: 'Rappels',
   health: 'Apple Santé et salle',
   account: 'Compte',
-  testers: 'Testeurs',
+  testers: 'Invitations',
+  admin: 'Panneau admin',
   publicProfile: 'Profil public',
   athlete: 'Mon profil',
   gym: 'Ma salle',
@@ -121,7 +125,20 @@ const REMINDERS: { id: ReminderType; label: string; hint: string }[] = [
 export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => void; initialPage?: SettingsPage }) {
   const s = useApp();
   const session = useSession();
-  const [page, setPage] = useState<SettingsPage>(initialPage);
+  // Pile des pages ouvertes : « retour » revient à la page d'avant (Mon profil, puis Réglages).
+  const [stack, setStack] = useState<SettingsPage[]>([initialPage]);
+  const [dir, setDir] = useState<NavDir>('forward');
+  const page = stack[stack.length - 1];
+  const sheetTop = () => document.querySelector('.sheet')?.scrollTo({ top: 0 });
+  const setPage = (next: SettingsPage) => {
+    if (next === page) return;
+    const back = next === 'menu';
+    navigate(() => {
+      setDir(back ? 'back' : 'forward');
+      setStack((st) => (back ? ['menu'] : [...st, next]));
+      sheetTop();
+    }, back ? 'back' : 'forward');
+  };
   const [busy, setBusy] = useState<string | null>(null);
 
   const run = async (key: string, fn: () => Promise<void>) => {
@@ -140,8 +157,12 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
     if ((page === 'program' || page === 'goals' || page === 'modules') && getState().settings.pushEnabled) {
       void pushConfig().catch(() => undefined);
     }
-    if (page === 'menu' || initialPage !== 'menu') onClose();
-    else setPage('menu');
+    if (stack.length === 1) return onClose();
+    navigate(() => {
+      setDir('back');
+      setStack((st) => st.slice(0, -1));
+      sheetTop();
+    }, 'back');
   };
 
   const me = useMe();
@@ -185,6 +206,8 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
         },
         { id: 'publicProfile', icon: 'users', sub: 'Compte privé, demandes, stats visibles', show: !DEMO },
         { id: 'report', icon: 'chart', sub: s.settings.reportEmail ? 'Par mail chaque lundi' : 'Dans l’app chaque lundi', show: !DEMO },
+        { id: 'admin', icon: 'users', sub: 'Tous les testeurs, qui est en ligne, appareils', show: !DEMO && session.account?.role === 'admin' },
+        { id: 'testers', icon: 'share', sub: 'Inviter une personne ou un groupe', show: !DEMO && session.account?.role === 'admin' },
         { id: 'usage', icon: 'pulse', sub: 'Plan gratuit : écritures, lectures, mode économie', show: !DEMO && session.account?.role === 'admin' },
       ],
     },
@@ -192,7 +215,6 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
   const extra: Row[] = [
     { id: 'modules', icon: 'list', sub: `${Object.values(mod).filter(Boolean).length} sur ${MODULES.length} actifs` },
     { id: 'meals', icon: 'utensils', sub: `${s.mealPlan.length} repas`, show: mod.nutrition },
-    { id: 'testers', icon: 'users', sub: 'Inviter, réinitialiser, retirer', show: !DEMO && session.account?.role === 'admin' },
     { id: 'data', icon: 'scale', sub: 'Export, import, remise à zéro', show: !DEMO },
   ];
   const rowButton = (r: Row) => (
@@ -210,9 +232,10 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
 
   return (
     <Sheet title={TITLES[page]} onClose={onClose}>
-      {page !== 'menu' && initialPage === 'menu' && (
+      <div key={page} className={`settings-pane ${canMorph() ? '' : `pane-${dir}`}`}>
+      {stack.length > 1 && (
         <button className="settings-back" onClick={leave}>
-          <Icon name="chevron" size={18} /> Réglages
+          <Icon name="chevron" size={18} /> {TITLES[stack[stack.length - 2]]}
         </button>
       )}
 
@@ -259,6 +282,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
       {page === 'health' && <HealthPage />}
       {page === 'account' && <AccountPage onClose={onClose} />}
       {page === 'testers' && <TestersPage />}
+      {page === 'admin' && <AdminPanel />}
       {page === 'publicProfile' && <PublicProfilePage />}
       {page === 'gym' && <GymPage />}
       {page === 'mealplan' && <MealPlanner />}
@@ -266,6 +290,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
       {page === 'data' && <DataPage onReset={onClose} />}
       {page === 'strava' && <StravaPage />}
       {page === 'usage' && <UsagePage />}
+      </div>
     </Sheet>
   );
 }

@@ -139,6 +139,15 @@ export class Usage {
         await this.db.put(key, Date.now() + Number(b.ttl) * 1000);
         return Response.json({ first: true });
       }
+      case '/seen': {
+        // Dernière visite d'un membre (panneau admin) : quand, quelle version, quel appareil.
+        await this.db.put(`s:${String(b.id)}`, { at: Number(b.at), ver: String(b.ver ?? ''), plat: String(b.plat ?? '') });
+        return Response.json({ ok: true });
+      }
+      case '/seen-all': {
+        const list = await this.db.list<Seen>({ prefix: 's:' });
+        return Response.json({ seen: Object.fromEntries([...list].map(([k, v]) => [k.slice(2), v])) });
+      }
       case '/sweep': {
         const now = Date.now();
         const c = await this.db.list<{ exp: number }>({ prefix: 'c:' });
@@ -179,6 +188,41 @@ export const counters = {
     if (await env.KV.get(`once:${key}`)) return false;
     await env.KV.put(`once:${key}`, '1', { expirationTtl: Math.max(60, ttlSec) });
     return true;
+  },
+};
+
+export interface Seen {
+  at: number;
+  ver: string;
+  plat: string;
+}
+
+/** Présence des membres, pour le panneau admin. Une écriture au plus toutes les 2 minutes par membre et par isolat. */
+const lastMark = new Map<string, number>();
+export const presence = {
+  async mark(env: Env, id: string, client: string | null, ua: string | null): Promise<void> {
+    const now = Date.now();
+    // Un changement de version ou d'appareil passe tout de suite.
+    const k = `${id}|${client ?? ''}|${(ua ?? '').slice(0, 60)}`;
+    if (now - (lastMark.get(k) ?? 0) < 120_000) return;
+    lastMark.set(k, now);
+    if (lastMark.size > 5000) lastMark.clear();
+    // En-tête X-Shred-Client : « version;mode » (pwa, web ou ios), sinon on devine l'appareil.
+    const [ver = '', mode = ''] = (client ?? '').slice(0, 40).split(';');
+    const device = /iphone|ipad/i.test(ua ?? '') ? 'iPhone' : /android/i.test(ua ?? '') ? 'Android' : /mac|windows|linux/i.test(ua ?? '') ? 'Ordinateur' : '';
+    const plat = [device, { pwa: 'app installée', web: 'navigateur', ios: 'app iPhone' }[mode] ?? ''].filter(Boolean).join(', ');
+    const seen: Seen = { at: now, ver: ver.replace(/[^0-9a-z.+-]/gi, ''), plat };
+    if (env.USAGE) await call(env, '/seen', { id, ...seen });
+    else await env.KV.put(`seen:${id}`, JSON.stringify(seen));
+  },
+  async all(env: Env, ids: string[]): Promise<Record<string, Seen>> {
+    if (env.USAGE) return (await call<{ seen: Record<string, Seen> }>(env, '/seen-all', {})).seen;
+    const out: Record<string, Seen> = {};
+    for (const id of ids) {
+      const v = await env.KV.get(`seen:${id}`);
+      if (v) out[id] = JSON.parse(v) as Seen;
+    }
+    return out;
   },
 };
 

@@ -407,5 +407,18 @@ check('aperçu protégé de la même façon', r.status === 404);
 r = await call(`/api/club/posts/${vpost.id}`, { token: selim.token, method: 'DELETE' });
 check('suppression : la vidéo et son aperçu partent avec', r.status === 200 && !kv.has(`club:video:${vid}`) && !kv.has(`club:photo:${vpost.video.poster}`));
 
+/* ---------- Panneau admin ---------- */
+
+r = await call('/api/admin/testers', { token: ines.token });
+check('panneau admin refusé aux membres', r.status === 403);
+const tagged = await worker.fetch(new Request('https://shred.test/api/club/members', { headers: { authorization: `Bearer ${yanis.token}`, 'x-shred-client': '0.20.0;pwa', 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X)', 'cf-connecting-ip': `10.1.0.${ip++}` } }), env);
+check('requête marquée', tagged.status === 200);
+await new Promise((res) => setTimeout(res, 20));
+r = await call('/api/admin/testers', { token: selim.token });
+const ty = r.data.testers?.find((t) => t.id === yanis.id);
+check('panneau admin : tous les testeurs', r.status === 200 && r.data.testers.length >= 4 && r.data.version, JSON.stringify(r.data).slice(0, 200));
+check('présence : dernière visite, version et appareil', ty?.lastSeen > 0 && ty.version === '0.20.0' && ty.platform === 'iPhone, app installée', JSON.stringify(ty));
+check('compteurs du club par testeur', typeof ty?.posts === 'number' && typeof ty?.followers === 'number');
+
 console.log(failures ? `\n${failures} échec(s)` : '\nTout est bon.');
 process.exit(failures ? 1 : 0);

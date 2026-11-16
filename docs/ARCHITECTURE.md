@@ -144,3 +144,13 @@ Each account has a first name, a unique `@handle`, and optionally a nickname (30
 - **Playback.** The app downloads a video once it nears the screen (4 kept in memory), plays it in a loop while it is the most visible post, and pauses it otherwise. A tap pauses it.
 - **Feed sound** (`src/lib/feedSound.ts`), like Instagram: the most visible post plays its music (and its video's own sound when kept), on by default. The button at the bottom right of the photo or video mutes or unmutes the whole feed; the choice stays on the phone. Sound is unlocked by the first touch on the page; until then videos play silently. A track paused by hand is not restarted automatically. Leaving the screen or the app stops the sound.
 - **Comment field.** `Sheet` has a `footer`: the comment box stays at the bottom of the post sheet, outside the scrolling area, and grows with the text up to four lines.
+
+## Admin panel and presence
+
+- `GET /api/admin/testers` (admin only): every account with its last visit, app version, device, club counters (posts, followers, following, private) and avatar. Settings, Panneau admin shows it with filters (all, online in the last 5 minutes, today, absent 7 days), a search on name, handle or email, and a sheet per tester (details, password reset code, remove). Invitations stay on their own page.
+- Presence: each authenticated request (except Shortcut routes) records `{ at, ver, plat }` in the `USAGE` Durable Object, at most once every 2 minutes per member, device and version in each isolate. The app sends `X-Shred-Client: <version>;<pwa|web|ios>`; the device comes from the user agent. A version older than the server's is shown in orange.
+
+## Motion
+
+- Settings pages are a stack: « back » returns to the previous page (My profile, then Settings). Changing page uses the View Transitions API when available (Safari 18, Chrome): the new page slides in from the right while the old one slides left and fades, reversed on back (`src/lib/nav.ts`). Without it, only the new page slides in. Reduced motion turns it off.
+- Music progress bar: a thin line driven by `requestAnimationFrame` from the audio's real position (no jumps between `timeupdate` events), no knob at rest; pressing it thickens the bar, shows the knob, and the time follows the finger. Elapsed and remaining times underneath. Keyboard: left and right arrows move 5 seconds.

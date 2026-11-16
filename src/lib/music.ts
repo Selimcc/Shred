@@ -275,6 +275,12 @@ export function stopIf(key: string) {
   if (current === key) stopMusic();
 }
 
+/** Avancement exact de l'extrait en cours (0 à 1), lu à chaque image pour une barre fluide. */
+export function liveProgress(key: string): number | null {
+  if (current !== key || !active?.duration || !Number.isFinite(active.duration)) return null;
+  return active.currentTime / active.duration;
+}
+
 /** État du lecteur pour un extrait : en cours, en chargement, et avancement (0 à 1). */
 export function usePlayer(key: string): { playing: boolean; loading: boolean; progress: number; duration: number } {
   const [, force] = useState(0);

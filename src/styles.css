@@ -3717,7 +3717,7 @@ span.roll.roll {
   background: transparent;
 }
 .music-wrap .music-scrub {
-  padding: 0 12px 8px;
+  padding: 0 14px 10px;
 }
 .music-wrap .sc-player {
   margin: 0;
@@ -3864,51 +3864,87 @@ span.roll.roll {
   stroke: transparent;
 }
 .music-scrub {
+  padding: 4px 14px 0;
+  animation: page-in 0.24s var(--ease) both;
+}
+/* Zone de toucher haute, trait fin au centre. */
+.scrub-hit {
+  position: relative;
+  height: 22px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 12px 0;
-  animation: page-in 0.2s var(--ease) both;
-}
-.music-scrub input {
-  flex: 1;
-  min-width: 0;
-  height: 28px;
-  margin: 0;
-  background: transparent;
-  -webkit-appearance: none;
-  appearance: none;
+  cursor: pointer;
   touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
 }
-.music-scrub input::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--amber) var(--pct), var(--surface-3) var(--pct));
+.scrub-hit:focus-visible {
+  outline: none;
 }
-.music-scrub input::-moz-range-track {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--amber) var(--pct), var(--surface-3) var(--pct));
+.scrub-hit:focus-visible .scrub-track {
+  box-shadow: 0 0 0 2px rgb(255 181 71 / 0.45);
 }
-.music-scrub input::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  margin-top: -6px;
+.scrub-track {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.13);
+  overflow: hidden;
+  transition:
+    height 0.22s cubic-bezier(0.32, 0.72, 0, 1),
+    background 0.22s ease;
+}
+.scrub-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(255 181 71 / 0.75), var(--amber) 60%, #ffd28a);
+  transform-origin: left center;
+  will-change: transform;
+}
+.scrub-knob {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  margin-top: -7px;
   border-radius: 50%;
-  background: var(--ink);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+  background: #fff;
+  box-shadow:
+    0 0 0 4px rgb(255 181 71 / 0.22),
+    0 2px 8px rgb(0 0 0 / 0.45);
+  transform: scale(0);
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
 }
-.music-scrub input::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--ink);
+.scrub-hit:hover .scrub-track,
+.music-scrub.dragging .scrub-track {
+  height: 6px;
+  background: rgb(255 255 255 / 0.2);
 }
-.music-scrub .num {
-  min-width: 2.4em;
-  text-align: center;
+.music-scrub.dragging .scrub-knob,
+.scrub-hit:focus-visible .scrub-knob {
+  transform: scale(1);
+}
+.scrub-times {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -2px;
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  transition: color 0.2s ease;
+}
+.music-scrub.dragging .scrub-times {
+  color: var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scrub-track,
+  .scrub-knob {
+    transition: none;
+  }
 }
 .music-title {
   display: flex;
@@ -4750,4 +4786,156 @@ span.roll.roll {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* ---------- Réglages : passage d'une page à l'autre ---------- */
+
+.settings-pane {
+  view-transition-name: settings-pane;
+}
+/* Avec View Transitions, c'est le navigateur qui anime les deux pages : pas d'entrée en plus. */
+.sheet > .settings-pane:not(.pane-forward):not(.pane-back) {
+  animation: none;
+}
+::view-transition-group(settings-pane) {
+  animation-duration: 0.44s;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+::view-transition-old(settings-pane),
+::view-transition-new(settings-pane) {
+  mix-blend-mode: normal;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  height: auto;
+}
+html[data-nav='forward']::view-transition-old(settings-pane) {
+  animation: pane-out-left 0.3s cubic-bezier(0.4, 0, 1, 1) both;
+}
+html[data-nav='forward']::view-transition-new(settings-pane) {
+  animation: pane-in-right 0.44s cubic-bezier(0.32, 0.72, 0, 1) 0.04s both;
+}
+html[data-nav='back']::view-transition-old(settings-pane) {
+  animation: pane-out-right 0.3s cubic-bezier(0.4, 0, 1, 1) both;
+}
+html[data-nav='back']::view-transition-new(settings-pane) {
+  animation: pane-in-left 0.44s cubic-bezier(0.32, 0.72, 0, 1) 0.04s both;
+}
+/* Le reste de la feuille (titre, hauteur) passe en fondu doux. */
+html[data-nav]::view-transition-old(root),
+html[data-nav]::view-transition-new(root) {
+  animation-duration: 0.32s;
+  animation-timing-function: ease;
+}
+/* Sans View Transitions : seule la nouvelle page entre en glissant. */
+.sheet.sheet > .settings-pane.pane-forward {
+  animation: pane-in-right 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.sheet.sheet > .settings-pane.pane-back {
+  animation: pane-in-left 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes pane-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(64px);
+  }
+}
+@keyframes pane-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-48px);
+  }
+}
+@keyframes pane-out-left {
+  to {
+    opacity: 0;
+    transform: translateX(-48px);
+  }
+}
+@keyframes pane-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(64px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet.sheet > .settings-pane.pane-forward,
+  .sheet.sheet > .settings-pane.pane-back {
+    animation: none;
+  }
+}
+
+/* ---------- Panneau admin ---------- */
+
+.admin-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.admin-tile {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink-2);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+.admin-tile .small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.admin-tile-n {
+  color: var(--ink);
+  font-size: 1.45rem;
+  font-weight: 850;
+  line-height: 1.1;
+}
+.admin-tile.online .admin-tile-n {
+  color: var(--green);
+}
+.admin-tile.on {
+  border-color: var(--ink-2);
+  background: var(--surface-2);
+}
+.admin-row {
+  width: 100%;
+}
+.admin-avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+.presence-dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 2.5px var(--surface);
+}
+.presence-on {
+  color: var(--green);
+  font-weight: 700;
+}
+.admin-stale {
+  color: var(--amber);
+  font-weight: 700;
+}
+.admin-facts {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+.admin-facts dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
 }

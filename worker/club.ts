@@ -579,6 +579,11 @@ function social(env: Env, user: User, ids?: string[]) {
   return callClub<Social>(env, user, '/social', ids ? { ids } : {});
 }
 
+/** Compteurs du club pour une liste de membres (panneau admin). */
+export async function clubStats(env: Env, user: User, ids: string[]): Promise<SocialRow[]> {
+  return (await social(env, user, ids)).rows;
+}
+
 /**
  * Fiches de membres vues par `user`. Un compte privé que la personne ne suit pas ne montre que son nom,
  * son pseudo, sa photo, son surnom, sa bio et ses compteurs : pas sa fiche de force ni ses séances.

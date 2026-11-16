@@ -7,7 +7,6 @@ import { ask, errorText, toast } from '../components/ui';
 import { changeEmail, changePassword, deleteAccount, leaveLocalMode, logout } from '../lib/account';
 import { api, type Health } from '../lib/api';
 import { hasUnsaved, uploadBackup } from '../lib/backup';
-import { dayKey, formatShort } from '../lib/date';
 import { useSession } from '../lib/session';
 import { useApp } from '../lib/store';
 
@@ -273,7 +272,7 @@ function inviteMessage(code: string, expires: string, group = false) {
   ].join('\n');
 }
 
-async function shareText(text: string) {
+export async function shareText(text: string) {
   if (navigator.share) {
     try {
       await navigator.share({ text });
@@ -293,7 +292,6 @@ export function TestersPage() {
   const [kind, setKind] = useState<'one' | 'group'>('one');
   const [places, setPlaces] = useState(10);
   const [days, setDays] = useState(30);
-  const [reset, setReset] = useState<{ name: string; email: string; code: string; expires: string } | null>(null);
   const [joined, setJoined] = useState<{ code: string; names: string[] } | null>(null);
 
   const load = () =>
@@ -315,7 +313,6 @@ export function TestersPage() {
     }
   };
 
-  const today = dayKey();
   const group = kind === 'group';
 
   return (
@@ -448,81 +445,9 @@ export function TestersPage() {
         </section>
       )}
 
-      <section className="stack">
-        <h2>Comptes {data ? `(${data.users.length})` : ''}</h2>
-        {!data && <div className="spinner" />}
-        {data && (
-          <div className="group">
-            {data.users.map((u) => (
-              <div className="row" key={u.id} style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div className="grow">
-                  <div className="title">
-                    {u.name} {u.role === 'admin' && <span className="badge-admin">ADMIN</span>} {u.me && <span className="small faint">(toi)</span>}
-                  </div>
-                  <div className="small muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {u.email}
-                  </div>
-                  <div className="small faint">
-                    {u.lastDay ? (u.lastDay === today ? 'Actif aujourd’hui' : `Actif le ${formatShort(u.lastDay)}`) : 'Pas encore de rappels activés'}
-                  </div>
-                </div>
-                {!u.me && (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      className="btn small"
-                      disabled={busy}
-                      onClick={() =>
-                        act(async () => {
-                          const r = await api<{ code: string; expires: string }>(`/api/admin/users/${u.id}/reset`, { body: {} });
-                          setReset({ name: u.name, email: u.email, ...r });
-                        })
-                      }
-                    >
-                      Mot de passe
-                    </button>
-                    <button
-                      className="btn small danger"
-                      disabled={busy}
-                      aria-label={`Retirer ${u.name}`}
-                      onClick={() =>
-                        act(async () => {
-                          if (!(await ask(`Retirer ${u.name} ? Son compte et toutes ses données sont supprimés du serveur.`, 'Retirer', true))) return;
-                          await api(`/api/admin/users/${u.id}`, { method: 'DELETE' });
-                          await load();
-                        })
-                      }
-                    >
-                      <Icon name="trash" size={16} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        {reset && (
-          <div className="card stack" style={{ border: '2px solid var(--gold)' }}>
-            <div className="small muted">Code de réinitialisation pour {reset.name}, valable 48 h</div>
-            <div className="display num" style={{ fontSize: '1.6rem', userSelect: 'all' }}>
-              {reset.code}
-            </div>
-            <p className="small muted" style={{ margin: 0 }}>
-              Sur l’écran de connexion : « Mot de passe oublié ? ». Sa sauvegarde en ligne, chiffrée avec l’ancien mot de passe, sera remplacée par
-              les données de son téléphone.
-            </p>
-            <button
-              className="btn primary block"
-              onClick={() =>
-                shareText(
-                  `Ton code pour changer ton mot de passe Shred : ${reset.code} (valable 48 h). Ouvre l’app, « Me connecter », « Mot de passe oublié ? », avec ton email ${reset.email}.`,
-                )
-              }
-            >
-              <Icon name="share" size={18} /> Envoyer le code
-            </button>
-          </div>
-        )}
-      </section>
+      <p className="small muted" style={{ margin: 0 }}>
+        Les comptes, qui est en ligne, et les actions (mot de passe, retirer) sont dans Réglages, Panneau admin.
+      </p>
 
       <p className="small faint" style={{ margin: 0 }}>
         Le plan gratuit Cloudflare tient une vingtaine de testeurs actifs. L’IA intégrée coûte sur ta clé API : chaque invité a droit à

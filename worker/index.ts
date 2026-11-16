@@ -9,10 +9,10 @@ import { identityRoutes } from './identity';
 import { emailReady, sendReport } from './report';
 import { authenticate, ensureIndexed, listAccounts, loadJson, type User, userStore } from './users';
 import { restRoute } from './timers';
-import { clubRoutes } from './club';
+import { clubRoutes, clubStats } from './club';
 import { stravaCallback, stravaRoutes } from './strava';
 import { type PushSubscriptionData, sendPush } from './webpush';
-import { counters, currentMode, FREE, flushUsage, lastKnownMode, metered, summary, sweepUsage, usageReport, utcDay } from './usage';
+import { counters, currentMode, FREE, flushUsage, lastKnownMode, metered, presence, summary, sweepUsage, usageReport, utcDay } from './usage';
 
 export { RestTimer } from './timers';
 export { Club } from './club';
@@ -20,7 +20,7 @@ export { Usage } from './usage';
 export { seal as sealForTest, unseal as unsealForTest } from './seal';
 import { placeRoutes } from './places';
 
-const VERSION = '0.20.0';
+const VERSION = '0.21.0';
 
 /**
  * CORS : l'app web appelle l'API depuis la même adresse (pas besoin de CORS). Seules l'app iPhone (Capacitor)
@@ -33,7 +33,7 @@ function cors(res: Response, origin: string | null): Response {
   if (origin && ALLOWED_ORIGINS.has(origin)) {
     h.set('Access-Control-Allow-Origin', origin);
     h.set('Vary', 'Origin');
-    h.set('Access-Control-Allow-Headers', 'authorization, content-type');
+    h.set('Access-Control-Allow-Headers', 'authorization, content-type, x-shred, x-shred-client');
     h.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   }
   h.set('X-Content-Type-Options', 'nosniff');
@@ -160,6 +160,46 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
 
   const user: User = await authenticate(req, env, { deviceKey: DEVICE_ROUTES.has(pathname) });
   const store = user.store;
+  // Présence pour le panneau admin, sans ralentir la réponse.
+  if (!DEVICE_ROUTES.has(pathname)) {
+    const mark = presence.mark(env, user.id, req.headers.get('x-shred-client'), req.headers.get('user-agent')).catch(() => undefined);
+    if (ctx) ctx.waitUntil(mark);
+  }
+
+  if (pathname === '/api/admin/testers' && method === 'GET') {
+    // Panneau admin : tous les testeurs, leur présence, leur appareil et leur activité dans le club.
+    if (user.role !== 'admin') throw new HttpError(403, 'Réservé à l’administrateur');
+    const accounts = await listAccounts(env);
+    const ids = accounts.map((a) => a.id);
+    const [seen, stats, avatars, states] = await Promise.all([
+      presence.all(env, ids),
+      clubStats(env, user, ids).catch(() => []),
+      Promise.all(ids.map((id) => userStore(env.KV, id).get('avatar'))),
+      Promise.all(ids.map((id) => loadJson<{ date?: string }>(env.KV, `u:${id}:state`))),
+    ]);
+    const testers = accounts.map((a, i) => {
+      const st = stats.find((r) => r.id === a.id);
+      return {
+        id: a.id,
+        name: a.name,
+        handle: a.handle ?? null,
+        email: a.email,
+        role: a.role,
+        createdAt: a.createdAt,
+        me: a.id === user.id,
+        avatar: avatars[i] ?? null,
+        lastSeen: seen[a.id]?.at ?? null,
+        version: seen[a.id]?.ver || null,
+        platform: seen[a.id]?.plat || null,
+        lastDay: states[i]?.date ?? null,
+        posts: st?.posts ?? 0,
+        followers: st?.followers ?? 0,
+        following: st?.following ?? 0,
+        private: st?.private ?? false,
+      };
+    });
+    return json({ testers, version: VERSION, now: Date.now() });
+  }
 
   if (pathname === '/api/admin/usage' && method === 'GET') {
     if (user.role !== 'admin') throw new HttpError(403, 'Réservé à l’administrateur');

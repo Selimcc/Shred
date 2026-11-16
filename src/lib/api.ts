@@ -36,11 +36,22 @@ export interface MealAnalysis {
   advice: string;
 }
 
+/** « version;mode » pour le panneau admin : quelle version tourne, en app installée, dans le navigateur ou l'app iPhone. */
+function clientTag(): string {
+  if (typeof window === 'undefined') return '';
+  const native = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone;
+  const version = typeof __BUILD__ === 'undefined' ? '' : __BUILD__.split('+')[0];
+  return `${version};${native ? 'ios' : standalone ? 'pwa' : 'web'}`;
+}
+const CLIENT = clientTag();
+
 /** En-têtes d'une requête : le jeton pour l'app iPhone, le cookie (et X-Shred) pour l'app web. */
 export function authHeaders(token: string | undefined, json = true): Record<string, string> {
   return {
     ...(json ? { 'content-type': 'application/json' } : {}),
     'x-shred': '1',
+    ...(CLIENT ? { 'x-shred-client': CLIENT } : {}),
     ...(token && token !== COOKIE ? { authorization: `Bearer ${token}` } : {}),
   };
 }

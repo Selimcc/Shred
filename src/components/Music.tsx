@@ -1,9 +1,9 @@
 // Musique d'une publication : la barre de lecture (pochette, titre, bouton lecture avec anneau d'avancement)
 // et le choix d'un morceau dans le composeur.
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { errorText, Sheet } from './ui';
 import { Icon } from './Icon';
-import { isSoundCloud, playable, searchMusic, seek, soundcloudTrack, SOURCE_NAME, stopIf, stopMusic, toggle, type Track, usePlayer, warm } from '../lib/music';
+import { isSoundCloud, liveProgress, playable, searchMusic, seek, soundcloudTrack, SOURCE_NAME, stopIf, stopMusic, toggle, type Track, usePlayer, warm } from '../lib/music';
 
 function Artwork({ t, size }: { t: Track; size: number }) {
   return t.artwork ? (
@@ -99,22 +99,87 @@ function Eq({ on }: { on: boolean }) {
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 /** Barre pour avancer ou reculer dans l'extrait, avec le temps écoulé et la durée. */
+/**
+ * Barre de lecture : un trait fin qui avance en continu (lu à chaque image, pas par à-coups), sans pastille au
+ * repos. Le doigt posé, elle s'épaissit, la pastille apparaît et le temps suit le doigt ; relâché, on y saute.
+ */
 function Scrubber({ playKey, progress, duration, title }: { playKey: string; progress: number; duration: number; title: string }) {
-  const pct = Math.round(progress * 1000) / 10;
+  const track = useRef<HTMLDivElement>(null);
+  const fill = useRef<HTMLDivElement>(null);
+  const knob = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<number | null>(null);
+  const [shown, setShown] = useState(progress);
+  const dragRef = useRef<number | null>(null);
+
+  // Animation continue : la barre suit le son image par image.
+  useEffect(() => {
+    let raf = 0;
+    let last = -1;
+    const tick = () => {
+      const r = dragRef.current ?? liveProgress(playKey) ?? 0;
+      if (fill.current) fill.current.style.transform = `scaleX(${r})`;
+      if (knob.current) knob.current.style.left = `${r * 100}%`;
+      const sec = Math.floor(r * duration);
+      if (sec !== last) {
+        last = sec;
+        setShown(r);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playKey, duration]);
+
+  const ratioAt = (x: number) => {
+    const r = track.current!.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (x - r.left) / r.width));
+  };
+  const move = (r: number) => {
+    dragRef.current = r;
+    setDrag(r);
+  };
+  const end = (commit: boolean) => {
+    if (commit && dragRef.current !== null) seek(playKey, dragRef.current);
+    dragRef.current = null;
+    setDrag(null);
+  };
+  const r = drag ?? shown;
+
   return (
-    <div className="music-scrub">
-      <span className="small faint num">{clock(progress * duration)}</span>
-      <input
-        type="range"
-        min={0}
-        max={1000}
-        step={1}
-        value={Math.round(progress * 1000)}
-        onChange={(e) => seek(playKey, Number(e.target.value) / 1000)}
+    <div className={`music-scrub ${drag !== null ? 'dragging' : ''}`}>
+      <div
+        ref={track}
+        className="scrub-hit"
+        role="slider"
+        tabIndex={0}
         aria-label={`Position dans ${title}`}
-        style={{ '--pct': `${pct}%` } as CSSProperties}
-      />
-      <span className="small faint num">{clock(duration)}</span>
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration)}
+        aria-valuenow={Math.round(r * duration)}
+        aria-valuetext={`${clock(r * duration)} sur ${clock(duration)}`}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          move(ratioAt(e.clientX));
+        }}
+        onPointerMove={(e) => dragRef.current !== null && move(ratioAt(e.clientX))}
+        onPointerUp={() => end(true)}
+        onPointerCancel={() => end(false)}
+        onKeyDown={(e) => {
+          const step = e.key === 'ArrowRight' ? 5 : e.key === 'ArrowLeft' ? -5 : 0;
+          if (!step) return;
+          e.preventDefault();
+          seek(playKey, Math.max(0, Math.min(1, (liveProgress(playKey) ?? 0) + step / duration)));
+        }}
+      >
+        <div className="scrub-track">
+          <div ref={fill} className="scrub-fill" style={{ transform: `scaleX(${progress})` }} />
+        </div>
+        <div ref={knob} className="scrub-knob" style={{ left: `${progress * 100}%` }} />
+      </div>
+      <div className="scrub-times small num">
+        <span>{clock(r * duration)}</span>
+        <span>-{clock(Math.max(0, duration - r * duration))}</span>
+      </div>
     </div>
   );
 }
