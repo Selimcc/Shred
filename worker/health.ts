@@ -85,10 +85,20 @@ export function mergeHealth(prev: HealthDay | null, next: Omit<HealthDay, 'at'>,
   return out;
 }
 
-/** Sommeil envoyé en minutes (sleep_min) ou en heures (sleep_h, « 7,5 » ou « 7 h 30 »). */
+/**
+ * Sommeil envoyé en minutes (sleep_min) ou en heures (sleep_h, « 7,5 » ou « 7 h 30 »). Raccourcis donne
+ * souvent une durée en secondes (27 120) ou sous la forme « 7:32:00 » : les deux sont reconnues.
+ */
 export function sleepMinutes(body: Record<string, unknown>): number | undefined {
-  const min = toNumber(body.sleep_min ?? body.sleepMin, 24 * 60);
+  const rawMin = body.sleep_min ?? body.sleepMin;
+  if (typeof rawMin === 'string') {
+    const hms = rawMin.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (hms) return Number(hms[1]) * 60 + Number(hms[2]) + Math.round(Number(hms[3] ?? 0) / 60);
+  }
+  const min = toNumber(rawMin, 24 * 60);
   if (min !== undefined) return min;
+  const sec = toNumber(rawMin, 24 * 3600);
+  if (sec !== undefined) return Math.round(sec / 60);
   const raw = body.sleep_h ?? body.sleep;
   if (typeof raw === 'string') {
     const hm = raw.match(/(\d+)\s*h\s*(\d+)?/i);

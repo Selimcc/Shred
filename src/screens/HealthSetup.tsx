@@ -29,7 +29,7 @@ const HEALTH_FIELDS: [string, string][] = [
   ['steps', 'Nombre de pas, total du jour'],
   ['active_kcal', 'Énergie active, total du jour'],
   ['resting_kcal', 'Énergie au repos, total du jour'],
-  ['sleep_h', 'Analyse du sommeil, durée « Endormi » de la nuit (en heures, 7,5) ou sleep_min en minutes'],
+  ['sleep_min', 'Analyse du sommeil, somme des durées de la nuit (minutes, secondes ou 7:32:00) ; ou sleep_h en heures (7,5)'],
   ['resting_hr', 'Fréquence cardiaque au repos (bpm)'],
   ['hrv', 'Variabilité de la fréquence cardiaque (ms)'],
   ['exercise_min', 'Minutes d’exercice, total du jour'],
