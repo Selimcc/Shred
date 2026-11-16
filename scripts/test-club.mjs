@@ -197,7 +197,10 @@ r = await call('/api/club/members', { token: selim.token });
 check('publication supprimée : ses étincelles ne comptent plus', r.data.members.find((m) => m.me).sparks === 0);
 
 // Pagination : 25 publications, deux pages.
-for (let i = 0; i < 25; i++) await call('/api/club/posts', { token: ines.token, body: { text: `Séance ${i}` } });
+for (let i = 0; i < 25; i++) {
+  await call('/api/club/posts', { token: ines.token, body: { text: `Séance ${i}` } });
+  await new Promise((r) => setTimeout(r, 2)); // deux publications dans la même milliseconde n'ont pas d'ordre garanti
+}
 r = await call('/api/club/feed', { token: selim.token });
 const page2 = await call(`/api/club/feed?before=${encodeURIComponent(r.data.next)}`, { token: selim.token });
 check('fil paginé, sans doublon', r.data.posts.length === 20 && r.data.next && page2.data.posts.length === 6 && !page2.data.posts.some((p) => r.data.posts.some((q) => q.id === p.id)), `${r.data.posts.length} + ${page2.data.posts.length}`);
