@@ -9,6 +9,7 @@
 //   dkey:<sha256>      clé des Raccourcis iPhone → identifiant
 //   inv:<code>         invitations en attente, rst:<code> codes de réinitialisation
 //   u:<id>:…           les données de la personne
+import { seal, unseal } from './seal';
 import { type Env, HttpError } from './env';
 
 export interface Store {
@@ -80,14 +81,24 @@ export function userStore(kv: KVNamespace, id: string): Store {
   };
 }
 
-export const getAccount = (env: Env, id: string) => loadJson<Account>(env.KV, `acct:${id}`);
+export async function getAccount(env: Env, id: string): Promise<Account | null> {
+  const a = await loadJson<Account>(env.KV, `acct:${id}`);
+  if (a?.email) a.email = await unseal(env, a.email);
+  return a;
+}
+
+/** Comptes et index : l'email est chiffré au repos (voir seal.ts). */
+export async function writeAccount(env: Env, acct: Account) {
+  await env.KV.put(`acct:${acct.id}`, JSON.stringify({ ...acct, email: await seal(env, acct.email) }));
+}
 
 export async function listAccounts(env: Env): Promise<IndexEntry[]> {
-  return (await loadJson<IndexEntry[]>(env.KV, 'idx:users')) ?? [];
+  const list = (await loadJson<IndexEntry[]>(env.KV, 'idx:users')) ?? [];
+  return Promise.all(list.map(async (e) => ({ ...e, email: await unseal(env, e.email) })));
 }
 
 export async function saveIndex(env: Env, entries: IndexEntry[]) {
-  await env.KV.put('idx:users', JSON.stringify(entries));
+  await env.KV.put('idx:users', JSON.stringify(await Promise.all(entries.map(async (e) => ({ ...e, email: await seal(env, e.email) })))));
 }
 
 export const indexEntry = (a: Account): IndexEntry => ({ id: a.id, name: a.name, email: a.email, role: a.role, createdAt: a.createdAt });
@@ -104,8 +115,23 @@ export async function ensureIndexed(env: Env, id: string) {
  * Identifie la personne d'après l'en-tête Authorization.
  * Un jeton de session donne accès à tout ; une clé Raccourcis (shk_…) seulement aux routes qui l'acceptent.
  */
+export const SESSION_COOKIE = 'shred_session';
+
+/** Jeton de session lu dans le cookie HttpOnly (app web) : un script de la page ne peut pas le lire. */
+export function cookieToken(req: Request): string {
+  const raw = req.headers.get('cookie') ?? '';
+  const m = raw.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([A-Za-z0-9_-]{20,100})`));
+  return m?.[1] ?? '';
+}
+
 export async function authenticate(req: Request, env: Env, opts: { deviceKey?: boolean } = {}): Promise<User> {
-  const header = (req.headers.get('authorization') ?? '').trim();
+  const fromCookie = !req.headers.get('authorization') && !opts.deviceKey ? cookieToken(req) : '';
+  if (fromCookie) {
+    // Protection contre les requêtes d'un autre site : avec le cookie, toute écriture doit porter l'en-tête
+    // X-Shred, qu'un autre site ne peut pas ajouter sans autorisation CORS (refusée). SameSite=Strict en plus.
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.headers.get('x-shred') !== '1') throw new HttpError(403, 'Requête refusée');
+  }
+  const header = fromCookie ? `Bearer ${fromCookie}` : (req.headers.get('authorization') ?? '').trim();
   // Les Raccourcis sont tapés à la main : « bearer », « Bearer: », espace oublié ou clé seule sont acceptés.
   const found = header.match(/^(?:bearer\s*:?\s*)?(\S+)$/i)?.[1] ?? '';
   // « Bearer » seul : la variable de la clé est vide dans le raccourci.

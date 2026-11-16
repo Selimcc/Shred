@@ -18,6 +18,8 @@ export interface Env {
   EMAIL_FROM?: string;
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
+  /** Racine du chiffrement au repos (emails, jetons Strava). À défaut, la clé privée VAPID sert. */
+  DATA_KEY?: string;
   /** Application Strava (strava.com/settings/api) : import des sorties. */
   STRAVA_CLIENT_ID?: string;
   STRAVA_CLIENT_SECRET?: string;

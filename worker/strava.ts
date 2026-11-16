@@ -2,6 +2,7 @@
 // Les jetons restent sur le serveur (ils doivent être rafraîchis toutes les 6 heures) ; l'app ne reçoit que
 // des sorties résumées. Règle de Strava : ces données ne s'affichent qu'à la personne qui les a enregistrées.
 import { type Env, HttpError, json, readJson } from './env';
+import { seal, unseal } from './seal';
 import { loadJson, type Store, type User } from './users';
 
 const AUTHORIZE = 'https://www.strava.com/oauth/authorize';
@@ -86,14 +87,25 @@ async function tokenRequest(env: Env, params: Record<string, string>): Promise<R
   return data;
 }
 
+/** Jetons Strava chiffrés au repos : seuls l'accès et le rafraîchissement sont secrets. */
+async function sealTokens(env: Env, t: Tokens): Promise<string> {
+  return JSON.stringify({ ...t, access: await seal(env, t.access), refresh: await seal(env, t.refresh) });
+}
+
+async function loadTokens(env: Env, store: Store): Promise<Tokens | null> {
+  const t = await loadJson<Tokens>(store, 'strava');
+  if (!t) return null;
+  return { ...t, access: await unseal(env, t.access), refresh: await unseal(env, t.refresh) };
+}
+
 /** Un jeton d'accès valable, rafraîchi s'il expire dans moins de deux minutes. */
 async function accessToken(env: Env, store: Store): Promise<Tokens> {
-  const t = await loadJson<Tokens>(store, 'strava');
+  const t = await loadTokens(env, store);
   if (!t) throw new HttpError(409, 'Strava n’est pas relié');
   if (t.expiresAt - 120 > Date.now() / 1000) return t;
   const data = await tokenRequest(env, { grant_type: 'refresh_token', refresh_token: t.refresh });
   const next: Tokens = { ...t, access: String(data.access_token), refresh: String(data.refresh_token ?? t.refresh), expiresAt: Number(data.expires_at) };
-  await store.put('strava', JSON.stringify(next));
+  await store.put('strava', await sealTokens(env, next));
   return next;
 }
 
@@ -128,12 +140,12 @@ export async function stravaCallback(env: Env, url: URL): Promise<Response | nul
     scope,
     connectedAt: new Date().toISOString(),
   };
-  await env.KV.put(`u:${userId}:strava`, JSON.stringify(tokens));
+  await env.KV.put(`u:${userId}:strava`, await sealTokens(env, tokens));
   return page('Strava est relié', 'Tes sorties vont arriver dans Shred. Tu peux fermer cette page et revenir dans l’app.');
 }
 
 export async function disconnectStrava(env: Env, store: Store) {
-  const t = await loadJson<Tokens>(store, 'strava');
+  const t = await loadTokens(env, store);
   if (!t) return;
   await fetch(DEAUTHORIZE, { method: 'POST', headers: { authorization: `Bearer ${t.access}` } }).catch(() => undefined);
   await store.delete('strava');
@@ -145,7 +157,7 @@ export async function stravaRoutes(req: Request, env: Env, user: User, url: URL)
   const store = user.store;
 
   if (pathname === '/api/strava/status' && req.method === 'GET') {
-    const t = await loadJson<Tokens>(store, 'strava');
+    const t = await loadTokens(env, store);
     return json({ configured: stravaReady(env), connected: Boolean(t), athlete: t?.athlete ?? null, connectedAt: t?.connectedAt ?? null });
   }
 

@@ -206,6 +206,21 @@ const page2 = await call(`/api/club/feed?before=${encodeURIComponent(r.data.next
 check('fil paginé, sans doublon', r.data.posts.length === 20 && r.data.next && page2.data.posts.length === 6 && !page2.data.posts.some((p) => r.data.posts.some((q) => q.id === p.id)), `${r.data.posts.length} + ${page2.data.posts.length}`);
 check('le plus récent en premier', r.data.posts[0].text === 'Séance 24');
 
+/* ---------- Photos : seulement pour qui voit la publication ---------- */
+
+{
+  const img = `data:image/png;base64,${Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64').toString('base64')}`;
+  let res = await call('/api/club/posts', { token: selim.token, body: { text: 'Pour moi seul', photos: [img], visibility: 'private' } });
+  const ph = res.data.post.photos[0];
+  const get = async (tk) => worker.fetch(new Request(`https://shred.test/api/club/photo/${ph}`, { headers: { authorization: `Bearer ${tk}`, 'cf-connecting-ip': '10.3.0.1' } }), env);
+  check('photo d’une publication privée : visible par son auteur', (await get(selim.token)).status === 200);
+  check('photo d’une publication privée : cachée aux autres, même avec son adresse', (await get(ines.token)).status === 404);
+  res = await call('/api/club/posts', { token: selim.token, body: { text: 'Pour tous', photos: [img] } });
+  const ph2 = res.data.post.photos[0];
+  const pub = await worker.fetch(new Request(`https://shred.test/api/club/photo/${ph2}`, { headers: { authorization: `Bearer ${ines.token}` } }), env);
+  check('photo d’une publication publique : visible par les membres', pub.status === 200);
+}
+
 /* ---------- Musique ---------- */
 
 const track = { id: '123', title: 'Titre', artist: 'Artiste', artwork: 'https://is1-ssl.mzstatic.com/a/300x300bb.jpg', preview: 'https://audio-ssl.itunes.apple.com/p.m4a', link: 'https://music.apple.com/fr/album/x?i=123' };

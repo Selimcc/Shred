@@ -6,7 +6,8 @@ import { deriveKeys, normEmail } from './crypto';
 import { clearPhotos } from './photos';
 import { forgetPublishedProfile } from './profile';
 import { disablePush } from './push';
-import { type Account, getSession, type Role, setSession } from './session';
+import { type Account, COOKIE, getSession, type Role, setSession, storedToken } from './session';
+import { isNative } from './native';
 import { getState, resetAll, setState } from './store';
 
 interface AuthResult {
@@ -42,7 +43,7 @@ async function signIn(res: AuthResult, dataKey: string) {
   }
   const account: Account = {
     ...res.user,
-    token: res.token,
+    token: storedToken(res.token, isNative()),
     dataKey,
     syncedAt: mine ? prev.account?.syncedAt : undefined,
   };
@@ -89,7 +90,7 @@ export async function changePassword(current: string, next: string) {
   if (!acc) throw new Error('Pas de compte connecté');
   const [cur, nxt] = await Promise.all([deriveKeys(acc.email, current), deriveKeys(acc.email, next)]);
   const res = await api<AuthResult>('/api/account/password', { body: { current: cur.auth, next: nxt.auth } });
-  setSession((s) => ({ ...s, account: { ...acc, token: res.token, dataKey: nxt.data, expired: false } }));
+  setSession((s) => ({ ...s, account: { ...acc, token: storedToken(res.token, isNative()), dataKey: nxt.data, expired: false } }));
   // La sauvegarde est rechiffrée avec la nouvelle clé.
   await uploadBackup(true);
 }
@@ -140,3 +141,18 @@ export async function createShortcutKey(): Promise<string> {
 }
 
 export { hasData };
+
+/**
+ * Téléphones connectés avant le cookie : le jeton gardé dans le stockage passe dans le cookie HttpOnly,
+ * puis il est effacé du téléphone. Sans effet dans l'app iPhone.
+ */
+export async function moveSessionToCookie() {
+  const acc = getSession().account;
+  if (!acc || acc.expired || isNative() || acc.token === COOKIE) return;
+  try {
+    await api('/api/auth/cookie', { body: {} });
+    setSession((s) => (s.account ? { ...s, account: { ...s.account, token: COOKIE } } : s));
+  } catch {
+    // Hors ligne : on réessaiera au prochain lancement.
+  }
+}

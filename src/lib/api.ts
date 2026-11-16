@@ -1,4 +1,4 @@
-import { authToken, markExpired, type Role } from './session';
+import { authToken, COOKIE, markExpired, type Role } from './session';
 import type { MealItem } from './store';
 
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';
@@ -36,6 +36,15 @@ export interface MealAnalysis {
   advice: string;
 }
 
+/** En-têtes d'une requête : le jeton pour l'app iPhone, le cookie (et X-Shred) pour l'app web. */
+export function authHeaders(token: string | undefined, json = true): Record<string, string> {
+  return {
+    ...(json ? { 'content-type': 'application/json' } : {}),
+    'x-shred': '1',
+    ...(token && token !== COOKIE ? { authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export async function api<T>(path: string, init: { method?: string; body?: unknown; auth?: boolean } = {}): Promise<T> {
   if (DEMO) return demoApi<T>(path, init.body);
   const needsAuth = init.auth !== false;
@@ -45,7 +54,7 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   try {
     res = await fetch(BASE + path, {
       method: init.method ?? (init.body ? 'POST' : 'GET'),
-      headers: { 'content-type': 'application/json', ...(needsAuth ? { authorization: `Bearer ${token}` } : {}) },
+      headers: authHeaders(needsAuth ? token : undefined),
       body: init.body ? JSON.stringify(init.body) : undefined,
     });
   } catch {

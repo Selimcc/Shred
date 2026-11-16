@@ -7,6 +7,7 @@ import { api, DEMO } from './api';
 import { addDays, dayKey, formatNumber } from './date';
 import { fmtKg, sessionFor } from './logic';
 import { authToken } from './session';
+import { authHeaders } from './api';
 import type { AppState } from './store';
 import { dayTraining, liftSeries, totalMinutes } from './training';
 
@@ -234,7 +235,7 @@ export function imageUrl(path: string): Promise<string> {
   if (DEMO) return Promise.resolve(demo.images.get(path) ?? '');
   let p = blobs.get(path);
   if (!p) {
-    p = fetch(BASE + path, { headers: { authorization: `Bearer ${authToken() ?? ''}` } })
+    p = fetch(BASE + path, { headers: authHeaders(authToken(), false) })
       .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
       .then((b) => URL.createObjectURL(b));
     p.catch(() => blobs.delete(path));

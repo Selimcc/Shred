@@ -209,6 +209,7 @@ export class Club {
         const p = b.post as Post;
         await this.db.put(postKey(p), p);
         await this.db.put(`pid:${p.id}`, postKey(p));
+        for (const ph of p.photos) await this.db.put(`ph:${ph}`, p.id);
         const n = (await this.db.get<number>(`count:${viewer}`)) ?? 0;
         await this.db.put(`count:${viewer}`, n + 1);
         for (const m of p.mentions) {
@@ -216,6 +217,22 @@ export class Club {
           pushes.push({ user: m.id, title: `${b.viewerName} t’a identifié`, body: p.session?.title ?? p.text.slice(0, 100), url: `/?tab=club&post=${p.id}` });
         }
         return out({ post: p });
+      }
+
+      case '/photo-check': {
+        // Une photo ne se montre qu'à ceux qui peuvent voir sa publication.
+        const photo = String(b.photo);
+        let postId = await this.db.get<string>(`ph:${photo}`);
+        if (!postId) {
+          // Photos d'avant l'index : on retrouve leur publication une fois, puis on retient le lien.
+          const all = await this.db.list<Post>({ prefix: 'p:' });
+          for (const p of all.values()) {
+            for (const ph of p.photos) await this.db.put(`ph:${ph}`, p.id);
+            if (p.photos.includes(photo)) postId = p.id;
+          }
+        }
+        const found = postId ? await this.getPost(postId) : null;
+        return out({ ok: Boolean(found && this.canSee(found.post, viewer, await this.following(viewer))) });
       }
 
       case '/post': {
@@ -229,6 +246,7 @@ export class Club {
         const found = await this.getPost(String(b.id));
         if (!found) return out({ error: 'not-found' });
         if (found.post.author !== viewer && !b.admin) return out({ error: 'forbidden' });
+        for (const ph of found.post.photos) await this.db.delete(`ph:${ph}`);
         const comments = await this.db.list({ prefix: `c:${found.post.id}:` });
         await this.db.delete([found.key, `pid:${found.post.id}`, ...comments.keys()]);
         const n = (await this.db.get<number>(`count:${found.post.author}`)) ?? 1;
@@ -438,6 +456,18 @@ function decodePhoto(data: unknown): { bytes: Uint8Array; type: string } {
   return { bytes, type: m[1] };
 }
 
+/** Droit de voir une photo de publication, gardé 5 minutes en mémoire (une photo se charge plusieurs fois). */
+const photoAccess = new Map<string, { ok: boolean; at: number }>();
+async function photoVisible(env: Env, user: User, photo: string): Promise<boolean> {
+  const k = `${user.id}:${photo}`;
+  const hit = photoAccess.get(k);
+  if (hit && Date.now() - hit.at < 5 * 60_000) return hit.ok;
+  const data = await callClub<{ ok: boolean }>(env, user, '/photo-check', { photo });
+  if (photoAccess.size > 2000) photoAccess.clear();
+  photoAccess.set(k, { ok: data.ok, at: Date.now() });
+  return data.ok;
+}
+
 /** Les mentions envoyées par l'app, vérifiées contre la liste des membres. */
 async function checkMentions(env: Env, input: unknown): Promise<Mention[]> {
   if (!Array.isArray(input) || !input.length) return [];
@@ -535,6 +565,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
 
   const photo = pathname.match(/^\/api\/club\/(photo|avatar)\/([a-f0-9]{24}|[A-Za-z0-9_-]{6,64})$/);
   if (photo && method === 'GET') {
+    if (photo[1] === 'photo' && !(await photoVisible(env, user, photo[2]))) throw new HttpError(404, 'Photo introuvable');
     const key = photo[1] === 'photo' ? `club:photo:${photo[2]}` : `club:avatar:${photo[2]}`;
     const { value, metadata } = await env.KV.getWithMetadata<{ type?: string }>(key, 'arrayBuffer');
     if (!value) throw new HttpError(404, 'Photo introuvable');

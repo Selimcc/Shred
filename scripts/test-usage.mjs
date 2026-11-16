@@ -69,6 +69,7 @@ const usage = new mod.Usage({ storage }, {});
 let doCalls = 0;
 const env = {
   ADMIN_CODE: 'code-admin-local-123',
+  DATA_KEY: 'cle-de-chiffrement-de-test-0123456789',
   MOCK_AI: '1',
   KV,
   ASSETS: { fetch: async (r) => (new URL(r.url).pathname === '/manifest.webmanifest' ? Response.json({ name: 'Shred', start_url: '/' }) : new Response('app')) },
@@ -248,6 +249,53 @@ check('app iPhone : accès CORS autorisé', native.headers.get('access-control-a
 let last;
 for (let i = 0; i < 16; i++) last = await call('/api/club/avatar', { token, method: 'PUT', body: { photo: null } });
 check('plafond du jour par membre (photo de profil : 15)', last.status === 429 && /Limite du jour/.test(last.data.error), String(last.status));
+
+/* ---------- Chiffrement au repos ---------- */
+
+const rawAcct = [...kv.entries()].find(([k]) => k.startsWith('acct:'))[1].value;
+check('email chiffré dans la base', rawAcct.includes('sealed:v1:') && !rawAcct.includes('selim@exemple.com'));
+check('index des comptes chiffré aussi', kv.get('idx:users').value.includes('sealed:v1:') && !kv.get('idx:users').value.includes('@'));
+r = await call('/api/health', { token });
+check('mais l’app reçoit l’email en clair', r.data.user?.email === 'selim@exemple.com', JSON.stringify(r.data.user));
+// Les essais ratés plus haut ont bloqué la connexion pour un quart d'heure : on remet le compteur à zéro.
+for (const k of [...mem.keys()]) if (k.startsWith('c:rl:')) mem.delete(k);
+r = await call('/api/auth/login', { body: { email: 'selim@exemple.com', key: keys.auth } });
+check('connexion toujours possible (recherche par empreinte)', r.status === 200);
+
+const sealMod = await import(pathToFileURL(join(dir, 'worker/index.js')).href);
+check('ajout d’une nouvelle clé : les anciennes valeurs restent lisibles', await (async () => {
+  const old = { VAPID_PRIVATE_KEY: 'ancienne-cle-vapid' };
+  const v = await sealMod.sealForTest(old, 'a@b.c');
+  return v.startsWith('sealed:v1:') && (await sealMod.unsealForTest({ ...old, DATA_KEY: 'nouvelle' }, v)) === 'a@b.c' && (await sealMod.unsealForTest({ DATA_KEY: 'autre' }, v)) === '';
+})());
+
+/* ---------- Session en cookie HttpOnly ---------- */
+
+const login = await worker.fetch(
+  new Request('https://shred.test/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '10.9.9.9' }, body: JSON.stringify({ email: 'selim@exemple.com', key: keys.auth }) }),
+  env,
+  ctx,
+);
+const setCookie = login.headers.get('set-cookie') ?? '';
+const tok = (await login.json()).token;
+check('connexion : cookie HttpOnly, Secure, SameSite=Strict, limité à /api', /shred_session=/.test(setCookie) && /HttpOnly/.test(setCookie) && /Secure/.test(setCookie) && /SameSite=Strict/.test(setCookie) && /Path=\/api/.test(setCookie), setCookie);
+const cookie = `shred_session=${tok}`;
+const viaCookie = async (path, init = {}) => {
+  const res = await worker.fetch(new Request(`https://shred.test${path}`, { ...init, headers: { 'content-type': 'application/json', cookie, ...(init.headers ?? {}) } }), env, ctx);
+  return { status: res.status, data: await res.json().catch(() => ({})), headers: res.headers };
+};
+r = await viaCookie('/api/health');
+check('le cookie seul suffit pour lire', r.status === 200);
+r = await viaCookie('/api/profile', { method: 'PUT', body: JSON.stringify({}) });
+check('écriture avec le cookie sans X-Shred : refusée (autre site)', r.status === 403, String(r.status));
+r = await viaCookie('/api/auth/cookie', { method: 'POST', body: '{}', headers: { 'x-shred': '1' } });
+check('écriture avec le cookie et X-Shred : acceptée', r.status !== 403 && r.status !== 401, String(r.status));
+r = await call('/api/auth/cookie', { token: tok, body: {} });
+check('passage au cookie pour un téléphone déjà connecté', r.status === 200);
+r = await viaCookie('/api/auth/logout', { method: 'POST', body: '{}', headers: { 'x-shred': '1' } });
+check('déconnexion : cookie effacé', /Max-Age=0/.test(r.headers.get('set-cookie') ?? ''));
+r = await viaCookie('/api/health');
+check('après déconnexion, le cookie ne vaut plus rien', r.status === 401);
 
 /* ---------- Installation depuis un lien d'invitation ---------- */
 

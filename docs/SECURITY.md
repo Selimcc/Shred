@@ -1,6 +1,6 @@
 # Security audit
 
-Audit of the whole app (Worker, Durable Objects, web app, iPhone shell, CI) on 16 November 2026, version 0.17.1. Each finding has a severity, its status, and where it lives in the code.
+Audit of the whole app (Worker, Durable Objects, web app, iPhone shell, CI) on 16 November 2026, version 0.17.1, then fixed in 0.17.2. Each finding has a severity, its status, and where it lives in the code.
 
 ## Fixed in this pass
 
@@ -30,19 +30,26 @@ Audit of the whole app (Worker, Durable Objects, web app, iPhone shell, CI) on 1
 - **Account deletion.** Removes the account, its sessions, its data, its Strava link, its club posts, photos, comments, follows and challenges.
 - **Dependencies.** `npm audit --omit=dev`: 0 vulnerabilities in what ships.
 
-## Remaining, accepted or to plan
+## Fixed in the second pass
 
-| Severity | Finding | Recommendation |
+| Severity | Finding | Fix |
 |---|---|---|
-| Low | The session token lives in `localStorage`, readable by a script running in the page. | Acceptable with the new CSP (no foreign script can run). An `HttpOnly` cookie would need CSRF protection and breaks the iPhone app's cross-origin calls. |
-| Low | A club photo is served to any signed-in member who knows its 96-bit id, without re-checking the post's visibility. Ids only appear to people allowed to see the post. | Fine for a private club. To harden, check visibility in the photo route (one extra Durable Object call per image). |
-| Low | Strava tokens and emails are stored unencrypted in KV. | Only someone with access to the Cloudflare account could read them. Keep the account protected with 2FA. |
-| Low | Two sign-ups at the exact same moment on a group link could both take the last place (KV is not transactional). | At most one extra account; move invites to the Durable Object if it matters. |
-| Low | Dev tools (`wrangler` → `undici`) have known advisories. They never ship to users. | Update `wrangler` when convenient (`npm audit fix`). |
-| Info | The AI coach receives the member's own notes and messages. A member can only steer the answers they receive themselves; the API key and daily quota stay server-side. | Nothing to do. |
+| Low | The session token lived in `localStorage`, readable by any script running in the page. | The web app now uses an `HttpOnly; Secure; SameSite=Strict` cookie limited to `/api`; the page never sees the token (only the marker `cookie` stays on the phone). Writes made with the cookie must carry the `X-Shred: 1` header, which another site cannot add (CORS refused): no CSRF. Phones signed in before are moved to the cookie at the next launch (`POST /api/auth/cookie`), and their stored token is erased. The iPhone app keeps a bearer token (different origin). |
+| Low | A club photo was served to any signed-in member who knew its id, whatever the post's visibility. | The photo route asks the Club Durable Object whether the viewer can see the post (`/photo-check`, photo → post index, rebuilt once for older photos), cached 5 minutes per viewer and photo. |
+| Low | Strava tokens and emails were stored in clear in KV. | Encrypted at rest with AES-GCM (`worker/seal.ts`), key derived by HKDF from `DATA_KEY` or, by default, the VAPID private key. Old clear values stay readable and are encrypted at their next write. Adding `DATA_KEY` later is safe: values sealed with the VAPID key still open. The admin CLI decrypts emails with the local secrets file. |
+| Low | Two sign-ups at the same instant could both take the last place of a group link. | Places are reserved with an atomic counter in the `USAGE` Durable Object before the account is created. |
+| Low | Dev tools (`wrangler` → `undici`) had known advisories. | `npm audit fix`: 0 vulnerabilities, shipped or dev. |
+
+## Accepted
+
+| Severity | Finding | Why |
+|---|---|---|
+| Info | The backup key (`dataKey`) stays in the phone's storage: the app needs it to encrypt and decrypt. | With the CSP, no foreign script can run to read it, and the server never has it. |
+| Info | The AI coach receives the member's own notes and messages. | A member can only steer the answers they receive themselves; the API key and daily quota stay server-side. |
 
 ## For the admin
 
 - Protect the Cloudflare and GitHub accounts with two-factor authentication: they hold everything.
 - A Shortcut key that was shown on screen (a screen recording, a screenshot) should be recreated in Settings, Connections, Apple Health (button « Nouvelle »).
 - `ADMIN_CODE` no longer needs to stay secret once the admin account exists, but rotating it costs nothing (`wrangler secret put ADMIN_CODE`).
+- Optional: a dedicated encryption root (`wrangler secret put DATA_KEY`, any long random string). Without it, the VAPID private key is used. Never delete a root that values were sealed with: those values (emails, Strava links) could no longer be read.

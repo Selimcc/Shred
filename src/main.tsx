@@ -8,11 +8,13 @@ import { startSync } from './lib/sync';
 import './styles.css';
 import { carryInvite } from './lib/install';
 import { startUpdates } from './lib/update';
+import { moveSessionToCookie } from './lib/account';
 
 carryInvite();
 
 startSync();
 startUpdates();
+void moveSessionToCookie();
 
 // Dans l'app iPhone, pas de service worker : l'app est déjà installée et hors ligne.
 if (!DEMO && !isNative() && 'serviceWorker' in navigator) {

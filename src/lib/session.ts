@@ -8,7 +8,10 @@ export interface Account {
   email: string;
   name: string;
   role: Role;
-  /** Jeton de session (180 jours). */
+  /**
+   * Jeton de session (180 jours). Dans l'app web, il vit dans un cookie HttpOnly que la page ne peut pas lire :
+   * ici ne reste que le repère COOKIE. L'app iPhone (autre adresse) garde le vrai jeton.
+   */
   token: string;
   /** Clé de chiffrement de la sauvegarde, dérivée du mot de passe. Ne quitte jamais le téléphone. */
   dataKey: string;
@@ -61,6 +64,13 @@ export function useSession(): Session {
     },
     () => session,
   );
+}
+
+export const COOKIE = 'cookie';
+
+/** Le jeton reçu à la connexion : gardé seulement dans l'app iPhone ; l'app web s'en remet au cookie. */
+export function storedToken(token: string, native: boolean): string {
+  return native ? token : COOKIE;
 }
 
 /** Jeton à envoyer au serveur, si un compte valide est connecté. */

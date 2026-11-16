@@ -16,9 +16,10 @@ import { counters, currentMode, FREE, flushUsage, lastKnownMode, metered, summar
 export { RestTimer } from './timers';
 export { Club } from './club';
 export { Usage } from './usage';
+export { seal as sealForTest, unseal as unsealForTest } from './seal';
 import { placeRoutes } from './places';
 
-const VERSION = '0.17.1';
+const VERSION = '0.17.2';
 
 /**
  * CORS : l'app web appelle l'API depuis la même adresse (pas besoin de CORS). Seules l'app iPhone (Capacitor)

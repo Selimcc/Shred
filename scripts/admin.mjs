@@ -26,6 +26,23 @@ function secrets() {
   }
 }
 
+/** Emails chiffrés au repos par le Worker (worker/seal.ts) : même clé, dérivée des secrets locaux. */
+async function unseal(value) {
+  if (typeof value !== 'string' || !value.startsWith('sealed:v1:')) return value;
+  const sec = secrets();
+  const root = sec.DATA_KEY || sec.VAPID_PRIVATE_KEY;
+  if (!root) return '(chiffré)';
+  try {
+    const enc = new TextEncoder();
+    const base = await crypto.subtle.importKey('raw', enc.encode(root), 'HKDF', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: enc.encode('shred:seal'), info: enc.encode('v1') }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const [iv, ct] = value.slice('sealed:v1:'.length).split(':').map((x) => Buffer.from(x, 'base64url'));
+    return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct));
+  } catch {
+    return '(chiffré)';
+  }
+}
+
 function wrangler(params) {
   return new Promise((resolve, reject) => {
     const child = spawn(WRANGLER[0], [...WRANGLER.slice(1), ...params, '--binding', 'KV', local ? '--local' : '--remote'], {
@@ -84,7 +101,7 @@ async function main() {
       list = [];
     }
     if (!list.length) console.log('Aucun compte pour l’instant.');
-    for (const u of list) console.log(`${u.role === 'admin' ? '★' : ' '} ${u.name.padEnd(16)} ${u.email.padEnd(32)} inscrit le ${u.createdAt.slice(0, 10)}`);
+    for (const u of list) console.log(`${u.role === 'admin' ? '★' : ' '} ${u.name.padEnd(16)} ${(await unseal(u.email)).padEnd(32)} inscrit le ${u.createdAt.slice(0, 10)}`);
     return;
   }
 

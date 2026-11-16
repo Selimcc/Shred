@@ -4,6 +4,7 @@
 // et n'envoie que cette clé. Le serveur n'en garde qu'une empreinte HMAC avec un sel aléatoire.
 // Une seconde clé, dérivée elle aussi du mot de passe, chiffre la sauvegarde sur le téléphone :
 // le serveur (et l'administrateur) ne peuvent pas lire les séances et les repas sauvegardés.
+import { SESSION_COOKIE, writeAccount } from './users';
 import { counters } from './usage';
 import { forgetMember } from './club';
 import { type Env, HttpError, json, readJson } from './env';
@@ -176,8 +177,21 @@ async function openSession(env: Env, acct: Account) {
   return { token, user: publicUser(acct) };
 }
 
+/** Cookie de session HttpOnly : l'app web s'en sert à la place du jeton (l'app iPhone garde le jeton). */
+export function sessionCookie(token: string | null): string {
+  return token
+    ? `${SESSION_COOKIE}=${token}; Path=/api; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_TTL}`
+    : `${SESSION_COOKIE}=; Path=/api; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
+}
+
+/** Réponse de connexion : le jeton (app iPhone) et le cookie (app web). */
+function withCookie(res: Response, token: string): Response {
+  res.headers.append('Set-Cookie', sessionCookie(token));
+  return res;
+}
+
 async function saveAccount(env: Env, acct: Account) {
-  await env.KV.put(`acct:${acct.id}`, JSON.stringify(acct));
+  await writeAccount(env, acct);
 }
 
 async function accountByEmail(env: Env, email: string): Promise<Account | null> {
@@ -244,6 +258,15 @@ export async function authRoutes(req: Request, env: Env, pathname: string): Prom
       }
     }
     if (await accountByEmail(env, email)) throw new HttpError(409, 'Un compte existe déjà avec cet email. Connecte-toi.');
+    if (inviteKey && invite) {
+      // Réserver une place d'un coup (compteur unique, sans course) : deux inscriptions au même instant ne
+      // peuvent pas prendre la même dernière place.
+      const ttl = invite.exp ? Math.max(60, invite.exp - Math.floor(Date.now() / 1000)) : INVITE_TTL;
+      const taken = await counters.incr(env, `inv:${inviteKey.slice(4)}`, ttl);
+      const used = Math.max(taken, invite.uses + 1);
+      if (used > invite.max) throw new HttpError(403, 'Code d’invitation invalide, expiré ou complet');
+      invite.uses = used - 1;
+    }
 
     const acct: Account = {
       id: hex(random(8)),
@@ -267,7 +290,10 @@ export async function authRoutes(req: Request, env: Env, pathname: string): Prom
       if (invite.uses >= invite.max || (invite.exp && left < 60)) await env.KV.delete(inviteKey);
       else await env.KV.put(inviteKey, JSON.stringify(invite), { ...(invite.exp ? { expiration: invite.exp } : {}), metadata: inviteMeta(invite) });
     }
-    return json(await openSession(env, acct));
+    {
+      const opened = await openSession(env, acct);
+      return withCookie(json(opened), opened.token);
+    }
   }
 
   if (pathname === '/api/auth/login') {
@@ -283,7 +309,10 @@ export async function authRoutes(req: Request, env: Env, pathname: string): Prom
       await strike(env, limits);
       throw new HttpError(401, 'Email ou mot de passe incorrect');
     }
-    return json(await openSession(env, acct));
+    {
+      const opened = await openSession(env, acct);
+      return withCookie(json(opened), opened.token);
+    }
   }
 
   if (pathname === '/api/auth/reset') {
@@ -305,7 +334,10 @@ export async function authRoutes(req: Request, env: Env, pathname: string): Prom
     await saveAccount(env, acct);
     // La sauvegarde était chiffrée avec l'ancien mot de passe : elle n'est plus lisible.
     await Promise.all([env.KV.delete(`rst:${code}`), env.KV.delete(`u:${acct.id}:backup`)]);
-    return json({ ...(await openSession(env, acct)), backupCleared: true });
+    {
+      const opened = await openSession(env, acct);
+      return withCookie(json({ ...opened, backupCleared: true }), opened.token);
+    }
   }
 
   return null;
@@ -318,7 +350,18 @@ export async function accountRoutes(req: Request, env: Env, user: User, pathname
 
   if (pathname === '/api/auth/logout' && method === 'POST') {
     await env.KV.delete(`sess:${user.tokenHash}`);
-    return json({ ok: true });
+    const res = json({ ok: true });
+    res.headers.append('Set-Cookie', sessionCookie(null));
+    return res;
+  }
+
+  // Passage au cookie : un téléphone qui gardait le jeton dans son stockage le confie au cookie HttpOnly.
+  if (pathname === '/api/auth/cookie' && method === 'POST') {
+    const token = (req.headers.get('authorization') ?? '').replace(/^bearer\s+/i, '').trim();
+    if (!token || (await sha256hex(token)) !== user.tokenHash) throw new HttpError(400, 'Jeton manquant');
+    const res = json({ ok: true });
+    res.headers.append('Set-Cookie', sessionCookie(token));
+    return res;
   }
 
   if (pathname === '/api/account/password' && method === 'POST') {
@@ -333,7 +376,10 @@ export async function accountRoutes(req: Request, env: Env, user: User, pathname
     await setPassword(acct, authKey(b.next));
     acct.epoch += 1;
     await saveAccount(env, acct);
-    return json(await openSession(env, acct));
+    {
+      const opened = await openSession(env, acct);
+      return withCookie(json(opened), opened.token);
+    }
   }
 
   if (pathname === '/api/account/device-key' && method === 'POST') {
