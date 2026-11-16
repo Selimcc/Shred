@@ -1,5 +1,5 @@
 // Service worker : app utilisable hors ligne + notifications push.
-const CACHE = 'shred-v1';
+const CACHE = 'shred-v2';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png'];
 
 self.addEventListener('install', (event) => {
