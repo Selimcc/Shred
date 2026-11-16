@@ -3657,39 +3657,109 @@ span.roll.roll {
   flex: none;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   padding: 0;
   border: 0;
+  border-radius: 50%;
   background: none;
-  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
 }
-.music-play svg {
+.music-disc {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #15171b;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 0.15s var(--ease),
+    background 0.2s ease;
+}
+.music-glyph {
+  fill: currentColor;
+}
+.music-play:active .music-disc {
+  transform: scale(0.92);
+}
+.music-play.on .music-disc {
+  background: var(--amber);
+}
+.music-ring {
   position: absolute;
-  inset: 2px;
+  inset: 0;
   transform: rotate(-90deg);
+  pointer-events: none;
 }
 .music-ring-bg,
-.music-ring {
+.music-ring-fg {
   fill: none;
   stroke-width: 2.5;
 }
 .music-ring-bg {
-  stroke: var(--surface-3);
+  stroke: transparent;
 }
-.music-ring {
+.music-play.on .music-ring-bg {
+  stroke: color-mix(in srgb, var(--amber) 22%, transparent);
+}
+.music-ring-fg {
   stroke: var(--amber);
   stroke-linecap: round;
   transition: stroke-dashoffset 0.25s linear;
 }
-.music-play.on {
-  color: var(--amber);
+.music-play:not(.on) .music-ring-fg {
+  stroke: transparent;
+}
+.music-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 700;
+}
+.music-eq {
+  flex: none;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+.music-eq i {
+  width: 3px;
+  height: 100%;
+  border-radius: 1.5px;
+  background: var(--amber);
+  transform-origin: bottom;
+  animation: eq 0.9s ease-in-out infinite;
+}
+.music-eq i:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.music-eq i:nth-child(3) {
+  animation-delay: -0.6s;
+}
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .music-eq i {
+    animation: none;
+    transform: scaleY(0.7);
+  }
 }
 .music-link {
-  flex: none;
   color: var(--ink-3);
-  text-decoration: none;
-  padding: 10px 2px;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ink-3) 40%, transparent);
+  text-underline-offset: 2px;
 }
 .music-list {
   display: flex;

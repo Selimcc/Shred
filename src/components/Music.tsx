@@ -15,20 +15,53 @@ function Artwork({ t, size }: { t: Track; size: number }) {
   );
 }
 
+/** Triangle et barres dessinés à la main : centrés à l'œil (le triangle est décalé vers la droite). */
+function Glyph({ playing }: { playing: boolean }) {
+  return (
+    <svg className="music-glyph" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      {playing ? (
+        <>
+          <rect x="6" y="5" width="4.2" height="14" rx="1.4" />
+          <rect x="13.8" y="5" width="4.2" height="14" rx="1.4" />
+        </>
+      ) : (
+        <path d="M8.5 5.6v12.8a1.2 1.2 0 0 0 1.8 1l10.1-6.4a1.2 1.2 0 0 0 0-2L10.3 4.6a1.2 1.2 0 0 0-1.8 1Z" />
+      )}
+    </svg>
+  );
+}
+
+function RoundButton({ playing, progress = 0, label, onClick }: { playing: boolean; progress?: number; label: string; onClick: () => void }) {
+  const r = 21;
+  const c = 2 * Math.PI * r;
+  return (
+    <button type="button" className={`music-play ${playing ? 'on' : ''}`} onClick={onClick} aria-label={label} aria-pressed={playing}>
+      <svg className="music-ring" width="46" height="46" viewBox="0 0 46 46" aria-hidden="true">
+        <circle cx="23" cy="23" r={r} className="music-ring-bg" />
+        <circle cx="23" cy="23" r={r} className="music-ring-fg" strokeDasharray={c} strokeDashoffset={c * (1 - progress)} />
+      </svg>
+      <span className="music-disc">
+        <Glyph playing={playing} />
+      </span>
+    </button>
+  );
+}
+
 function PlayButton({ t, playKey }: { t: Track; playKey: string }) {
   const { playing, progress } = usePlayer(playKey);
   if (!playable(t)) return null;
-  const r = 17;
-  const c = 2 * Math.PI * r;
-  return (
-    <button type="button" className={`music-play ${playing ? 'on' : ''}`} onClick={() => toggle(t, playKey)} aria-label={playing ? 'Pause' : `Écouter ${t.title}`}>
-      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
-        <circle cx="20" cy="20" r={r} className="music-ring-bg" />
-        <circle cx="20" cy="20" r={r} className="music-ring" strokeDasharray={c} strokeDashoffset={c * (1 - progress)} />
-      </svg>
-      <Icon name={playing ? 'pause' : 'play'} size={15} filled />
-    </button>
-  );
+  return <RoundButton playing={playing} progress={progress} label={playing ? 'Pause' : `Écouter ${t.title}`} onClick={() => toggle(t, playKey)} />;
+}
+
+/** Petit égaliseur qui danse pendant la lecture. */
+function Eq({ on }: { on: boolean }) {
+  return on ? (
+    <span className="music-eq" aria-hidden="true">
+      <i />
+      <i />
+      <i />
+    </span>
+  ) : null;
 }
 
 /** Lecteur de SoundCloud (morceau entier), chargé seulement quand on le demande. */
@@ -41,39 +74,44 @@ function SoundCloudPlayer({ t }: { t: Track }) {
 export function MusicBar({ t, playKey, onRemove }: { t: Track; playKey: string; onRemove?: () => void }) {
   const [sc, setSc] = useState(false);
   const source = t.source ?? 'apple';
+  const { playing } = usePlayer(playKey);
   return (
     <div className="music-wrap">
       <div className="music-bar">
         <Artwork t={t} size={40} />
         <div className="grow" style={{ minWidth: 0 }}>
-          <div className="small ellipsis" style={{ fontWeight: 700 }}>
-            {t.title}
+          <div className="music-title small">
+            <Eq on={playing || sc} />
+            <span className="ellipsis">{t.title}</span>
           </div>
-          <div className="small muted ellipsis">{t.artist}</div>
+          <div className="small muted ellipsis">
+            {t.artist}
+            {!onRemove && (
+              <>
+                {', '}
+                <a className="music-link" href={t.link} target="_blank" rel="noopener noreferrer" aria-label={`Ouvrir ${t.title} dans ${SOURCE_NAME[source]}`}>
+                  {SOURCE_NAME[source]}
+                </a>
+              </>
+            )}
+          </div>
         </div>
         {source === 'soundcloud' ? (
-          <button
-            type="button"
-            className={`music-play ${sc ? 'on' : ''}`}
+          <RoundButton
+            playing={sc}
+            label={sc ? 'Fermer le lecteur SoundCloud' : `Écouter ${t.title} sur SoundCloud`}
             onClick={() => {
               stopMusic();
               setSc((v) => !v);
             }}
-            aria-label={sc ? 'Fermer le lecteur SoundCloud' : `Écouter ${t.title} sur SoundCloud`}
-          >
-            <Icon name={sc ? 'x' : 'play'} size={15} filled={!sc} />
-          </button>
+          />
         ) : (
           <PlayButton t={t} playKey={playKey} />
         )}
-        {onRemove ? (
+        {onRemove && (
           <button type="button" className="icon-btn" onClick={onRemove} aria-label="Retirer la musique">
             <Icon name="x" size={16} />
           </button>
-        ) : (
-          <a className="music-link small" href={t.link} target="_blank" rel="noopener noreferrer" aria-label={`Ouvrir ${t.title} dans ${SOURCE_NAME[source]}`}>
-            {SOURCE_NAME[source]}
-          </a>
         )}
       </div>
       {sc && <SoundCloudPlayer t={t} />}
