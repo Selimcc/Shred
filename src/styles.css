@@ -6952,6 +6952,11 @@ html[data-season] :focus-visible {
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.55);
   animation: snow-fall 14s linear infinite;
 }
+/* À Halloween, une neige un peu cendrée sous la lune, avec un reflet orangé. */
+.sl-halloween .sl-snow i {
+  background: #f3ece4;
+  box-shadow: 0 0 6px rgba(255, 170, 90, 0.45);
+}
 @keyframes snow-fall {
   0% {
     transform: translate(0, 0);

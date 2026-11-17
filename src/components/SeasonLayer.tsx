@@ -198,7 +198,12 @@ export function SeasonLayer({ season }: { season: SeasonId | null }) {
   return (
     <>
       <div className={`season-layer sl-${season}`} aria-hidden="true">
-        {season === 'halloween' && <Halloween />}
+        {season === 'halloween' && (
+          <>
+            <Halloween />
+            <Snow n={30} />
+          </>
+        )}
         {season === 'noel' && <Snow n={38} />}
         {season === 'nouvel-an' && <Fireworks />}
         {season === 'saint-valentin' && <Rising n={14} kind="heart" />}
