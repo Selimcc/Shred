@@ -5,6 +5,7 @@
 // (événement « shred:season-scene », envoyé par la page des réglages).
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { SeasonId } from '../lib/season';
+import { Arrow, CupidPulse, TargetHeart } from './CupidPulse';
 
 /** Durée de chaque scène, en ms (les @keyframes du CSS sont réglées sur la même durée). */
 export const SCENE_MS: Record<SeasonId, number> = {
@@ -27,69 +28,27 @@ export function playSeasonScene() {
 const smallHeart = 'M12 21s-8.5-5.4-10.6-10.3C-.1 5.8 3.5 1 7.8 1c2 0 3.4 1 4.2 2.4C12.8 2 14.2 1 16.2 1c4.3 0 7.9 4.8 6.4 9.7C20.5 15.6 12 21 12 21Z';
 
 function Cupid() {
+  // Les dégradés de la flèche et du cœur sont ceux définis dans le dessin de Cupidon (même document).
+  const id = 'cupid';
   return (
     <>
       <div className="cupid">
         <div className="cupid-bob">
-          <svg viewBox="0 0 140 120" aria-hidden="true">
-            <g className="cupid-wing back">
-              <path d="M50 58C38 34 16 28 6 38c8 1 13 5 13 9-8 0-13 6-11 12 8-3 15-1 19 3-4 4-2 10 4 12 8-6 14-11 19-16Z" fill="#ffe3ea" />
-            </g>
-            <path d="M47 77q-8 6-9 17" stroke="#ffd2bd" strokeWidth="9" strokeLinecap="round" />
-            <path d="M66 80q8 6 6 16" stroke="#ffd2bd" strokeWidth="9" strokeLinecap="round" />
-            <ellipse cx="57" cy="70" rx="16" ry="17" fill="#ffd9c6" />
-            <path d="M42 74q15 16 30 0l-1 9q-14 12-28 0Z" fill="#ff8fab" />
-            <path d="M44 62q14-8 26 4" stroke="#ff4d7d" strokeWidth="3" fill="none" strokeLinecap="round" />
-            <g className="cupid-wing front">
-              <path d="M54 56C46 30 26 20 14 26c8 3 12 8 11 12-8-2-14 3-13 9 8-1 14 2 17 7-5 3-4 9 2 12 9-4 16-8 21-12Z" fill="#ffffff" />
-              <path d="M30 34q8 4 12 14M24 46q8 2 12 9" stroke="#ffc2d1" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-            </g>
-            <circle cx="61" cy="38" r="17" fill="#ffe2d1" />
-            <g fill="#ffcf6b">
-              <circle cx="47" cy="30" r="6" />
-              <circle cx="53" cy="23.5" r="6.5" />
-              <circle cx="61.5" cy="21" r="6.5" />
-              <circle cx="70" cy="23.5" r="6" />
-              <circle cx="76" cy="30" r="5" />
-              <circle cx="45" cy="38" r="4.2" />
-            </g>
-            <circle cx="53" cy="45" r="3.2" fill="#ff9eb5" opacity="0.75" />
-            <circle cx="71" cy="44" r="3" fill="#ff9eb5" opacity="0.75" />
-            <g stroke="#5a3a2e" strokeWidth="1.8" fill="none" strokeLinecap="round">
-              <path d="M52 38q3-3 6 0" />
-              <path d="M65 37.5q3-3 6 0" />
-            </g>
-            <path d="M58 47q4 4 8 0" stroke="#c0566e" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-            {/* L'arc, la corde au repos ou tendue, la flèche encochée. */}
-            <path d="M100 26Q120 58 100 90" fill="none" stroke="#c98b2e" strokeWidth="3.6" strokeLinecap="round" />
-            <path className="cupid-string rest" d="M100 26V90" stroke="#fff6e8" strokeWidth="1.1" />
-            <path className="cupid-string drawn" d="M100 26 74 58l26 32" stroke="#fff6e8" strokeWidth="1.1" fill="none" />
-            <path d="M68 62 100 58" stroke="#ffd9c6" strokeWidth="7" strokeLinecap="round" />
-            <g className="cupid-held">
-              <path d="M86 58h40" stroke="#8a5a2b" strokeWidth="2.4" />
-              <path d="M86 58l-6-4.5M86 58l-6 4.5M90 58l-6-4.5M90 58l-6 4.5" stroke="#ff8fab" strokeWidth="1.6" strokeLinecap="round" />
-              <path d={smallHeart} transform="translate(122 52.5) scale(0.5)" fill="#ff4d7d" />
-              <path d="M68 64 86 58" stroke="#ffd2bd" strokeWidth="6.5" strokeLinecap="round" />
-            </g>
-          </svg>
+          <CupidPulse id={id} />
         </div>
       </div>
       <div className="cupid-arrow">
-        <svg viewBox="0 0 100 12" aria-hidden="true">
-          <path d="M4 6h88" stroke="#8a5a2b" strokeWidth="2.4" />
-          <path d="M4 6-2 1.5M4 6l-6 4.5M8 6 2 1.5M8 6l-6 4.5" stroke="#ff8fab" strokeWidth="1.6" strokeLinecap="round" />
-          <path d={smallHeart} transform="translate(88 0.5) scale(0.5)" fill="#ff4d7d" />
+        <svg viewBox="-2 -8 92 16" aria-hidden="true">
+          <path d="M-14 0H6" stroke="#ff8fab" strokeOpacity="0.5" strokeWidth="3" strokeLinecap="round" className="arrow-trail" />
+          <Arrow id={id} len={88} />
         </svg>
       </div>
       <div className="cupid-target">
-        <svg viewBox="0 0 24 22" aria-hidden="true">
-          <path d={smallHeart} fill="#ff4d7d" stroke="#ffc2d1" strokeWidth="1" />
-          <path d="M6 7q2-3 5-3" stroke="#fff" strokeOpacity="0.6" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-        </svg>
+        <TargetHeart id={id} />
       </div>
       <div className="cupid-burst">
-        {Array.from({ length: 10 }, (_, i) => (
-          <i key={i} style={css({ '--a': `${i * 36}deg`, color: ['#ff4d7d', '#ff8fab', '#ffc2d1'][i % 3] })}>
+        {Array.from({ length: 12 }, (_, i) => (
+          <i key={i} style={css({ '--a': `${i * 30}deg`, color: ['#ff4d7d', '#ff8fab', '#ffd1dc'][i % 3], '--s': i % 2 ? 0.7 : 1 })}>
             <svg viewBox="0 0 24 22" aria-hidden="true">
               <path d={smallHeart} fill="currentColor" />
             </svg>
