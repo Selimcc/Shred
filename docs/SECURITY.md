@@ -97,6 +97,15 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 | Design | Food search sends the typed words to Open Food Facts from the phone. | Results are cleaned and bounded like scanned products (`offText`, `offImage`, nutrition clamped). Nothing goes through the Worker. |
 | Design | Story card, trophies, water, exercise history. | Computed and drawn on the phone; nothing new is sent to the server. |
 
+## Version 0.23
+
+| Severity | Finding | Fix |
+|---|---|---|
+| Low | `POST /api/push/rest` (rest timer push) had no daily cap: one account could rewrite its timer alarm without limit. | `capDaily('rest')`, 800 a day. The workout mode also waits 0.7 s after the last +30 s / −15 s tap before rescheduling, and still sends the pending change when it closes. |
+| Low | A malformed synced state (muscle list that is not an array of strings, trophy date that is not a string) could break the readiness card or the monthly recap. | `regionsOf` and the recap check the shape before reading. |
+| Design | Readiness score, muscle recovery map, workout mode, monthly recap. | Computed on the phone from data the app already has; no new endpoint, nothing new sent to the server. The recap image is drawn locally and only leaves the phone through the share sheet. |
+| Design | Workout mode keeps the screen on (Wake Lock) and beeps (Web Audio). | Both only while the full screen is open; the lock is released on exit and requested again when the app comes back to the front. No permission prompt, no microphone. |
+
 ## Accepted
 
 | Severity | Finding | Why |

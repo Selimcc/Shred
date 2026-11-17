@@ -30,6 +30,18 @@ function useKeyboardView(): { top: number; height: number } | null {
   return view;
 }
 
+/** Bloque le défilement de la page derrière une feuille ou un plein écran (compteur partagé avec les feuilles). */
+export function useScrollLock() {
+  useEffect(() => {
+    openSheets += 1;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      openSheets -= 1;
+      if (openSheets === 0) document.body.style.overflow = '';
+    };
+  }, []);
+}
+
 /** `footer` : barre fixée en bas de la feuille (champ de commentaire…), hors de la zone qui défile. */
 export function Sheet({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
   useEffect(() => {

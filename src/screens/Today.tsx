@@ -1,3 +1,6 @@
+import { ReadinessCard } from '../components/Recovery';
+import { MonthRecap } from '../components/MonthRecap';
+import { ofMonth, recapReady } from '../lib/monthRecap';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { Bubble, type Mood, Pulse } from '../components/Pulse';
 import { Flame } from '../components/Flame';
@@ -94,6 +97,8 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
   const st = streakInfo(s, today);
   const flames = flameInfo(s, today);
   const [report, setReport] = useState<string | null>(null);
+  const [recap, setRecap] = useState<string | null>(null);
+  const recapMonth = recapReady(s, today);
   const [showInstall, setShowInstall] = useState(() => !DEMO && !installDismissed());
   const [arrived, setArrived] = useState(false);
   const gymPlace = s.settings.modules.gym ? s.settings.gym.place : undefined;
@@ -244,6 +249,20 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
 
       <Week state={s} today={today} />
       {planLine && <p className="small muted plan-line">{planLine}</p>}
+
+      <ReadinessCard today={today} />
+
+      {recapMonth && (
+        <button className="card report-banner recap-banner" onClick={() => setRecap(recapMonth)}>
+          <Icon name="sparkle" size={22} />
+          <span style={{ flex: 1 }}>
+            <span style={{ display: 'block', fontWeight: 650 }}>Ton récap {ofMonth(recapMonth)} est prêt</span>
+            <span className="small muted">Séances, records, tonnage : ton mois en story.</span>
+          </span>
+          <Icon name="chevron" size={18} />
+        </button>
+      )}
+      {recap && <MonthRecap month={recap} onClose={() => setRecap(null)} />}
 
       {reportPending(s, today) && (
         <button className="card report-banner" onClick={() => setReport(lastWeekMonday(today))}>

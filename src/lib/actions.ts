@@ -1,7 +1,8 @@
 import { type Exercise, type HabitId, type PlannedMeal, scheduleFor, type SessionId } from '../../shared/program';
 import { weekdayOf } from './date';
 import { lastPerformance, nextTarget, sessionAutoComplete, sessionFor } from './logic';
-import { ensureDay, getState, type MealEntry, setState, type SetLog, uid } from './store';
+import { adviseLoad } from './advisor';
+import { type AppState, ensureDay, getState, type MealEntry, setState, type SetLog, uid } from './store';
 
 /** Coche ou décoche une série. Remplit automatiquement charge et reps avec l'objectif du jour. */
 export function toggleSet(date: string, ex: Exercise, index: number): boolean {
@@ -14,14 +15,10 @@ export function toggleSet(date: string, ex: Exercise, index: number): boolean {
     log.done = !log.done;
     nowDone = log.done;
     if (log.done) {
-      const last = lastPerformance(d, ex.key, date);
-      const target = nextTarget(ex, last);
-      if (log.w === undefined && !ex.noLoad) {
-        log.w = previousWeight(logs, index) ?? target.weight;
-      }
-      if (log.r === undefined && ex.repMin !== undefined) {
-        log.r = target.up ? ex.repMin : (last?.sets[index]?.r ?? ex.repMin);
-      }
+      // On enregistre exactement ce que la ligne affichait en grisé.
+      const def = setDefaults(d, ex, date, logs, index);
+      if (log.w === undefined && !ex.noLoad) log.w = def.w;
+      if (log.r === undefined && ex.repMin !== undefined) log.r = def.r;
     }
     const session = sessionFor(d, date);
     if (!day.mainDone && sessionAutoComplete(session, day)) {
@@ -30,6 +27,22 @@ export function toggleSet(date: string, ex: Exercise, index: number): boolean {
     }
   });
   return nowDone;
+}
+
+/**
+ * Ce qu'une série propose avant qu'on y touche : la charge de la série d'avant, sinon celle que conseille Pulse,
+ * sinon celle de la dernière fois ; les reps de la dernière fois, ou le bas de la fourchette si la charge monte.
+ */
+export function setDefaults(s: AppState, ex: Exercise, date: string, logs: SetLog[], index: number): { w?: number; r?: number; up: boolean } {
+  const last = lastPerformance(s, ex.key, date);
+  const target = nextTarget(ex, last);
+  const advice = adviseLoad(s, ex, date);
+  const aim = advice ? { weight: advice.weight, up: advice.weight > (last ? Math.max(...last.sets.map((l) => l.w ?? 0)) : 0) } : target;
+  return {
+    w: ex.noLoad ? undefined : (previousWeight(logs, index) ?? aim.weight ?? last?.sets[index]?.w),
+    r: ex.repMin === undefined ? undefined : aim.up ? ex.repMin : (last?.sets[index]?.r ?? ex.repMin),
+    up: aim.up,
+  };
 }
 
 /** La dernière charge saisie avant cette série, dans la séance du jour. */

@@ -62,26 +62,15 @@ function flame(ctx: Ctx, x: number, y: number, s: number) {
   ctx.fill();
 }
 
-export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promise<HTMLCanvasElement> {
-  try {
-    await Promise.all([document.fonts.load(`800 120px ${FONT}`), document.fonts.load(`500 40px ${FONT}`)]);
-  } catch {
-    // police système à la place
-  }
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d') as Ctx;
-
-  // Fond graphite, lueurs ambre et glacier.
+/** Fond graphite, lueur d'accent en haut, glacier en bas, fines diagonales ; marque et date en tête. */
+function backdrop(ctx: Ctx, accent: string, rightLabel: string) {
   const bg = ctx.createLinearGradient(0, 0, 0, H);
   bg.addColorStop(0, '#16191e');
   bg.addColorStop(1, '#0c0e11');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
-  glow(ctx, W * 0.95, H * 0.02, 900, sum.kind === 'cardio' ? 'rgba(95,211,160,0.22)' : 'rgba(255,181,71,0.24)');
+  glow(ctx, W * 0.95, H * 0.02, 900, accent);
   glow(ctx, W * 0.0, H * 0.75, 800, 'rgba(134,185,255,0.12)');
-  // Fines lignes diagonales, très discrètes.
   ctx.strokeStyle = 'rgba(255,255,255,0.025)';
   ctx.lineWidth = 2;
   for (let i = -H; i < W; i += 56) {
@@ -90,8 +79,6 @@ export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promis
     ctx.lineTo(i + H, H);
     ctx.stroke();
   }
-
-  // En-tête : marque et date.
   ctx.fillStyle = '#f2f3f5';
   setFont(ctx, 800, 46, 'condensed');
   if ('letterSpacing' in ctx) ctx.letterSpacing = '10px';
@@ -100,30 +87,16 @@ export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promis
   ctx.fillStyle = '#a0a5ad';
   setFont(ctx, 500, 38);
   ctx.textAlign = 'right';
-  ctx.fillText(extra.dateLabel, W - PAD, PAD + 48);
+  ctx.fillText(rightLabel, W - PAD, PAD + 48);
   ctx.textAlign = 'left';
+}
 
-  // Titre de la séance, le plus grand possible.
-  const title = sum.title.toUpperCase();
-  let y = 520;
-  const size = fit(ctx, title, 820, 260, W - PAD * 2, 'condensed');
-  const tg = ctx.createLinearGradient(0, y - size, 0, y);
-  tg.addColorStop(0, '#ffffff');
-  tg.addColorStop(1, '#c4c8cf');
-  ctx.fillStyle = tg;
-  ctx.fillText(title, PAD - 6, y);
-  y += 70;
-  ctx.fillStyle = '#a0a5ad';
-  setFont(ctx, 500, 42);
-  ctx.fillText(sum.kind === 'cardio' ? 'Séance d’endurance terminée' : sum.kind === 'rest' ? 'Récupération active' : 'Séance de musculation terminée', PAD, y);
-
-  // Chiffres : grille de 2 × 2 cartes.
-  const stats = sum.stats.slice(0, 4);
-  const top = 720;
+/** Les 4 chiffres en grille de 2 × 2 cartes. Renvoie le bas de la grille. */
+function statGrid(ctx: Ctx, stats: { label: string; value: string }[], top: number): number {
   const gap = 28;
   const cw = (W - PAD * 2 - gap) / 2;
   const ch = 250;
-  stats.forEach((st, i) => {
+  stats.slice(0, 4).forEach((st, i) => {
     const x = PAD + (i % 2) * (cw + gap);
     const yy = top + Math.floor(i / 2) * (ch + gap);
     roundRect(ctx, x, yy, cw, ch, 44);
@@ -143,6 +116,133 @@ export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promis
     setFont(ctx, 500, 36);
     ctx.fillText(st.label, x + 40, yy + 205);
   });
+  const rows = Math.ceil(Math.min(4, stats.length) / 2);
+  return top + rows * (ch + gap) - gap;
+}
+
+async function canvasReady(): Promise<{ canvas: HTMLCanvasElement; ctx: Ctx }> {
+  try {
+    await Promise.all([document.fonts.load(`800 120px ${FONT}`), document.fonts.load(`500 40px ${FONT}`)]);
+  } catch {
+    // police système à la place
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  return { canvas, ctx: canvas.getContext('2d') as Ctx };
+}
+
+export interface MonthStory {
+  month: string;
+  year: number;
+  stats: { label: string; value: string }[];
+  /** « Le poids de 7 éléphants d’Afrique. » */
+  like: string | null;
+  top: string | null;
+  records: string[];
+  run: number;
+  name: string;
+}
+
+/** Carte story du récap du mois. */
+export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> {
+  const { canvas, ctx } = await canvasReady();
+  backdrop(ctx, 'rgba(255,209,102,0.24)', `${m.month[0].toUpperCase()}${m.month.slice(1)} ${m.year}`);
+
+  let y = 430;
+  ctx.fillStyle = '#a0a5ad';
+  setFont(ctx, 600, 46);
+  ctx.fillText('Mon mois', PAD, y - 230);
+  const title = m.month.toUpperCase();
+  const size = fit(ctx, title, 820, 250, W - PAD * 2, 'condensed');
+  const tg = ctx.createLinearGradient(0, y - size, 0, y);
+  tg.addColorStop(0, '#ffffff');
+  tg.addColorStop(1, '#c4c8cf');
+  ctx.fillStyle = tg;
+  ctx.fillText(title, PAD - 6, y);
+  if (m.like) {
+    y += 84;
+    ctx.fillStyle = '#ffd166';
+    const ls = fit(ctx, m.like, 650, 46, W - PAD * 2, 'normal');
+    setFont(ctx, 650, ls);
+    ctx.fillText(m.like, PAD, y);
+  }
+
+  let by = statGrid(ctx, m.stats, 640) + 90;
+  if (m.top) {
+    ctx.fillStyle = '#a0a5ad';
+    setFont(ctx, 500, 38);
+    ctx.fillText('Exercice du mois', PAD, by);
+    by += 66;
+    ctx.fillStyle = '#f2f3f5';
+    const ts = fit(ctx, m.top, 720, 56, W - PAD * 2, 'normal');
+    setFont(ctx, 720, ts);
+    ctx.fillText(m.top, PAD, by);
+    by += 40;
+  }
+  const records = m.records.slice(0, 2);
+  for (const r of records) {
+    by += 86;
+    roundRect(ctx, PAD, by - 52, 64, 64, 20);
+    ctx.fillStyle = 'rgba(255,181,71,0.16)';
+    ctx.fill();
+    ctx.fillStyle = '#ffb547';
+    setFont(ctx, 800, 30, 'condensed');
+    ctx.textAlign = 'center';
+    ctx.fillText('PR', PAD + 32, by - 9);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#f2f3f5';
+    const rs = fit(ctx, r, 600, 42, W - PAD * 2 - 96, 'normal');
+    setFont(ctx, 600, rs);
+    ctx.fillText(r, PAD + 92, by - 6);
+  }
+
+  const fy = H - PAD - 150;
+  if (m.run > 1) {
+    const label = `${m.run} jours validés d’affilée`;
+    setFont(ctx, 760, 46);
+    const tw = ctx.measureText(label).width;
+    roundRect(ctx, PAD, fy - 70, tw + 150, 104, 52);
+    ctx.fillStyle = 'rgba(255,181,71,0.12)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,181,71,0.35)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    flame(ctx, PAD + 60, fy - 18, 30);
+    ctx.fillStyle = '#ffd27a';
+    ctx.fillText(label, PAD + 108, fy);
+  }
+  ctx.fillStyle = '#6c717a';
+  setFont(ctx, 500, 36);
+  ctx.fillText(`${m.name ? `${m.name}, ` : ''}suivi avec Shred`, PAD, H - PAD);
+  return canvas;
+}
+
+export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promise<HTMLCanvasElement> {
+  const { canvas, ctx } = await canvasReady();
+
+  backdrop(ctx, sum.kind === 'cardio' ? 'rgba(95,211,160,0.22)' : 'rgba(255,181,71,0.24)', extra.dateLabel);
+
+  // Titre de la séance, le plus grand possible.
+  const title = sum.title.toUpperCase();
+  let y = 520;
+  const size = fit(ctx, title, 820, 260, W - PAD * 2, 'condensed');
+  const tg = ctx.createLinearGradient(0, y - size, 0, y);
+  tg.addColorStop(0, '#ffffff');
+  tg.addColorStop(1, '#c4c8cf');
+  ctx.fillStyle = tg;
+  ctx.fillText(title, PAD - 6, y);
+  y += 70;
+  ctx.fillStyle = '#a0a5ad';
+  setFont(ctx, 500, 42);
+  ctx.fillText(sum.kind === 'cardio' ? 'Séance d’endurance terminée' : sum.kind === 'rest' ? 'Récupération active' : 'Séance de musculation terminée', PAD, y);
+
+  // Chiffres : grille de 2 × 2 cartes.
+  const stats = sum.stats.slice(0, 4);
+  const top = 720;
+  const gap = 28;
+  const ch = 250;
+  statGrid(ctx, stats, top);
 
   // Records : jusqu'à trois lignes.
   let ry = top + (stats.length > 2 ? 2 : stats.length ? 1 : 0) * (ch + gap) + 60;
@@ -196,12 +296,18 @@ export function storyBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 }
 
 /** Partager l'image (feuille de partage du téléphone, Instagram compris), sinon la télécharger. */
-export async function shareStory(blob: Blob, title: string): Promise<'shared' | 'saved' | 'cancelled'> {
-  const file = new File([blob], `shred-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`, { type: 'image/png' });
+export async function shareStory(blob: Blob, title: string, shareTitle = `Séance ${title}`): Promise<'shared' | 'saved' | 'cancelled'> {
+  const slug = title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  const file = new File([blob], `shred-${slug || 'story'}.png`, { type: 'image/png' });
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
   if (nav.share && nav.canShare?.({ files: [file] })) {
     try {
-      await nav.share({ files: [file], title: `Séance ${title}` });
+      await nav.share({ files: [file], title: shareTitle });
       return 'shared';
     } catch (e) {
       if ((e as Error).name === 'AbortError') return 'cancelled';

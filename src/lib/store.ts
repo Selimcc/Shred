@@ -238,6 +238,10 @@ export interface AppState {
     dismissedTweaks?: Record<string, string>;
     /** Trophées gagnés : identifiant → jour du déblocage (trophies.ts). */
     trophies?: Record<string, string>;
+    /** Mode séance : bips coupés. */
+    focusMute?: boolean;
+    /** Dernier récap du mois ouvert (« 2026-10 »). */
+    recapSeen?: string;
   };
   /** Liste de courses et préparation du meal plan en cours. */
   prep?: MealPrep;

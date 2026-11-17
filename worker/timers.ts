@@ -4,6 +4,7 @@ import { type Env, HttpError, json, readJson } from './env';
 import { vapidFromEnv } from './reminders';
 import { loadJson, type User, userStore } from './users';
 import { type PushSubscriptionData, sendPush } from './webpush';
+import { capDaily } from './usage';
 
 interface Job {
   userId: string;
@@ -63,6 +64,7 @@ export async function restRoute(req: Request, env: Env, user: User): Promise<Res
     await stub.fetch('https://timer/cancel', { method: 'POST' });
     return json({ ok: true });
   }
+  await capDaily(env, user.id, 'rest');
   const body = await readJson<{ seconds?: number; next?: string }>(req, 2_000);
   const seconds = Math.round(Number(body.seconds));
   if (!Number.isFinite(seconds) || seconds < REST_MIN || seconds > REST_MAX) throw new HttpError(400, `Repos entre ${REST_MIN} s et ${REST_MAX / 60} min`);

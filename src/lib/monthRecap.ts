@@ -1,0 +1,290 @@
+// Récap du mois, façon « Wrapped » : séances, tonnage, records, exercice phare, jour et heure préférés, plus
+// longue série, corps, trophées, et la comparaison avec le mois d'avant. Tout se calcule sur le téléphone.
+import { catalogEntry } from '../../shared/catalog';
+import { addDays, dayKey, diffDays, parseKey, weekdayOf, WEEKDAY_NAMES } from './date';
+import { dayValidated, mealsCount } from './logic';
+import { type AppState, WEIGHT_GOALS, type WeightGoal } from './store';
+import { e1rm } from './strength';
+import { dayTraining, totalMinutes } from './training';
+import { type Tier, TROPHIES } from './trophies';
+
+export interface MonthRecord {
+  key: string;
+  name: string;
+  w: number;
+  r: number;
+  /** Gain sur le meilleur 1RM estimé d'avant, en %. */
+  gain: number;
+}
+
+export interface MonthRecap {
+  /** « 2026-10 » */
+  month: string;
+  /** « octobre » */
+  name: string;
+  year: number;
+  /** Mois en cours : les chiffres s'arrêtent à aujourd'hui. */
+  partial: boolean;
+  sessions: number;
+  sets: number;
+  tonnage: number;
+  minutes: number;
+  cardioKm: number;
+  /** Une ligne par exercice (le meilleur record du mois), les plus gros gains d'abord. */
+  records: MonthRecord[];
+  recordCount: number;
+  top: { key: string; name: string; sets: number; tonnage: number } | null;
+  weekday: { day: number; name: string; count: number } | null;
+  /** « le matin », « le soir »… quand au moins trois séances sont datées. */
+  moment: string | null;
+  /** Plus longue suite de journées validées dans le mois. */
+  run: number;
+  meals: number;
+  /** Première et dernière pesée du mois, et les jours entre les deux. */
+  weight: { from: number; to: number; days: number } | null;
+  trophies: { id: string; title: string; icon: string; tier: Tier }[];
+  prev: { name: string; sessions: number; tonnage: number } | null;
+}
+
+const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+export const monthOf = (date: string) => date.slice(0, 7);
+export const monthName = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1] ?? month;
+/** « d’octobre », « de novembre » */
+export const ofMonth = (month: string) => (/^[aeiouyéèêàâîïôûh]/i.test(monthName(month)) ? `d’${monthName(month)}` : `de ${monthName(month)}`);
+
+export function prevMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+}
+
+function lastDay(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return dayKey(new Date(y, m, 0));
+}
+
+/** Séances et tonnage d'un mois, sans le reste (pour la comparaison). */
+function light(s: AppState, month: string, until: string) {
+  let sessions = 0;
+  let tonnage = 0;
+  for (const [date, day] of Object.entries(s.days)) {
+    if (monthOf(date) !== month || date > until) continue;
+    if (day.mainDone) sessions++;
+    for (const logs of Object.values(day.sets)) for (const l of logs) if (l.done && l.w && l.r) tonnage += l.w * l.r;
+  }
+  return { sessions, tonnage: Math.round(tonnage) };
+}
+
+export function monthRecap(s: AppState, month: string, today = dayKey()): MonthRecap {
+  const first = `${month}-01`;
+  const partial = monthOf(today) === month;
+  const end = partial ? today : lastDay(month);
+  const out: MonthRecap = {
+    month,
+    name: monthName(month),
+    year: Number(month.slice(0, 4)),
+    partial,
+    sessions: 0,
+    sets: 0,
+    tonnage: 0,
+    minutes: 0,
+    cardioKm: 0,
+    records: [],
+    recordCount: 0,
+    top: null,
+    weekday: null,
+    moment: null,
+    run: 0,
+    meals: 0,
+    weight: null,
+    trophies: [],
+    prev: null,
+  };
+
+  // Records : on rejoue tout l'historique dans l'ordre, un record du mois bat le meilleur d'avant.
+  const best = new Map<string, number>();
+  const startBest = new Map<string, number>();
+  const records = new Map<string, MonthRecord>();
+  const perEx = new Map<string, { sets: number; tonnage: number }>();
+  const kinds = new Map<string, string | undefined>();
+  const kindOf = (key: string) => {
+    if (!kinds.has(key)) kinds.set(key, catalogEntry(key, s.customExercises)?.kind);
+    return kinds.get(key);
+  };
+  const weekdays = Array(7).fill(0) as number[];
+  const hours: number[] = [];
+  for (const date of Object.keys(s.days).sort()) {
+    if (date > end) break;
+    const day = s.days[date];
+    const inMonth = date >= first;
+    if (inMonth) {
+      if (day.mainDone) {
+        out.sessions++;
+        weekdays[weekdayOf(date)]++;
+        if (day.mainDoneAt) hours.push(new Date(day.mainDoneAt).getHours());
+      }
+      out.meals += mealsCount(day);
+      const t = dayTraining(s, date);
+      out.minutes += totalMinutes(t);
+      out.cardioKm += Object.values(t.km).reduce((a, b) => a + (b ?? 0), 0);
+    }
+    for (const [key, logs] of Object.entries(day.sets)) {
+      const lift = kindOf(key) !== 'cardio' && kindOf(key) !== 'task';
+      let dayBest = 0;
+      let top: { w: number; r: number } | null = null;
+      for (const l of logs) {
+        if (!l.done) continue;
+        if (inMonth && lift) out.sets++;
+        if (!l.w || !l.r) continue;
+        if (inMonth) {
+          out.tonnage += l.w * l.r;
+          const e = perEx.get(key) ?? { sets: 0, tonnage: 0 };
+          e.sets++;
+          e.tonnage += l.w * l.r;
+          perEx.set(key, e);
+        }
+        const v = e1rm(l.w, l.r);
+        if (v > dayBest) {
+          dayBest = v;
+          top = { w: l.w, r: l.r };
+        }
+      }
+      if (!dayBest || !top) continue;
+      const prev = best.get(key);
+      // Le point de départ du mois : le meilleur d'avant, ou la première séance du mois pour un nouvel exercice.
+      if (inMonth && !startBest.has(key)) startBest.set(key, prev ?? dayBest);
+      if (inMonth && prev !== undefined && dayBest > prev + 0.01) {
+        out.recordCount++;
+        const base = startBest.get(key)!;
+        // Chaque record bat le précédent : le dernier du mois est le plus haut.
+        records.set(key, {
+          key,
+          name: (catalogEntry(key, s.customExercises)?.name ?? key).replace(/ \(.*\)$/, ''),
+          w: top.w,
+          r: top.r,
+          gain: ((dayBest - base) / base) * 100,
+        });
+      }
+      if (prev === undefined || dayBest > prev) best.set(key, dayBest);
+    }
+  }
+  out.tonnage = Math.round(out.tonnage);
+  out.minutes = Math.round(out.minutes);
+  out.cardioKm = Math.round(out.cardioKm * 10) / 10;
+  out.records = [...records.values()].sort((a, b) => b.gain - a.gain);
+
+  // Exercice phare : le plus de séries de muscu (le tonnage départage).
+  const lifts = [...perEx].filter(([key]) => kindOf(key) !== 'cardio' && kindOf(key) !== 'task');
+  lifts.sort(([, a], [, b]) => b.sets - a.sets || b.tonnage - a.tonnage);
+  if (lifts[0] && lifts[0][1].sets >= 3) {
+    const [key, v] = lifts[0];
+    out.top = { key, name: catalogEntry(key, s.customExercises)?.name ?? key, sets: v.sets, tonnage: Math.round(v.tonnage) };
+  }
+
+  // Jour préféré : au moins deux séances ce jour-là, et pas d'égalité.
+  const max = Math.max(...weekdays);
+  if (max >= 2 && weekdays.filter((n) => n === max).length === 1) {
+    const d = weekdays.indexOf(max);
+    out.weekday = { day: d, name: WEEKDAY_NAMES[d].toLowerCase(), count: max };
+  }
+
+  if (hours.length >= 3) {
+    const slot = (h: number) =>
+      h >= 5 && h < 11 ? 'le matin' : h < 14 && h >= 11 ? 'à midi' : h >= 14 && h < 18 ? 'l’après-midi' : h >= 18 && h < 22 ? 'le soir' : 'la nuit';
+    const count = new Map<string, number>();
+    for (const h of hours) count.set(slot(h), (count.get(slot(h)) ?? 0) + 1);
+    const [label, n] = [...count].sort((a, b) => b[1] - a[1])[0];
+    if (n / hours.length >= 0.5) out.moment = label;
+  }
+
+  // Plus longue suite de journées validées (séance et repas selon ta règle).
+  let run = 0;
+  for (let d = first; d <= end; d = addDays(d, 1)) {
+    run = dayValidated(s, d) ? run + 1 : 0;
+    out.run = Math.max(out.run, run);
+  }
+
+  const weighIns = Object.keys(s.body.weight)
+    .filter((d) => d >= first && d <= end)
+    .sort();
+  if (weighIns.length >= 2)
+    out.weight = {
+      from: s.body.weight[weighIns[0]],
+      to: s.body.weight[weighIns[weighIns.length - 1]],
+      days: diffDays(weighIns[weighIns.length - 1], weighIns[0]),
+    };
+
+  const won = s.ui.trophies ?? {};
+  out.trophies = TROPHIES.filter((t) => typeof won[t.id] === 'string' && monthOf(won[t.id]) === month).map((t) => ({
+    id: t.id,
+    title: t.title,
+    icon: t.icon,
+    tier: t.tier,
+  }));
+
+  // Le mois d'avant, à la même date si celui-ci est en cours.
+  const pm = prevMonth(month);
+  const pEnd = partial ? `${pm}-${String(Math.min(Number(today.slice(8)), Number(lastDay(pm).slice(8)))).padStart(2, '0')}` : lastDay(pm);
+  const p = light(s, pm, pEnd);
+  if (p.sessions > 0) out.prev = { name: monthName(pm), ...p };
+  return out;
+}
+
+/** Le mois à récapituler : le précédent pendant la première semaine, sinon le mois en cours. */
+export function recapMonths(s: AppState, today = dayKey()): { month: string; partial: boolean }[] {
+  const cur = monthOf(today);
+  const prev = prevMonth(cur);
+  const has = (m: string) => Object.entries(s.days).some(([d, day]) => monthOf(d) === m && day.mainDone);
+  const out: { month: string; partial: boolean }[] = [];
+  if (has(prev)) out.push({ month: prev, partial: false });
+  if (has(cur)) out.push({ month: cur, partial: true });
+  return out;
+}
+
+/** Le bandeau d'Aujourd'hui : la première semaine du mois, si le mois d'avant compte au moins 4 séances. */
+export function recapReady(s: AppState, today = dayKey()): string | null {
+  if (Number(today.slice(8)) > 7) return null;
+  const prev = prevMonth(monthOf(today));
+  if (s.ui.recapSeen === prev) return null;
+  const sessions = Object.entries(s.days).filter(([d, day]) => monthOf(d) === prev && day.mainDone).length;
+  return sessions >= 4 ? prev : null;
+}
+
+const UNITS = [
+  { below: 6_000, kg: 1_200, one: 'une voiture citadine', many: 'voitures citadines' },
+  { below: 60_000, kg: 6_000, one: 'un éléphant d’Afrique', many: 'éléphants d’Afrique' },
+  { below: 300_000, kg: 40_000, one: 'un semi-remorque chargé', many: 'semi-remorques chargés' },
+  { below: Infinity, kg: 150_000, one: 'une baleine bleue', many: 'baleines bleues' },
+];
+
+/** « Le poids de 7 éléphants d’Afrique. » À partir d'une tonne. */
+export function tonnageLike(kg: number): string | null {
+  if (kg < 1_000) return null;
+  const u = UNITS.find((x) => kg < x.below)!;
+  const n = Math.max(1, Math.round(kg / u.kg));
+  return n === 1 ? `Le poids d’${u.one}.` : `Le poids de ${n} ${u.many}.`;
+}
+
+export const fmtTonnes = (kg: number) =>
+  kg >= 1000 ? `${(Math.round(kg / 100) / 10).toLocaleString('fr-FR')} t` : `${Math.round(kg).toLocaleString('fr-FR')} kg`;
+export const fmtDuration = (min: number) => (min >= 60 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, '0')}` : ''}` : `${min} min`);
+
+/** Évolution en %, arrondie, avec son signe (« +12 % »), ou null si rien à comparer. */
+export function delta(now: number, before: number | undefined): string | null {
+  if (!before) return null;
+  const p = Math.round(((now - before) / before) * 100);
+  return `${p > 0 ? '+' : p < 0 ? '−' : '±'}${Math.abs(p)} %`;
+}
+
+export const recapDate = (month: string) => parseKey(`${month}-01`);
+
+/** Le sens de la balance au regard de l'objectif : « pile dans le rythme », « dans le bon sens », ou rien. */
+export function weightVerdict(w: MonthRecap['weight'], goal: WeightGoal): string | null {
+  if (!w || w.days < 7) return null;
+  const perWeek = ((w.to - w.from) / w.days) * 7;
+  const g = WEIGHT_GOALS[goal];
+  const name = g.label.toLowerCase();
+  if (perWeek >= g.min - 0.1 && perWeek <= g.max + 0.1) return goal === 'maintain' ? 'Poids stable, comme prévu' : `Pile dans le rythme de ta ${name}`;
+  if ((goal === 'cut' && perWeek < 0) || (goal === 'bulk' && perWeek > 0)) return `Dans le bon sens pour ta ${name}`;
+  return null;
+}

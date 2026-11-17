@@ -24,6 +24,7 @@ import { exerciseStats, isBarbell, platesFor, warmupSets } from '../lib/exercise
 import { liftSeries } from '../lib/training';
 import { LiftChart } from '../components/Charts';
 import { StorySheet } from '../components/StorySheet';
+import { FocusMode } from '../components/FocusMode';
 import { isRecord, moment } from '../lib/moments';
 
 const fmtRest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60}` : ''}` : `${sec} s`);
@@ -37,6 +38,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
   const [demo, setDemo] = useState<Exercise | null>(null);
   const [timer, setTimer] = useState<{ end: number; total: number } | null>(null);
   const [story, setStory] = useState(false);
+  const [focus, setFocus] = useState(false);
   const [swap, setSwap] = useState<Exercise | null>(null);
   const [adding, setAdding] = useState(false);
   const tweaks = programTweaks(s, today);
@@ -113,6 +115,17 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
         <div className="card workout-profile">
           <SessionProfile exercises={session.exercises} done={Object.fromEntries(Object.entries(day.sets).map(([k, l]) => [k, l.filter((x) => x.done).length]))} />
         </div>
+      )}
+      {session.type !== 'rest' && session.exercises.length > 0 && !day.mainDone && (
+        <button className="focus-cta" onClick={() => setFocus(true)}>
+          <span className="focus-cta-play" aria-hidden="true">
+            <Icon name="play" size={18} filled />
+          </span>
+          <span className="grow" style={{ minWidth: 0 }}>
+            <b>{prog.done > 0 ? 'Reprendre en mode séance' : 'Lancer le mode séance'}</b>
+            <span className="small">Une série à la fois, en grand. Écran allumé, bip à la fin du repos.</span>
+          </span>
+        </button>
       )}
       <div className="workout-actions">
         <button className="btn small" onClick={() => setPicker(true)}>
@@ -279,7 +292,21 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
 
       {story && <StorySheet date={today} onClose={() => setStory(false)} />}
 
-      {timer && (
+      {focus && (
+        <FocusMode
+          today={today}
+          rest={timer}
+          setRest={setTimer}
+          onSet={onSet}
+          onClose={() => setFocus(false)}
+          onShare={() => {
+            setFocus(false);
+            setStory(true);
+          }}
+        />
+      )}
+
+      {timer && !focus && (
         <RestTimer
           key={timer.end}
           {...timer}
