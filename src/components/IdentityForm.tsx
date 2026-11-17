@@ -7,6 +7,7 @@ import { checkHandle, getIdentity, type HandleCheck, type Identity, saveIdentity
 import { copyText, Field } from './form';
 import { Icon } from './Icon';
 import { errorText, toast } from './ui';
+import { loc, tn, tr } from '../../shared/i18n';
 
 type Status = {
   kind: 'idle' | 'checking' | 'ok' | 'mine' | 'bad';
@@ -14,7 +15,7 @@ type Status = {
   suggestions?: string[];
 };
 
-const dateFr = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+const dateFr = (iso: string) => new Date(iso).toLocaleDateString(loc(), { day: 'numeric', month: 'long' });
 
 export function profileLink(handle: string) {
   return `${location.origin}/?member=${encodeURIComponent(handle)}`;
@@ -75,7 +76,7 @@ export function IdentityForm({ onSaved }: { onSaved?: (i: Identity) => void }) {
           {error}
         </p>
         <button className="btn block" onClick={load}>
-          Réessayer
+          {tr('Réessayer')}
         </button>
       </div>
     );
@@ -100,7 +101,7 @@ export function IdentityForm({ onSaved }: { onSaved?: (i: Identity) => void }) {
       setId(next);
       setHandle(next.handle);
       onSaved?.(next);
-      toast(handleChanged ? `Tu es maintenant @${next.handle}` : 'Profil enregistré');
+      toast(handleChanged ? tr('Tu es maintenant @{handle}', { handle: next.handle }) : tr('Profil enregistré'));
     } catch (e) {
       toast(errorText(e), true);
     } finally {
@@ -112,11 +113,11 @@ export function IdentityForm({ onSaved }: { onSaved?: (i: Identity) => void }) {
 
   return (
     <div className="stack" style={{ gap: 14 }}>
-      <Field label="Prénom">
-        <input className="input" value={name} maxLength={30} placeholder="Ton prénom" onChange={(e) => setName(e.target.value)} />
+      <Field label={tr('Prénom')}>
+        <input className="input" value={name} maxLength={30} placeholder={tr('Ton prénom')} onChange={(e) => setName(e.target.value)} />
       </Field>
 
-      <Field label="Nom d’utilisateur">
+      <Field label={tr('Nom d’utilisateur')}>
         <div className={`handle-input ${status.kind}`}>
           <span aria-hidden="true">@</span>
           <input
@@ -135,19 +136,19 @@ export function IdentityForm({ onSaved }: { onSaved?: (i: Identity) => void }) {
         </div>
       </Field>
       <div id="handle-status" className="handle-status small" aria-live="polite">
-        {status.kind === 'ok' && <span className="ok">@{h} est libre</span>}
-        {status.kind === 'checking' && <span className="muted">Vérification…</span>}
+        {status.kind === 'ok' && <span className="ok">{tr('@{h} est libre', { h })}</span>}
+        {status.kind === 'checking' && <span className="muted">{tr('Vérification…')}</span>}
         {status.kind === 'bad' && <span className="bad">{status.text}</span>}
         {status.kind === 'mine' && (
           <span className="muted">
             {locked && id.nextHandleChange
-              ? `Pseudo changé deux fois ces 14 jours : prochain changement le ${dateFr(id.nextHandleChange)}.`
-              : `Unique dans le club. ${id.handleChangesLeft === 1 ? 'Encore 1 changement possible' : '2 changements possibles'} sur 14 jours.`}
+              ? tr('Pseudo changé deux fois ces 14 jours : prochain changement le {dateFr}.', { dateFr: dateFr(id.nextHandleChange) })
+              : tn(id.handleChangesLeft, 'Unique dans le club. Encore 1 changement possible sur 14 jours.', 'Unique dans le club. 2 changements possibles sur 14 jours.')}
           </span>
         )}
       </div>
       {status.kind === 'bad' && status.suggestions && status.suggestions.length > 0 && (
-        <div className="chips" aria-label="Pseudos libres">
+        <div className="chips" aria-label={tr('Pseudos libres')}>
           {status.suggestions.map((s) => (
             <button key={s} type="button" className="chip" onClick={() => setHandle(s)}>
               @{s}
@@ -156,36 +157,35 @@ export function IdentityForm({ onSaved }: { onSaved?: (i: Identity) => void }) {
         </div>
       )}
 
-      <Field label="Surnom (facultatif)" hint="Affiché sous ton prénom, comme « La fusée » ou « Coach du dimanche ».">
-        <input className="input" value={nick} maxLength={NICK_MAX} placeholder="Ton surnom au club" onChange={(e) => setNick(e.target.value)} />
+      <Field label={tr('Surnom (facultatif)')} hint={tr('Affiché sous ton prénom, comme « La fusée » ou « Coach du dimanche ».')}>
+        <input className="input" value={nick} maxLength={NICK_MAX} placeholder={tr('Ton surnom au club')} onChange={(e) => setNick(e.target.value)} />
       </Field>
 
-      <Field label="Bio (facultatif)">
+      <Field label={tr('Bio (facultatif)')}>
         <textarea
           className="input"
           rows={3}
           style={{ resize: 'vertical' }}
           value={bio}
-          placeholder="Ton sport, ton objectif, ta salle…"
+          placeholder={tr('Ton sport, ton objectif, ta salle…')}
           onChange={(e) => setBio([...e.target.value].slice(0, BIO_MAX).join(''))}
         />
       </Field>
       <div className={`small ${bioLeft < 20 ? '' : 'faint'}`} style={{ marginTop: -8, textAlign: 'right' }}>
-        {bioLeft} caractère{bioLeft > 1 ? 's' : ''} restant
-        {bioLeft > 1 ? 's' : ''}
+        {tn(bioLeft, '{n} caractère restant', '{n} caractères restants')}
       </div>
 
       <button className="btn primary block" disabled={!dirty || !valid || busy} onClick={save}>
-        {busy ? 'Enregistrement…' : 'Enregistrer'}
+        {busy ? tr('Enregistrement…') : tr('Enregistrer')}
       </button>
       <button
         className="btn block"
         type="button"
         onClick={async () => {
-          if (await copyText(profileLink(id.handle))) toast('Lien de ton profil copié');
+          if (await copyText(profileLink(id.handle))) toast(tr('Lien de ton profil copié'));
         }}
       >
-        <Icon name="share" size={17} /> Copier le lien de mon profil
+        <Icon name="share" size={17} />{' '}{tr('Copier le lien de mon profil')}
       </button>
     </div>
   );

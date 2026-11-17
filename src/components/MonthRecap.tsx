@@ -32,6 +32,7 @@ import { Icon } from './Icon';
 import { Pulse } from './Pulse';
 import { Medal } from './Trophies';
 import { errorText, toast, useScrollLock } from './ui';
+import { loc, pct, tn, tr } from '../../shared/i18n';
 
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const css = (o: Record<string, string | number>) => o as CSSProperties;
@@ -82,7 +83,7 @@ function CountUp({ value, decimals = 0, suffix = '', ms = 1100 }: { value: numbe
   const f = 10 ** decimals;
   return (
     <>
-      {(Math.round(v * f) / f).toLocaleString('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
+      {(Math.round(v * f) / f).toLocaleString(loc(), { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
       {suffix}
     </>
   );
@@ -121,7 +122,7 @@ const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 function Calendar({ cal }: { cal: Recap['cal'] }) {
   let n = 0;
   return (
-    <div className="rc-cal" role="img" aria-label={`${cal.days.filter((d) => d.trained).length} jours de séance sur le mois`}>
+    <div className="rc-cal" role="img" aria-label={tr('{length} jours de séance sur le mois', { length: cal.days.filter((d) => d.trained).length })}>
       {DAY_LETTERS.map((l, i) => (
         <b key={`h${i}`}>{l}</b>
       ))}
@@ -277,13 +278,13 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
     body: (
       <>
         <In d={1} fx="left">
-          <p className="rc-kicker">Ton mois {ofMonth(r.month)}</p>
+          <p className="rc-kicker">{tr('Ton mois {ofMonth}', { ofMonth: ofMonth(r.month) })}</p>
         </In>
         <h2 className="display rc-month" style={fit(M)}>
           <Letters text={M} />
         </h2>
         <In d={9}>
-          <p className="rc-line">{partial ? 'Pas encore fini, mais déjà de quoi en parler.' : `Un mois de plus dans les jambes. On rembobine ?`}</p>
+          <p className="rc-line">{partial ? tr('Pas encore fini, mais déjà de quoi en parler.') : tr('Un mois de plus dans les jambes. On rembobine ?')}</p>
         </In>
         <In d={12} fx="pop" className="rc-host">
           <Pulse mood="cheer" tier={tier} size={112} season={null} />
@@ -299,7 +300,7 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
     body: (
       <>
         <In d={1} fx="left">
-          <p className="rc-kicker">Séances validées</p>
+          <p className="rc-kicker">{tr('Séances validées')}</p>
         </In>
         <In d={2} fx="slam">
           <div className="display rc-big num" style={fit(String(r.sessions))}>
@@ -310,14 +311,14 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
           <Calendar cal={r.cal} />
         </In>
         <In d={8}>
-          <p className="rc-line">{r.sessions > 1 ? `${r.perWeek.toLocaleString('fr-FR')} par semaine en moyenne.` : 'La première, et c’est la plus dure.'}</p>
+          <p className="rc-line">{r.sessions > 1 ? tr('{perWeek} par semaine en moyenne.', { perWeek: r.perWeek.toLocaleString(loc()) }) : tr('La première, et c’est la plus dure.')}</p>
         </In>
         {r.prev && diff !== 0 && (
           <In d={10} fx="pop">
             <p className="rc-chip">
               {diff > 0 ? <Icon name="chart" size={16} /> : null}
-              {diff > 0 ? `${diff} de plus qu’en ${r.prev.name}` : `${-diff} de moins qu’en ${r.prev.name}`}
-              {partial ? ' à la même date' : ''}
+              {diff > 0 ? tr('{diff} de plus qu’en {name}', { diff, name: r.prev.name }) : tr('{v} de moins qu’en {name}', { v: -diff, name: r.prev.name })}
+              {partial ? tr(' à la même date') : ''}
             </p>
           </In>
         )}
@@ -335,7 +336,7 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
       body: (
         <>
           <In d={1} fx="left">
-            <p className="rc-kicker">Soulevé ce mois-ci</p>
+            <p className="rc-kicker">{tr('Soulevé ce mois-ci')}</p>
           </In>
           <In d={2} fx="slam">
             <div className="display rc-big num" style={fit(fmtTonnes(r.tonnage))}>
@@ -359,12 +360,12 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
           )}
           <In d={10}>
             <p className="rc-sub num">
-              En {r.sets.toLocaleString('fr-FR')} séries{r.minutes >= 30 ? `, ${fmtDuration(r.minutes)} d’entraînement` : ''}.
+              {tr('En {sets} séries', { sets: r.sets.toLocaleString(loc()) })}{r.minutes >= 30 ? tr(', {duration} d’entraînement', { duration: fmtDuration(r.minutes) }) : ''}.
             </p>
           </In>
           {d && r.prev && (
             <In d={12} fx="pop">
-              <p className="rc-chip">{`${d} sur ${r.prev.name}`}</p>
+              <p className="rc-chip">{tr('{d} sur {name}', { d, name: r.prev.name })}</p>
             </In>
           )}
         </>
@@ -373,14 +374,14 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
   }
 
   if (r.best && r.sessions >= 2) {
-    const day = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric' }).format(parseKey(r.best.date));
+    const day = new Intl.DateTimeFormat(loc(), { weekday: 'long', day: 'numeric' }).format(parseKey(r.best.date));
     out.push({
       id: 'best',
       ms: 5000,
       body: (
         <>
           <In d={1} fx="left">
-            <p className="rc-kicker">Ta séance la plus lourde</p>
+            <p className="rc-kicker">{tr('Ta séance la plus lourde')}</p>
           </In>
           <In d={2} fx="slam">
             <h2 className="display rc-name">{cap(day)}</h2>
@@ -392,7 +393,7 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
           </In>
           <In d={8}>
             <p className="rc-line num">
-              En {r.best.sets} séries. Ce jour-là, la barre a compris.
+              {tr('En {sets} séries. Ce jour-là, la barre a compris.', { sets: r.best.sets })}
             </p>
           </In>
         </>
@@ -408,7 +409,7 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
       body: (
         <>
           <In d={1} fx="left">
-            <p className="rc-kicker">Records battus</p>
+            <p className="rc-kicker">{tr('Records battus')}</p>
           </In>
           <div className="rc-burst-host">
             <Burst />
@@ -421,23 +422,23 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
           <div className="rc-prs">
             {r.records.slice(0, 3).map((x, i) => (
               <div key={x.key} className="rc-pr" style={css({ '--i': i })}>
-                <span className="rc-pr-tag">PR</span>
+                <span className="rc-pr-tag">{tr('PR')}</span>
                 <span className="grow" style={{ minWidth: 0 }}>
                   <b className="ellipsis" style={{ display: 'block' }}>
                     {x.name}
                   </b>
                   <span className="num">
-                    {x.w.toLocaleString('fr-FR')} kg × {x.r}
+                    {tr('{w} kg × {r}', { w: x.w.toLocaleString(loc()), r: x.r })}
                   </span>
                 </span>
-                {x.gain >= 1 && <span className="rc-pr-gain num">+{Math.round(x.gain)} %</span>}
+                {x.gain >= 1 && <span className="rc-pr-gain num">+{pct(Math.round(x.gain))}</span>}
               </div>
             ))}
           </div>
           {top && top.gain >= 5 && (
             <In d={14}>
               <p className="rc-sub">
-                Ton plus gros bond : {top.name}, +{Math.round(top.gain)} % en un mois.
+                {tr('Ton plus gros bond : {name}, +{n} % en un mois.', { name: top.name, n: Math.round(top.gain) })}
               </p>
             </In>
           )}
@@ -453,19 +454,19 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
       body: (
         <>
           <In d={1} fx="left">
-            <p className="rc-kicker">Ton exercice du mois</p>
+            <p className="rc-kicker">{tr('Ton exercice du mois')}</p>
           </In>
           <In d={2} fx="slam">
             <h2 className="display rc-name">{r.top.name}</h2>
           </In>
           <In d={5}>
             <p className="rc-line num">
-              {r.top.sets} séries, {fmtTonnes(r.top.tonnage)}
+              {tr('{sets} séries, {fmtTonnes}', { sets: r.top.sets, fmtTonnes: fmtTonnes(r.top.tonnage) })}
             </p>
           </In>
           {r.top.weeks.filter(Boolean).length >= 2 && <Bars values={r.top.weeks} labels={r.top.weeks.map((_, i) => `S${i + 1}`)} />}
           <In d={12}>
-            <p className="rc-sub">Celui que tu n’as jamais lâché.</p>
+            <p className="rc-sub">{tr('Celui que tu n’as jamais lâché.')}</p>
           </In>
         </>
       ),
@@ -474,22 +475,22 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
 
   const fav = r.byWeekday.indexOf(Math.max(...r.byWeekday));
   if (r.sessions >= 3 && (r.weekday || r.moment || r.run >= 3)) {
-    const momentIcon = r.moment === 'le matin' ? 'sunrise' : r.moment === 'le soir' || r.moment === 'la nuit' ? 'moon' : 'sun';
+    const momentIcon = r.moment === tr('le matin') ? 'sunrise' : r.moment === tr('le soir') || r.moment === tr('la nuit') ? 'moon' : 'sun';
     out.push({
       id: 'rhythm',
       ms: 6400,
       body: (
         <>
           <In d={1} fx="left">
-            <p className="rc-kicker">Ton rythme</p>
+            <p className="rc-kicker">{tr('Ton rythme')}</p>
           </In>
           <In d={2} fx="slam">
-            <h2 className="display rc-name">{r.weekday ? `Le ${r.weekday.name}` : r.moment ? cap(r.moment) : 'Régulier'}</h2>
+            <h2 className="display rc-name">{r.weekday ? cap(tr('Le {name}', { name: r.weekday.name })) : r.moment ? cap(r.moment) : tr('Régulier')}</h2>
           </In>
           {r.weekday && (
             <In d={4}>
               <p className="rc-line">
-                {r.weekday.count} séances le {r.weekday.name}, ton jour fort.
+                {tr('{count} séances le {name}, ton jour fort.', { count: r.weekday.count, name: r.weekday.name })}
               </p>
             </In>
           )}
@@ -498,14 +499,14 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
             {r.moment && (
               <In d={12} fx="pop">
                 <p className="rc-chip">
-                  <Icon name={momentIcon} size={16} /> Surtout {r.moment}
+                  <Icon name={momentIcon} size={16} />{' '}{tr('Surtout {moment}', { moment: r.moment })}
                 </p>
               </In>
             )}
             {r.run >= 3 && (
               <In d={14} fx="pop">
                 <p className="rc-chip">
-                  <Icon name="flame" size={16} /> {r.run} jours validés d’affilée
+                  <Icon name="flame" size={16} />{' '}{tr('{run} jours validés d’affilée', { run: r.run })}
                 </p>
               </In>
             )}
@@ -524,12 +525,12 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
       body: (
         <>
           <In d={1} fx="left">
-            <p className="rc-kicker">Côté corps</p>
+            <p className="rc-kicker">{tr('Côté corps')}</p>
           </In>
           {kg !== null && kg !== 0 ? (
             <>
               <In d={2} fx="slam">
-                <div className="display rc-big num" style={fit(`+${Math.abs(kg).toLocaleString('fr-FR', { minimumFractionDigits: 1 })} kg`)}>
+                <div className="display rc-big num" style={fit(tr('+{abs} kg', { abs: Math.abs(kg).toLocaleString(loc(), { minimumFractionDigits: 1 }) }))}>
                   {kg > 0 ? '+' : '−'}
                   <CountUp value={Math.abs(kg)} decimals={1} suffix={'\u00a0kg'} />
                 </div>
@@ -541,7 +542,7 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
               )}
               <In d={7}>
                 <p className="rc-line num">
-                  De {r.weight!.from.toLocaleString('fr-FR')} à {r.weight!.to.toLocaleString('fr-FR')} kg.
+                  {tr('De {from} à {to} kg.', { from: r.weight!.from.toLocaleString(loc()), to: r.weight!.to.toLocaleString(loc()) })}
                 </p>
               </In>
               {verdict && (
@@ -555,14 +556,14 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
             {r.meals >= 10 && (
               <In d={12} fx="pop">
                 <p className="rc-chip soft">
-                  <Icon name="utensils" size={16} /> {r.meals} repas notés
+                  <Icon name="utensils" size={16} />{' '}{tr('{meals} repas notés', { meals: r.meals })}
                 </p>
               </In>
             )}
             {r.cardioKm >= 5 && (
               <In d={13} fx="pop">
                 <p className="rc-chip soft">
-                  <Icon name="run" size={16} /> {r.cardioKm.toLocaleString('fr-FR')} km d’endurance
+                  <Icon name="run" size={16} />{' '}{tr('{cardioKm} km d’endurance', { cardioKm: r.cardioKm.toLocaleString(loc()) })}
                 </p>
               </In>
             )}
@@ -579,7 +580,7 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
       body: (
         <>
           <In d={1} fx="left">
-            <p className="rc-kicker">Trophées gagnés</p>
+            <p className="rc-kicker">{tr('Trophées gagnés')}</p>
           </In>
           <In d={2} fx="slam">
             <div className="display rc-big num gold" style={fit(String(r.trophies.length))}>
@@ -610,7 +611,7 @@ function slidesOf(r: Recap, partial: boolean, goal: WeightGoal, tier: number): S
     body: (
       <>
         <In d={1} fx="left">
-          <p className="rc-kicker">{partial ? 'Ton profil, pour l’instant' : 'Ton profil du mois'}</p>
+          <p className="rc-kicker">{partial ? tr('Ton profil, pour l’instant') : tr('Ton profil du mois')}</p>
         </In>
         <div className="rc-profile" style={css({ '--pc': PROFILE_COLOR[p.id] })}>
           <i className="rc-halo" aria-hidden="true">
@@ -708,26 +709,26 @@ export function MonthRecap({ month, onClose }: { month: string; onClose: () => v
     setBusy(true);
     try {
       const stats = [
-        { label: recap.sessions > 1 ? 'Séances' : 'Séance', value: String(recap.sessions) },
-        ...(recap.tonnage >= 500 ? [{ label: 'Soulevé', value: fmtTonnes(recap.tonnage) }] : []),
-        ...(recap.recordCount ? [{ label: recap.recordCount > 1 ? 'Records' : 'Record', value: String(recap.recordCount) }] : []),
-        ...(recap.minutes >= 30 ? [{ label: 'Entraînement', value: fmtDuration(recap.minutes) }] : []),
-        ...(recap.cardioKm >= 5 ? [{ label: 'Endurance', value: `${recap.cardioKm.toLocaleString('fr-FR')} km` }] : []),
+        { label: tn(recap.sessions, 'Séance', 'Séances'), value: String(recap.sessions) },
+        ...(recap.tonnage >= 500 ? [{ label: tr('Soulevé'), value: fmtTonnes(recap.tonnage) }] : []),
+        ...(recap.recordCount ? [{ label: tn(recap.recordCount, 'Record', 'Records'), value: String(recap.recordCount) }] : []),
+        ...(recap.minutes >= 30 ? [{ label: tr('Entraînement'), value: fmtDuration(recap.minutes) }] : []),
+        ...(recap.cardioKm >= 5 ? [{ label: tr('Endurance'), value: `${recap.cardioKm.toLocaleString(loc())} km` }] : []),
       ];
       const canvas = await drawMonthStory({
         month: recap.name,
         year: recap.year,
         stats: stats.slice(0, 3),
         like: recap.tonnage >= 1000 ? tonnageLike(recap.tonnage) : null,
-        top: recap.top ? `${recap.top.name}, ${recap.top.sets} séries` : null,
-        records: recap.records.slice(0, 2).map((x) => `${x.name} ${x.w.toLocaleString('fr-FR')} kg × ${x.r}`),
+        top: recap.top ? tr('{name}, {sets} séries', { name: recap.top.name, sets: recap.top.sets }) : null,
+        records: recap.records.slice(0, 2).map((x) => tr('{name} {w} kg × {r}', { name: x.name, w: x.w.toLocaleString(loc()), r: x.r })),
         run: recap.run,
         name: s.settings.name,
         profile: { title: recap.profile.title, line: recap.profile.line, color: PROFILE_COLOR[recap.profile.id] },
         cal: recap.cal,
       });
-      const res = await shareStory(await storyBlob(canvas), `recap ${recap.name} ${recap.year}`, `Mon mois ${ofMonth(recap.month)}`);
-      if (res === 'saved') toast('Image enregistrée dans tes téléchargements');
+      const res = await shareStory(await storyBlob(canvas), `recap ${recap.name} ${recap.year}`, tr('Mon mois {ofMonth}', { ofMonth: ofMonth(recap.month) }));
+      if (res === 'saved') toast(tr('Image enregistrée dans tes téléchargements'));
     } catch (e) {
       toast(errorText(e), true);
     } finally {
@@ -745,7 +746,7 @@ export function MonthRecap({ month, onClose }: { month: string; onClose: () => v
       style={css({ '--rc-ink': theme.ink, '--rc-accent': theme.accent, '--rc-bg': theme.bg })}
       role="dialog"
       aria-modal="true"
-      aria-label={`Récap ${ofMonth(month)}`}
+      aria-label={tr('Récap {ofMonth}', { ofMonth: ofMonth(month) })}
       tabIndex={-1}
       onKeyDown={onKey}
       onPointerDown={onDown}
@@ -780,10 +781,10 @@ export function MonthRecap({ month, onClose }: { month: string; onClose: () => v
       </div>
       <div className="recap-top">
         <span className="small rc-brand">
-          Shred, {M} {recap.year}
-          {recap.partial ? ' (en cours)' : ''}
+          {tr('Shred, {M} {year}', { M, year: recap.year })}
+          {recap.partial ? tr(' (en cours)') : ''}
         </span>
-        <button className="icon-btn rc-close" onClick={onClose} aria-label="Fermer le récap">
+        <button className="icon-btn rc-close" onClick={onClose} aria-label={tr('Fermer le récap')}>
           <Icon name="x" />
         </button>
       </div>
@@ -796,11 +797,11 @@ export function MonthRecap({ month, onClose }: { month: string; onClose: () => v
           <div key="outro" className="recap-slide recap-outro">
             <Confetti colors={['#ffd166', '#ff6a1a', '#2ee6a0', '#7c4dff', '#ff3b6b', '#ffffff']} />
             <In d={1} fx="left">
-              <p className="rc-kicker">{recap.partial ? 'Pour l’instant' : 'Bouclé'}</p>
+              <p className="rc-kicker">{recap.partial ? tr('Pour l’instant') : tr('Bouclé')}</p>
             </In>
             <In d={2} fx="slam">
               <h2 className="display rc-name">
-                {M}, {recap.partial ? 'à suivre' : 'c’est fait'}.
+                {M}, {recap.partial ? tr('à suivre') : tr('c’est fait')}.
               </h2>
             </In>
             <In d={4}>
@@ -810,10 +811,10 @@ export function MonthRecap({ month, onClose }: { month: string; onClose: () => v
             </In>
             <div className="recap-summary">
               {[
-                [String(recap.sessions), recap.sessions > 1 ? 'séances' : 'séance'],
-                ...(recap.tonnage >= 500 ? [[fmtTonnes(recap.tonnage), 'soulevées']] : []),
-                ...(recap.recordCount > 0 ? [[String(recap.recordCount), recap.recordCount > 1 ? 'records' : 'record']] : []),
-                ...(recap.minutes >= 30 ? [[fmtDuration(recap.minutes), 'd’entraînement']] : []),
+                [String(recap.sessions), tn(recap.sessions, 'séance', 'séances')],
+                ...(recap.tonnage >= 500 ? [[fmtTonnes(recap.tonnage), tr('soulevées')]] : []),
+                ...(recap.recordCount > 0 ? [[String(recap.recordCount), tn(recap.recordCount, 'record', 'records')]] : []),
+                ...(recap.minutes >= 30 ? [[fmtDuration(recap.minutes), tr('d’entraînement')]] : []),
               ].map(([v, l], k) => (
                 <span key={l} style={css({ '--i': k })}>
                   <b className="num">{v}</b> {l}
@@ -822,16 +823,16 @@ export function MonthRecap({ month, onClose }: { month: string; onClose: () => v
             </div>
             <In d={9} className="recap-actions">
               <button className="btn primary block" onClick={share} disabled={busy}>
-                <Icon name="share" size={17} /> {busy ? 'Préparation de l’image…' : 'Partager mon récap'}
+                <Icon name="share" size={17} /> {busy ? tr('Préparation de l’image…') : tr('Partager mon récap')}
               </button>
               <button className="btn block" onClick={() => go(0)}>
-                <Icon name="undo" size={16} /> Revoir
+                <Icon name="undo" size={16} />{' '}{tr('Revoir')}
               </button>
             </In>
           </div>
         )}
       </div>
-      {i === 0 && <p className="recap-hint small">Touche pour avancer, garde le doigt pour mettre en pause</p>}
+      {i === 0 && <p className="recap-hint small">{tr('Touche pour avancer, garde le doigt pour mettre en pause')}</p>}
     </div>,
     document.body,
   );
@@ -846,7 +847,7 @@ export function RecapCards({ today }: { today: string }) {
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Récap du mois</h2>
+        <h2>{tr('Récap du mois')}</h2>
       </div>
       <div className={`recap-cards n${cards.length}`}>
         {cards.map((r) => (
@@ -854,18 +855,18 @@ export function RecapCards({ today }: { today: string }) {
             key={r.month}
             className={`recap-card ${r.partial ? 'partial' : ''}`}
             onClick={() => setOpen(r.month)}
-            aria-label={`Voir le récap ${ofMonth(r.month)}`}
+            aria-label={tr('Voir le récap {ofMonth}', { ofMonth: ofMonth(r.month) })}
           >
             <span className="recap-card-glow" aria-hidden="true" />
-            <span className="small recap-card-kicker">{r.partial ? 'En cours' : 'Ton récap est prêt'}</span>
+            <span className="small recap-card-kicker">{r.partial ? tr('En cours') : tr('Ton récap est prêt')}</span>
             <b className="display" style={fit(r.name)}>
               {cap(r.name)}
             </b>
             <span className="small recap-card-stats num">
-              {r.sessions} séance{r.sessions > 1 ? 's' : ''}
+              {tn(r.sessions, '{n} séance', '{n} séances')}
               {r.tonnage >= 500 ? `, ${fmtTonnes(r.tonnage)}` : ''}
             </span>
-            <span className="small recap-card-tease">Et ton profil du mois</span>
+            <span className="small recap-card-tease">{tr('Et ton profil du mois')}</span>
             <span className="recap-card-play" aria-hidden="true">
               <Icon name="play" size={14} filled />
             </span>

@@ -22,6 +22,7 @@ import { setWarmup } from '../lib/workoutActions';
 import { fmtDose, type WarmMove, type WarmPhase, type WarmRamp } from '../../shared/warmup';
 import { DISCIPLINE_ICON, Icon } from './Icon';
 import { useScrollLock } from './ui';
+import { loc, tn, tr } from '../../shared/i18n';
 
 export type Rest = { end: number; total: number } | null;
 /** Chrono d'effort : compte à rebours (durée fixe) ou chrono qui monte (fourchette, tu l'arrêtes). */
@@ -205,7 +206,7 @@ export function FocusMode({
     }
   };
 
-  const nextLabel = step ? `${step.ex.name}, série ${step.set + 1}` : undefined;
+  const nextLabel = step ? tr('{name}, série {n}', { name: step.ex.name, n: step.set + 1 }) : undefined;
   const shift = (sec: number) => {
     if (!rest) return;
     const start = rest.end - rest.total * 1000;
@@ -250,14 +251,14 @@ export function FocusMode({
       className={`focus ${phase}`}
       role="dialog"
       aria-modal="true"
-      aria-label="Mode séance"
+      aria-label={tr('Mode séance')}
       tabIndex={-1}
       onKeyDown={onKey}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
       <header className="focus-head">
-        <button className="icon-btn" onClick={onClose} aria-label="Quitter le mode séance">
+        <button className="icon-btn" onClick={onClose} aria-label={tr('Quitter le mode séance')}>
           <Icon name="x" />
         </button>
         <div className="focus-head-mid">
@@ -266,7 +267,7 @@ export function FocusMode({
           </span>
           <Elapsed since={since} />
         </div>
-        <button className="icon-btn" onClick={toggleMute} aria-label={muted ? 'Activer les bips' : 'Couper les bips'} aria-pressed={!muted}>
+        <button className="icon-btn" onClick={toggleMute} aria-label={muted ? tr('Activer les bips') : tr('Couper les bips')} aria-pressed={!muted}>
           <Icon name={muted ? 'mute' : 'sound'} />
         </button>
       </header>
@@ -391,7 +392,7 @@ function Elapsed({ since }: { since: number }) {
   const h = Math.floor(t / 3600);
   const m = Math.floor((t % 3600) / 60);
   return (
-    <span className="num focus-clock" aria-label="Temps écoulé">
+    <span className="num focus-clock" aria-label={tr('Temps écoulé')}>
       {h ? `${h}:${String(m).padStart(2, '0')}` : m}:{String(t % 60).padStart(2, '0')}
     </span>
   );
@@ -442,7 +443,7 @@ function Countdown({
   const C = 2 * Math.PI * R;
   const frac = total > 0 ? Math.min(1, leftMs / (total * 1000)) : 0;
   return (
-    <div className={`countdown ${sec <= 3 ? 'final' : ''}`} style={{ width: size, height: size }} role="timer" aria-label={`${label} : ${clock(sec)}`}>
+    <div className={`countdown ${sec <= 3 ? 'final' : ''}`} style={{ width: size, height: size }} role="timer" aria-label={tr('{name} : {detail}', { name: label, detail: clock(sec) })}>
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <circle cx="50" cy="50" r={R} className="countdown-track" />
         <circle cx="50" cy="50" r={R} className="countdown-arc" strokeDasharray={C} strokeDashoffset={C * (1 - frac)} />
@@ -479,13 +480,13 @@ function Stopwatch({ start, min, max, size, muted }: { start: number; min: numbe
   const R = 46;
   const C = 2 * Math.PI * R;
   const frac = Math.min(1, (now - start) / (max * 1000));
-  const label = sec < min ? `Cible ${min} à ${max} s` : sec < max ? 'Dans la cible' : 'Objectif atteint';
+  const label = sec < min ? tr('Cible {min} à {max} s', { min, max }) : sec < max ? tr('Dans la cible') : tr('Objectif atteint');
   return (
     <div
       className={`countdown ${sec >= min ? 'reached' : ''}`}
       style={{ width: size, height: size }}
       role="timer"
-      aria-label={`Chrono : ${clock(sec)}, ${label}`}
+      aria-label={tr('Chrono : {clock}, {label}', { clock: clock(sec), label })}
     >
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <circle cx="50" cy="50" r={R} className="countdown-track" />
@@ -516,7 +517,7 @@ function BigStepper({
   decimals: number;
   onCommit: (v: number | undefined) => void;
 }) {
-  const fmt = (v?: number) => (v === undefined ? '' : v.toLocaleString('fr-FR', { maximumFractionDigits: decimals, useGrouping: false }));
+  const fmt = (v?: number) => (v === undefined ? '' : v.toLocaleString(loc(), { maximumFractionDigits: decimals, useGrouping: false }));
   const shown = value ?? fallback;
   const [text, setText] = useState('');
   const [editing, setEditing] = useState(false);
@@ -560,10 +561,10 @@ function BigStepper({
         {unit && <span className="big-unit">{unit}</span>}
       </label>
       <div className="big-stepper-row">
-        <button type="button" className="big-step" onClick={() => bump(-1)} aria-label={`${label} : moins ${fmt(step)}${unit ? ` ${unit}` : ''}`}>
+        <button type="button" className="big-step" onClick={() => bump(-1)} aria-label={tr('{label} : moins {fmt}{v}', { label, fmt: fmt(step), v: unit ? ` ${unit}` : '' })}>
           −
         </button>
-        <button type="button" className="big-step" onClick={() => bump(1)} aria-label={`${label} : plus ${fmt(step)}${unit ? ` ${unit}` : ''}`}>
+        <button type="button" className="big-step" onClick={() => bump(1)} aria-label={tr('{label} : plus {fmt}{v}', { label, fmt: fmt(step), v: unit ? ` ${unit}` : '' })}>
           +
         </button>
       </div>
@@ -626,19 +627,19 @@ function SetView({
   const rec = loaded && !log.done ? recordReps(s, ex.key, today, w) : null;
   const swim = ex.discipline === 'swim';
   const planned = ex.discipline ? repMeters(ex) : 0;
-  const what = isTask ? 'À faire' : cont ? 'Bloc continu' : rounds ? `Round ${set + 1} sur ${ex.sets}` : `Série ${set + 1} sur ${ex.sets}`;
-  const cta = isTask ? 'C’est fait' : cont ? 'Bloc terminé' : rounds ? `Round ${set + 1} fait` : 'Valider la série';
+  const what = isTask ? tr('À faire') : cont ? tr('Bloc continu') : rounds ? tr('Round {n} sur {sets}', { n: set + 1, sets: ex.sets }) : tr('Série {n} sur {sets}', { n: set + 1, sets: ex.sets });
+  const cta = isTask ? tr('C’est fait') : cont ? tr('Bloc terminé') : rounds ? tr('Round {n} fait', { n: set + 1 }) : tr('Valider la série');
 
   return (
     <div className={`focus-step in${dir}`}>
       <div className={`focus-media ${work ? 'working' : ''}`}>
         {work?.kind === 'down' ? (
-          <Countdown end={work.end} total={work.total} label="Effort" size={190} muted={muted} onDone={onWorkDone} />
+          <Countdown end={work.end} total={work.total} label={tr('Effort')} size={190} muted={muted} onDone={onWorkDone} />
         ) : work?.kind === 'up' ? (
           <Stopwatch start={work.start} min={work.min} max={work.max} size={190} muted={muted} />
         ) : frames ? (
           <div className="demo focus-demo">
-            <img src={frames[0]} alt={`${ex.name}, position de départ`} />
+            <img src={frames[0]} alt={tr('{name}, position de départ', { name: ex.name })} />
             <img className="b" src={frames[1]} alt="" />
           </div>
         ) : (
@@ -649,7 +650,7 @@ function SetView({
       </div>
 
       <div className="focus-kicker small">
-        Exercice {step.ei + 1} sur {exCount}
+        {tr('Exercice {n} sur {exCount}', { n: step.ei + 1, exCount })}
       </div>
       <h2 className="display focus-name">{ex.name}</h2>
       <div className="focus-meta">
@@ -657,7 +658,7 @@ function SetView({
         {!isTask && (
           <span className="tag num">
             {ex.reps}
-            {ex.repMin !== undefined ? ' reps' : ''}
+            {ex.repMin !== undefined ? ` ${tr('reps')}` : ''}
           </span>
         )}
         {ex.target && <span className="tag num blue">{ex.target}</span>}
@@ -669,7 +670,7 @@ function SetView({
       </div>
       {last && !isTask && (
         <p className="small faint num focus-line">
-          Dernière fois :{' '}
+          {tr('Dernière fois :')}{' '}
           {ex.noLoad || rounds
             ? last.sets.map((l) => (l.r !== undefined ? `${l.r}${span ? ' s' : ''}` : l.km ? `${l.km} km` : '✓')).join(', ')
             : formatSets(last.sets)}
@@ -683,7 +684,7 @@ function SetView({
       {(isTask || cont) && ex.note && <p className="small muted focus-line">{ex.note}</p>}
       {rec !== null && rec <= (ex.repMax ?? 12) + 3 && w !== undefined && (
         <p className="small focus-record">
-          <Icon name="trophy" size={14} /> Record dès {rec} rep{rec > 1 ? 's' : ''} à {fmtKg(w)}
+          <Icon name="trophy" size={14} />{' '}{tn(rec, 'Record dès {n} rep à {kg}', 'Record dès {n} reps à {kg}', { kg: fmtKg(w) })}
         </p>
       )}
 
@@ -691,7 +692,7 @@ function SetView({
         <div className={`focus-steppers ${(loaded && repsInput) || cont ? 'two' : ''}`}>
           {loaded && (
             <BigStepper
-              label="Charge"
+              label={tr('Charge')}
               unit="kg"
               value={log.w}
               fallback={def.w}
@@ -702,7 +703,7 @@ function SetView({
           )}
           {repsInput && (
             <BigStepper
-              label="Reps"
+              label={tr('Reps')}
               unit=""
               value={log.r}
               fallback={def.r}
@@ -714,7 +715,7 @@ function SetView({
           {cont && (
             <>
               <BigStepper
-                label="Distance"
+                label={tr('Distance')}
                 unit={swim ? 'm' : 'km'}
                 value={log.km !== undefined ? (swim ? Math.round(log.km * 1000) : log.km) : undefined}
                 fallback={planned ? (swim ? Math.round(planned) : Math.round(planned / 100) / 10) : undefined}
@@ -723,7 +724,7 @@ function SetView({
                 onCommit={(v) => updateSet(today, ex.key, 0, { km: v === undefined ? undefined : swim ? v / 1000 : v }, 1)}
               />
               <BigStepper
-                label="Durée"
+                label={tr('Durée')}
                 unit="min"
                 value={log.min}
                 fallback={minutesOf(ex.reps)}
@@ -738,45 +739,45 @@ function SetView({
 
       {log.done && (
         <p className="focus-done-line">
-          <Icon name="check" size={18} /> {isTask ? 'Fait' : 'Série faite'}
+          <Icon name="check" size={18} /> {isTask ? tr('Fait') : tr('Série faite')}
           <button className="link small" onClick={onUndo}>
-            annuler
+            {tr('annuler')}
           </button>
         </p>
       )}
 
       <div className="focus-actions">
-        <button className="focus-nav prev" onClick={onPrev} disabled={!hasPrev} aria-label="Série précédente">
+        <button className="focus-nav prev" onClick={onPrev} disabled={!hasPrev} aria-label={tr('Série précédente')}>
           <Icon name="chevron" size={22} />
         </button>
         {log.done ? (
           <button className="btn go" onClick={onNextUndone}>
-            Série suivante
+            {tr('Série suivante')}
           </button>
         ) : work?.kind === 'up' ? (
           <button className="btn go" onClick={onStopWork}>
-            <Icon name="check" size={20} /> Stop, je note
+            <Icon name="check" size={20} />{' '}{tr('Stop, je note')}
           </button>
         ) : work ? (
           <button className="btn go" onClick={onStopWork}>
-            Arrêter le chrono
+            {tr('Arrêter le chrono')}
           </button>
         ) : span ? (
           <button className="btn go" onClick={() => onStartWork(span)}>
-            <Icon name="play" size={18} filled /> {timed ? `Lancer ${fmtRest(timed)}` : 'Lancer le chrono'}
+            <Icon name="play" size={18} filled /> {timed ? tr('Lancer {rest}', { rest: fmtRest(timed) }) : tr('Lancer le chrono')}
           </button>
         ) : (
           <button className="btn go" onClick={onValidate}>
             <Icon name="check" size={20} /> {cta}
           </button>
         )}
-        <button className="focus-nav" onClick={onNext} disabled={!hasNext} aria-label="Série suivante">
+        <button className="focus-nav" onClick={onNext} disabled={!hasNext} aria-label={tr('Série suivante')}>
           <Icon name="chevron" size={22} />
         </button>
       </div>
       {span && !log.done && work?.kind !== 'up' && (
         <button className="link small focus-alt" onClick={onValidate}>
-          {work ? 'Valider maintenant' : 'Déjà fait, valider'}
+          {work ? tr('Valider maintenant') : tr('Déjà fait, valider')}
         </button>
       )}
     </div>
@@ -817,20 +818,22 @@ function RestView({
     const w = logs[next.set]?.w ?? def.w;
     const r = logs[next.set]?.r ?? def.r;
     const isLift = next.ex.kind !== 'task' && next.ex.kind !== 'cardio' && !workSpan(next.ex);
-    line = `${next.ex.kind === 'cardio' ? 'Round' : 'Série'} ${next.set + 1} sur ${next.ex.sets}${isLift && w !== undefined ? ` · ${fmtKg(w)}${r !== undefined ? ` × ${r}` : ''}` : isLift && r !== undefined ? ` · ${r} reps` : ` · ${next.ex.reps}`}`;
+    const which = { n: next.set + 1, sets: next.ex.sets };
+    const detail = isLift && w !== undefined ? ` · ${fmtKg(w)}${r !== undefined ? ` × ${r}` : ''}` : isLift && r !== undefined ? tr(' · {r} reps', { r }) : ` · ${next.ex.reps}`;
+    line = `${next.ex.kind === 'cardio' ? tr('Round {n} sur {sets}', which) : tr('Série {n} sur {sets}', which)}${detail}`;
   }
   const size = Math.round(Math.min(280, Math.max(200, (typeof window !== 'undefined' ? window.innerWidth : 390) * 0.66)));
   return (
     <div className="focus-rest">
       {record && (
         <div className="focus-record-banner" role="status">
-          <Icon name="trophy" size={18} /> Nouveau record : {fmtKg(record.w)} × {record.r}
+          <Icon name="trophy" size={18} />{' '}{tr('Nouveau record : {kg} × {r}', { kg: fmtKg(record.w), r: record.r })}
         </div>
       )}
       <Countdown
         end={rest.end}
         total={rest.total}
-        label="Repos"
+        label={tr('Repos')}
         size={size}
         muted={muted}
         onDone={onDone}
@@ -850,12 +853,12 @@ function RestView({
           +30 s
         </button>
         <button className="btn primary" onClick={onSkip}>
-          Passer
+          {tr('Passer')}
         </button>
       </div>
       {next && (
         <div className="focus-next">
-          <span className="small muted">Ensuite</span>
+          <span className="small muted">{tr('Ensuite')}</span>
           <div className="focus-next-row">
             <span className="focus-next-thumb">
               {frames ? <img src={frames[0]} alt="" /> : <Icon name={next.ex.discipline ? DISCIPLINE_ICON[next.ex.discipline] : 'dumbbell'} size={24} />}
@@ -869,7 +872,7 @@ function RestView({
       )}
       {canUndo && (
         <button className="link small" onClick={onUndo}>
-          Annuler la dernière série
+          {tr('Annuler la dernière série')}
         </button>
       )}
     </div>
@@ -877,10 +880,10 @@ function RestView({
 }
 
 const PHASE: Record<WarmPhase, { label: string; icon: string }> = {
-  raise: { label: 'Température', icon: 'flame' },
-  mobilise: { label: 'Mobilité', icon: 'warmup' },
-  activate: { label: 'Activation', icon: 'bolt' },
-  prime: { label: 'Préparation', icon: 'dumbbell' },
+  raise: { label: tr('Température'), icon: 'flame' },
+  mobilise: { label: tr('Mobilité'), icon: 'warmup' },
+  activate: { label: tr('Activation'), icon: 'bolt' },
+  prime: { label: tr('Préparation'), icon: 'dumbbell' },
 };
 
 /** Un mouvement de l'échauffement : chrono s'il est au temps, sinon « Fait ». Les séries d'approche se cochent. */
@@ -919,7 +922,7 @@ function WarmView({
           <Countdown
             end={timer.end}
             total={timer.total}
-            label="Encore"
+            label={tr('Encore')}
             size={190}
             muted={muted}
             onDone={(late) => {
@@ -936,10 +939,10 @@ function WarmView({
       </div>
       <div className="focus-kicker small warm-kicker">
         <span>
-          Échauffement, {index + 1} sur {count}
+          {tr('Échauffement, {n} sur {count}', { n: index + 1, count })}
         </span>
         <button className="link small" onClick={onSkip}>
-          Passer l’échauffement
+          {tr('Passer l’échauffement')}
         </button>
       </div>
       {move && (
@@ -956,7 +959,7 @@ function WarmView({
         <>
           <h2 className="display focus-name">{step.ramp.name}</h2>
           <p className="small muted focus-line">
-            Séries d’approche avant {fmtKg(step.ramp.work)}. Repos court entre elles, elles ne comptent pas dans la séance.
+            {tr('Séries d’approche avant {kg}. Repos court entre elles, elles ne comptent pas dans la séance.', { kg: fmtKg(step.ramp.work) })}
           </p>
           <div className="ramp-sets">
             {step.ramp.sets.map((x, i) => (
@@ -979,40 +982,40 @@ function WarmView({
       )}
       {step.kind === 'then' && (
         <>
-          <h2 className="display focus-name">Ensuite</h2>
+          <h2 className="display focus-name">{tr('Ensuite')}</h2>
           <p className="focus-line warm-then">{step.text}</p>
         </>
       )}
       <div className="focus-actions">
-        <button className="focus-nav prev" onClick={onPrev} disabled={!onPrev} aria-label="Mouvement précédent">
+        <button className="focus-nav prev" onClick={onPrev} disabled={!onPrev} aria-label={tr('Mouvement précédent')}>
           <Icon name="chevron" size={22} />
         </button>
         {timer ? (
           <button className="btn go" onClick={() => setTimer(null)}>
-            Arrêter le chrono
+            {tr('Arrêter le chrono')}
           </button>
         ) : move?.sec ? (
           <button className="btn go" onClick={() => start(move.sec!)}>
-            <Icon name="play" size={18} filled /> Lancer {fmtDose(move)}
+            <Icon name="play" size={18} filled />{' '}{tr('Lancer {dose}', { dose: fmtDose(move) })}
           </button>
         ) : (
           <button className="btn go" onClick={onNext}>
             {last ? (
-              'C’est parti'
+              tr('C’est parti')
             ) : (
               <>
-                <Icon name="check" size={20} /> Fait
+                <Icon name="check" size={20} />{' '}{tr('Fait')}
               </>
             )}
           </button>
         )}
-        <button className="focus-nav" onClick={onNext} disabled={last} aria-label="Mouvement suivant">
+        <button className="focus-nav" onClick={onNext} disabled={last} aria-label={tr('Mouvement suivant')}>
           <Icon name="chevron" size={22} />
         </button>
       </div>
       {move?.sec && !timer && (
         <button className="link small focus-alt" onClick={onNext}>
-          {last ? 'Déjà fait, c’est parti' : 'Déjà fait, suivant'}
+          {last ? tr('Déjà fait, c’est parti') : tr('Déjà fait, suivant')}
         </button>
       )}
     </div>
@@ -1024,15 +1027,15 @@ function DoneView({ s, today, since, onShare, onClose }: { s: AppState; today: s
   const sum = sessionSummary(s, today);
   const minutes = Math.round((Date.now() - since) / 60000);
   // La durée vue d'ici est la plus juste : de l'ouverture du mode séance à la dernière série.
-  const stats = (sum?.stats ?? []).filter((x) => x.label !== 'Durée');
+  const stats = (sum?.stats ?? []).filter((x) => x.label !== tr('Durée'));
   if (minutes >= 3)
-    stats.push({ label: 'Durée', value: minutes >= 60 ? `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}` : `${minutes} min` });
+    stats.push({ label: tr('Durée'), value: minutes >= 60 ? `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}` : `${minutes} min` });
   return (
     <div className="focus-done">
       <div className="focus-done-mark">
         <Icon name="check" size={54} />
       </div>
-      <h2 className="display">Séance terminée</h2>
+      <h2 className="display">{tr('Séance terminée')}</h2>
       <p className="muted" style={{ margin: 0 }}>
         {sum?.title}
       </p>
@@ -1057,15 +1060,15 @@ function DoneView({ s, today, since, onShare, onClose }: { s: AppState; today: s
       ) : null}
       {!day.mainDone ? (
         <button className="btn go" onClick={() => finishSession(today, true)}>
-          <Icon name="check" size={18} /> Valider la séance
+          <Icon name="check" size={18} />{' '}{tr('Valider la séance')}
         </button>
       ) : (
         <button className="btn primary" onClick={onShare}>
-          <Icon name="share" size={17} /> Partager ma séance
+          <Icon name="share" size={17} />{' '}{tr('Partager ma séance')}
         </button>
       )}
       <button className="btn" onClick={onClose}>
-        Revenir à la séance
+        {tr('Revenir à la séance')}
       </button>
     </div>
   );

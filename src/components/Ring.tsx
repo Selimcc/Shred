@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { tr } from '../../shared/i18n';
 
 /** Anneau de progression (style anneaux d'activité). */
 export function Ring({
@@ -25,7 +26,7 @@ export function Ring({
     <div
       style={{ position: 'relative', width: size, height: size, flex: 'none' }}
       role="img"
-      aria-label={`${label} : ${Math.round(pct * 100)} %`}
+      aria-label={tr('{label} : {n} %', { label, n: Math.round(pct * 100) })}
     >
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--surface-2)" strokeWidth={stroke} />

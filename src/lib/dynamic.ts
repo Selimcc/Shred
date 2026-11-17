@@ -7,14 +7,15 @@ import { estimateDuration, resolveExercise } from '../../shared/program';
 import type { Exercise, Session, SessionDef } from '../../shared/types';
 import { isDeload } from './recovery';
 import type { AppState } from './state';
+import { tr } from '../../shared/i18n';
 
 export type SwapReason = 'busy' | 'broken' | 'pain' | 'vary';
 
 export const SWAP_REASONS: { id: SwapReason; label: string }[] = [
-  { id: 'busy', label: 'Machine prise' },
-  { id: 'broken', label: 'Machine en panne' },
-  { id: 'pain', label: 'Douleur, gêne' },
-  { id: 'vary', label: 'Envie de varier' },
+  { id: 'busy', label: tr('Machine prise') },
+  { id: 'broken', label: tr('Machine en panne') },
+  { id: 'pain', label: tr('Douleur, gêne') },
+  { id: 'vary', label: tr('Envie de varier') },
 ];
 
 /** Durée de remplacement automatique d'une machine signalée en panne. */
@@ -48,13 +49,13 @@ export function alternatives(s: AppState, key: string, date: string, exclude: st
     if (!e || e.kind === 'task' || (e.kind === 'cardio' && self?.kind !== 'cardio')) return;
     if (!usable(k, gym) || isBroken(s, k, date)) return;
     seen.add(k);
-    out.push({ key: k, name: e.name, why, muscles: e.muscles });
+    out.push({ key: k, name: e.custom ? e.name : tr(e.name), why, muscles: e.muscles.map((m) => tr(m)) });
   };
-  for (const p of patternsOf(key)) for (const k of (PATTERNS[p as PatternId] as { keys: string[] }).keys) push(k, 'Même mouvement');
-  for (const k of swapsFor(key)) push(k, 'Remplaçant conseillé');
+  for (const p of patternsOf(key)) for (const k of (PATTERNS[p as PatternId] as { keys: string[] }).keys) push(k, tr('Même mouvement'));
+  for (const k of swapsFor(key)) push(k, tr('Remplaçant conseillé'));
   const region = regionOf(key, custom);
-  if (region) for (const e of [...CATALOG, ...Object.values(custom)]) if (regionOf(e.key, custom) === region) push(e.key, 'Même muscle');
-  if (self) for (const e of [...CATALOG, ...Object.values(custom)]) if (e.group === self.group) push(e.key, 'Même groupe');
+  if (region) for (const e of [...CATALOG, ...Object.values(custom)]) if (regionOf(e.key, custom) === region) push(e.key, tr('Même muscle'));
+  if (self) for (const e of [...CATALOG, ...Object.values(custom)]) if (e.group === self.group) push(e.key, tr('Même groupe'));
   return out;
 }
 

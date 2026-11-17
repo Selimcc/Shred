@@ -1,9 +1,10 @@
 // Fiche de force : note de A à E par groupe musculaire, calculée à partir des charges notées.
 // Principe : 1RM estimé (formule d'Epley) rapporté au poids de corps, comparé à des repères
 // approximatifs pour un homme (débutant → avancé). C'est un ordre de grandeur, pas une mesure.
-import { catalogEntry } from '../../shared/catalog';
+import { exerciseName } from '../../shared/catalog';
 import { addDays } from './date';
 import type { AppState } from './state';
+import { tr } from '../../shared/i18n';
 
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'E';
 export const GRADES: Grade[] = ['E', 'D', 'C', 'B', 'A'];
@@ -52,12 +53,12 @@ const STANDARDS: Record<string, Standard> = {
 };
 
 export const GROUPS: { id: string; name: string; short: string; lifts: string[] }[] = [
-  { id: 'chest', name: 'Pectoraux', short: 'Pecs', lifts: ['bench', 'incline-db-press', 'dips', 'db-bench', 'machine-chest-press'] },
-  { id: 'shoulders', name: 'Épaules', short: 'Épaules', lifts: ['db-shoulder-press', 'db-lateral-raise', 'military-press', 'arnold-press'] },
-  { id: 'arms', name: 'Bras', short: 'Bras', lifts: ['incline-curl', 'hammer-curl', 'rope-pushdown', 'barbell-curl', 'close-grip-bench'] },
-  { id: 'hamstrings', name: 'Ischios et fessiers', short: 'Ischios', lifts: ['deadlift', 'rdl', 'leg-curl', 'hip-thrust', 'sumo-deadlift'] },
-  { id: 'quads', name: 'Quadriceps', short: 'Quadris', lifts: ['squat', 'leg-press', 'hack-squat', 'bulgarian', 'front-squat', 'goblet-squat'] },
-  { id: 'back', name: 'Dos', short: 'Dos', lifts: ['pullup', 'chin-up', 'barbell-row', 'db-row', 't-bar-row', 'seated-cable-row', 'neutral-pulldown', 'wide-pulldown'] },
+  { id: 'chest', name: tr('Pectoraux'), short: tr('Pecs'), lifts: ['bench', 'incline-db-press', 'dips', 'db-bench', 'machine-chest-press'] },
+  { id: 'shoulders', name: tr('Épaules'), short: tr('Épaules'), lifts: ['db-shoulder-press', 'db-lateral-raise', 'military-press', 'arnold-press'] },
+  { id: 'arms', name: tr('Bras'), short: tr('Bras'), lifts: ['incline-curl', 'hammer-curl', 'rope-pushdown', 'barbell-curl', 'close-grip-bench'] },
+  { id: 'hamstrings', name: tr('Ischios et fessiers'), short: tr('Ischios'), lifts: ['deadlift', 'rdl', 'leg-curl', 'hip-thrust', 'sumo-deadlift'] },
+  { id: 'quads', name: tr('Quadriceps'), short: tr('Quadris'), lifts: ['squat', 'leg-press', 'hack-squat', 'bulgarian', 'front-squat', 'goblet-squat'] },
+  { id: 'back', name: tr('Dos'), short: tr('Dos'), lifts: ['pullup', 'chin-up', 'barbell-row', 'db-row', 't-bar-row', 'seated-cable-row', 'neutral-pulldown', 'wide-pulldown'] },
 ];
 
 /** Formule d'Epley, reps plafonnées à 15 au-delà desquelles l'estimation devient peu fiable. */
@@ -78,7 +79,7 @@ export function gradeFor(score: number): Grade {
   return GRADES[Math.max(0, Math.min(4, Math.floor(score) - 1))];
 }
 
-const nameOf = (key: string) => catalogEntry(key)?.name ?? key;
+const nameOf = (key: string) => exerciseName(key);
 
 export interface LiftScore {
   key: string;
@@ -146,6 +147,6 @@ export function strengthProfile(s: AppState, today: string, days = 56) {
 
 export function profileSummary(s: AppState, today: string): string {
   const p = strengthProfile(s, today);
-  const parts = p.groups.map((g) => `${g.name} ${g.grade ?? 'non évalué'}`);
-  return `Fiche de force (8 dernières semaines, rapportée à ${p.bodyweight} kg) : ${parts.join(', ')}${p.weakest ? `. Point faible : ${p.weakest.name}` : ''}.`;
+  const parts = p.groups.map((g) => `${g.name} ${g.grade ?? tr('non évalué')}`);
+  return tr('Fiche de force (8 dernières semaines, rapportée à {bodyweight} kg) : {join}{v}.', { bodyweight: p.bodyweight, join: parts.join(', '), v: p.weakest ? tr('. Point faible : {name}', { name: p.weakest.name }) : '' });
 }

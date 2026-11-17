@@ -9,13 +9,14 @@ import { continueWithoutAccount, hasData, login, logout, MIN_PASSWORD, register,
 import type { Account } from '../lib/session';
 import { InstallGuide } from '../components/InstallGuide';
 import { installDismissed } from '../lib/install';
+import { tr } from '../../shared/i18n';
 
 type Mode = 'start' | 'login' | 'register' | 'reset';
 
 const TITLES: Record<Exclude<Mode, 'start'>, string> = {
-  register: 'Créer mon compte',
-  login: 'Me connecter',
-  reset: 'Nouveau mot de passe',
+  register: tr('Créer mon compte'),
+  login: tr('Me connecter'),
+  reset: tr('Nouveau mot de passe'),
 };
 
 function inviteFromUrl(): string {
@@ -56,8 +57,8 @@ export function Welcome({ expired, notice }: { expired?: Account; notice?: strin
         await resetPassword(email, code, password);
         toast(
           hasData()
-            ? 'Mot de passe changé. Ta sauvegarde repart des données de ce téléphone.'
-            : 'Mot de passe changé. L’ancienne sauvegarde, chiffrée avec l’ancien mot de passe, ne pouvait pas être relue : tu repars de zéro.',
+            ? tr('Mot de passe changé. Ta sauvegarde repart des données de ce téléphone.')
+            : tr('Mot de passe changé. L’ancienne sauvegarde, chiffrée avec l’ancien mot de passe, ne pouvait pas être relue : tu repars de zéro.'),
         );
       }
       try {
@@ -76,8 +77,8 @@ export function Welcome({ expired, notice }: { expired?: Account; notice?: strin
     <main className="app welcome">
       <header className="welcome-hero">
         <Pulse mood="cheer" tier={0} size={110} className="kilo-enter" />
-        <h1 className="display">Shred</h1>
-        <p className="muted">Ta séance, tes repas et ta série du jour. Une app privée, sur invitation.</p>
+        <h1 className="display">{tr('Shred')}</h1>
+        <p className="muted">{tr('Ta séance, tes repas et ta série du jour. Une app privée, sur invitation.')}</p>
       </header>
 
       {notice && <div className="card notice small">{notice}</div>}
@@ -87,16 +88,16 @@ export function Welcome({ expired, notice }: { expired?: Account; notice?: strin
       {mode === 'start' && (
         <div className="stack">
           <button className="btn primary block" onClick={() => go('register')}>
-            J’ai une invitation
+            {tr('J’ai une invitation')}
           </button>
           <button className="btn block" onClick={() => go('login')}>
-            Me connecter
+            {tr('Me connecter')}
           </button>
           <button className="link small" style={{ alignSelf: 'center', marginTop: 6 }} onClick={continueWithoutAccount}>
-            Essayer sans compte
+            {tr('Essayer sans compte')}
           </button>
           <p className="small faint" style={{ margin: 0, textAlign: 'center' }}>
-            Sans compte, tout reste sur ce téléphone : pas de rappels, pas de sauvegarde, pas d’IA intégrée.
+            {tr('Sans compte, tout reste sur ce téléphone : pas de rappels, pas de sauvegarde, pas d’IA intégrée.')}
           </p>
         </div>
       )}
@@ -106,21 +107,20 @@ export function Welcome({ expired, notice }: { expired?: Account; notice?: strin
           <h2>{TITLES[mode]}</h2>
           {expired && (
             <p className="small muted" style={{ margin: 0 }}>
-              Ta session a expiré. Reconnecte-toi pour continuer : tes données sont toujours sur ce téléphone.
+              {tr('Ta session a expiré. Reconnecte-toi pour continuer : tes données sont toujours sur ce téléphone.')}
             </p>
           )}
           {mode === 'reset' && (
             <p className="small muted" style={{ margin: 0 }}>
-              Demande un code de réinitialisation à la personne qui t’a invité (valable 48 heures). Ta sauvegarde en ligne est chiffrée avec ton
-              ancien mot de passe : seules les données encore présentes sur ce téléphone seront gardées.
+              {tr('Demande un code de réinitialisation à la personne qui t’a invité (valable 48 heures). Ta sauvegarde en ligne est chiffrée avec ton ancien mot de passe : seules les données encore présentes sur ce téléphone seront gardées.')}
             </p>
           )}
           {mode === 'register' && (
-            <Field label="Prénom">
+            <Field label={tr('Prénom')}>
               <input className="input" autoComplete="given-name" value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
           )}
-          <Field label="Email">
+          <Field label={tr('Email')}>
             <input
               className="input"
               type="email"
@@ -134,27 +134,27 @@ export function Welcome({ expired, notice }: { expired?: Account; notice?: strin
           </Field>
           {mode === 'register' && emailSuggestion(email) && (
             <button type="button" className="link small" style={{ alignSelf: 'flex-start', marginTop: -6 }} onClick={() => setEmail(emailSuggestion(email)!)}>
-              Tu voulais dire <b>{emailSuggestion(email)}</b> ?
+              {tr('Tu voulais dire')}{' '}<b>{emailSuggestion(email)}</b> ?
             </button>
           )}
           {mode === 'reset' && (
-            <Field label="Code de réinitialisation">
+            <Field label={tr('Code de réinitialisation')}>
               <input className="input" autoCapitalize="characters" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} />
             </Field>
           )}
           <Field
-            label={mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'}
-            hint={mode === 'login' ? undefined : `${MIN_PASSWORD} caractères minimum. Il ne quitte jamais ce téléphone.`}
+            label={mode === 'reset' ? tr('Nouveau mot de passe') : tr('Mot de passe')}
+            hint={mode === 'login' ? undefined : tr('{MIN_PASSWORD} caractères minimum. Il ne quitte jamais ce téléphone.', { MIN_PASSWORD })}
           >
             <PasswordInput
-              label={mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'}
+              label={mode === 'reset' ? tr('Nouveau mot de passe') : tr('Mot de passe')}
               value={password}
               onChange={setPassword}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
           </Field>
           {mode === 'register' && (
-            <Field label="Code d’invitation">
+            <Field label={tr('Code d’invitation')}>
               <input className="input" autoCapitalize="characters" spellCheck={false} value={code} onChange={(e) => setCode(e.target.value)} />
             </Field>
           )}
@@ -164,33 +164,33 @@ export function Welcome({ expired, notice }: { expired?: Account; notice?: strin
             </p>
           )}
           <button className="btn primary block" disabled={busy}>
-            {busy ? 'Sécurisation…' : TITLES[mode]}
+            {busy ? tr('Sécurisation…') : TITLES[mode]}
           </button>
 
           <div className="stack" style={{ gap: 8, alignItems: 'center', marginTop: 4 }}>
             {mode === 'login' && (
               <button type="button" className="link small" onClick={() => go('reset')}>
-                Mot de passe oublié ?
+                {tr('Mot de passe oublié ?')}
               </button>
             )}
             {mode === 'login' && !expired && (
               <button type="button" className="link small" onClick={() => go('register')}>
-                Pas encore de compte ? J’ai une invitation
+                {tr('Pas encore de compte ? J’ai une invitation')}
               </button>
             )}
             {mode === 'register' && (
               <button type="button" className="link small" onClick={() => go('login')}>
-                Déjà un compte ? Me connecter
+                {tr('Déjà un compte ? Me connecter')}
               </button>
             )}
             {mode === 'reset' && (
               <button type="button" className="link small" onClick={() => go('login')}>
-                ← Retour à la connexion
+                {tr('← Retour à la connexion')}
               </button>
             )}
             {!expired && mode !== 'reset' && (
               <button type="button" className="link small" style={{ color: 'var(--ink-2)' }} onClick={() => go('start')}>
-                ← Retour
+                {tr('← Retour')}
               </button>
             )}
             {expired && (
@@ -199,12 +199,12 @@ export function Welcome({ expired, notice }: { expired?: Account; notice?: strin
                 className="link small"
                 style={{ color: 'var(--ink-2)' }}
                 onClick={async () => {
-                  if (await ask(`Ce n’est pas le compte de ${expired.name} ? Les données de ce téléphone seront effacées ici (elles restent sur son compte).`, 'Effacer et changer', true)) {
+                  if (await ask(tr('Ce n’est pas le compte de {name} ? Les données de ce téléphone seront effacées ici (elles restent sur son compte).', { name: expired.name }), tr('Effacer et changer'), true)) {
                     await logout({ force: true });
                   }
                 }}
               >
-                Ce n’est pas toi ? Changer de compte
+                {tr('Ce n’est pas toi ? Changer de compte')}
               </button>
             )}
           </div>
@@ -212,8 +212,7 @@ export function Welcome({ expired, notice }: { expired?: Account; notice?: strin
       )}
 
       <p className="small faint welcome-foot">
-        <Icon name="lock" size={14} /> Tes séances et repas sont chiffrés sur ton téléphone avant d’être sauvegardés : personne d’autre ne peut les lire,
-        pas même l’administrateur.
+        <Icon name="lock" size={14} />{' '}{tr('Tes séances et repas sont chiffrés sur ton téléphone avant d’être sauvegardés : personne d’autre ne peut les lire, pas même l’administrateur.')}
       </p>
     </main>
   );

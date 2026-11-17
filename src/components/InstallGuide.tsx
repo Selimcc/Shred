@@ -5,6 +5,7 @@ import { copyText } from './form';
 import { Icon } from './Icon';
 import { toast } from './ui';
 import { dismissInstall, installInfo, onInstallChange, promptInstall } from '../lib/install';
+import { tr } from '../../shared/i18n';
 
 function Dots() {
   return (
@@ -33,31 +34,31 @@ export function InstallGuide({ invite, compact = false, onLater }: { invite?: st
   };
 
   return (
-    <section className="card install-guide stack" aria-label="Installer l’app">
+    <section className="card install-guide stack" aria-label={tr('Installer l’app')}>
       <div className="install-head">
         <span className="install-icon" aria-hidden="true">
           <img src="/icons/icon-192.png?v=pulse" alt="" />
         </span>
         <div className="grow" style={{ minWidth: 0 }}>
-          <b>Installe Shred sur ton écran d’accueil</b>
-          <div className="small muted">Plein écran comme une vraie app, et les rappels sur ton téléphone.</div>
+          <b>{tr('Installe Shred sur ton écran d’accueil')}</b>
+          <div className="small muted">{tr('Plein écran comme une vraie app, et les rappels sur ton téléphone.')}</div>
         </div>
       </div>
 
       {info.platform === 'android' &&
         (info.canPrompt ? (
-          <button className="btn primary block" onClick={() => void promptInstall().then((ok) => ok && toast('Shred est installé'))}>
-            <Icon name="plus" size={18} /> Installer l’app
+          <button className="btn primary block" onClick={() => void promptInstall().then((ok) => ok && toast(tr('Shred est installé')))}>
+            <Icon name="plus" size={18} />{' '}{tr('Installer l’app')}
           </button>
         ) : (
           <ol className="install-steps">
             <li>
-              Dans Chrome, touche le menu <span className="key-glyph">⋮</span> en haut à droite.
+              {tr('Dans Chrome, touche le menu')}{' '}<span className="key-glyph">⋮</span>{' '}{tr('en haut à droite.')}
             </li>
             <li>
-              Choisis <b>Installer l’application</b> (ou « Ajouter à l’écran d’accueil »).
+              {tr('Choisis')}{' '}<b>{tr('Installer l’application')}</b>{' '}{tr('(ou « Ajouter à l’écran d’accueil »).')}
             </li>
-            <li>Ouvre Shred depuis sa nouvelle icône.</li>
+            <li>{tr('Ouvre Shred depuis sa nouvelle icône.')}</li>
           </ol>
         ))}
 
@@ -66,20 +67,19 @@ export function InstallGuide({ invite, compact = false, onLater }: { invite?: st
           <li>
             {info.platform === 'ios-safari' ? (
               <>
-                Touche <Dots /> en bas à droite de Safari, puis <b>Partager</b> <ShareGlyph />. Sur un iPhone plus ancien, touche directement <ShareGlyph />{' '}
-                en bas de l’écran.
+                {tr('Touche')}{' '}<Dots />{' '}{tr('en bas à droite de Safari, puis')}{' '}<b>{tr('Partager')}</b> <ShareGlyph />{tr('. Sur un iPhone plus ancien, touche directement')}{' '}<ShareGlyph />{' '}{tr('en bas de l’écran.')}
               </>
             ) : (
               <>
-                Touche <b>Partager</b> <ShareGlyph /> dans la barre de ton navigateur. Si tu ne le trouves pas, ouvre ce lien dans Safari.
+                {tr('Touche')}{' '}<b>{tr('Partager')}</b> <ShareGlyph />{' '}{tr('dans la barre de ton navigateur. Si tu ne le trouves pas, ouvre ce lien dans Safari.')}
               </>
             )}
           </li>
           <li>
-            Fais défiler et choisis <b>Sur l’écran d’accueil</b>.
+            {tr('Fais défiler et choisis')}{' '}<b>{tr('Sur l’écran d’accueil')}</b>.
           </li>
           <li>
-            Laisse <b>Ouvrir comme app web</b> activé, touche <b>Ajouter</b>, puis ouvre Shred depuis l’icône.
+            {tr('Laisse')}{' '}<b>{tr('Ouvrir comme app web')}</b>{' '}{tr('activé, touche')}{' '}<b>{tr('Ajouter')}</b>{tr(', puis ouvre Shred depuis l’icône.')}
           </li>
         </ol>
       )}
@@ -87,23 +87,23 @@ export function InstallGuide({ invite, compact = false, onLater }: { invite?: st
       {invite && (
         <div className="install-code">
           <div className="grow" style={{ minWidth: 0 }}>
-            <div className="small muted">Ton code d’invitation, déjà rempli dans l’app installée</div>
+            <div className="small muted">{tr('Ton code d’invitation, déjà rempli dans l’app installée')}</div>
             <b className="num">{invite}</b>
           </div>
-          <button className="btn small" onClick={async () => (await copyText(invite)) && toast('Code copié')}>
-            Copier
+          <button className="btn small" onClick={async () => (await copyText(invite)) && toast(tr('Code copié'))}>
+            {tr('Copier')}
           </button>
         </div>
       )}
 
       {!compact && (
         <button className="link small" style={{ alignSelf: 'center' }} onClick={later}>
-          Plus tard, continuer dans le navigateur
+          {tr('Plus tard, continuer dans le navigateur')}
         </button>
       )}
       {compact && (
         <button className="link small" style={{ alignSelf: 'flex-start' }} onClick={later}>
-          Plus tard
+          {tr('Plus tard')}
         </button>
       )}
     </section>

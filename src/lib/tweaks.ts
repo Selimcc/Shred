@@ -1,6 +1,6 @@
 // Ajustements proposés par Pulse d'après tes séances : priorité qui manque de volume, exercice
 // qui ne progresse plus, programme trop chargé pour ton rythme réel. Rien ne change sans ton accord.
-import { catalogEntry } from '../../shared/catalog';
+import { catalogEntry, exerciseName } from '../../shared/catalog';
 import { PATTERNS, type PatternId, programVolume, type Region, regionName, regionOf, targetsFor } from '../../shared/generator';
 import { usable } from '../../shared/plans';
 import { planWeek, scheduleFor } from '../../shared/program';
@@ -12,6 +12,7 @@ import { DELOAD_AFTER, DELOAD_MAX, isDeload, weeksInBlock } from './recovery';
 import { startDeload } from './workoutActions';
 import { alternatives } from './dynamic';
 import { type AppState, getState, setState } from './store';
+import { loc, lower, tn, tr } from '../../shared/i18n';
 
 export type TweakAction =
   | { kind: 'add-set'; session: string; key: string }
@@ -42,7 +43,7 @@ const COMPAT: Record<Region, Region[]> = {
   calves: ['quads', 'posterior', 'calves'], abs: ['abs', 'quads', 'posterior', 'back'], traps: ['back', 'traps', 'delts'], neck: ['back', 'delts', 'neck'],
 };
 
-const nameOf = (s: AppState, key: string) => catalogEntry(key, s.customExercises)?.name ?? key;
+const nameOf = (s: AppState, key: string) => exerciseName(key, s.customExercises);
 
 /** Séries réellement faites par zone, moyenne par semaine sur les `weeks` dernières semaines. */
 export function doneByRegion(s: AppState, today: string, weeks = 2): Partial<Record<Region, number>> {
@@ -96,9 +97,9 @@ export function programTweaks(s: AppState, today: string): Tweak[] {
       if (slot && (slot.x.sets ?? 3) < 5 && missing <= 3) {
         out.push({
           id: `vol-${r}-${slot.x.key}`,
-          title: `${regionName(r)} : ${planned[r]} séries par semaine`,
-          text: `C’est ta priorité, la cible est d’environ ${targets[r]}. Une série de plus sur ${nameOf(s, slot.x.key).toLowerCase()} (${slot.def.name}) rapproche du compte.`,
-          cta: 'Ajouter une série',
+          title: tr('{regionName} : {planned} séries par semaine', { regionName: regionName(r), planned: planned[r] }),
+          text: tr('C’est ta priorité, la cible est d’environ {targets}. Une série de plus sur {nameOf} ({name}) rapproche du compte.', { targets: targets[r], nameOf: lower(nameOf(s, slot.x.key)), name: slot.def.name }),
+          cta: tr('Ajouter une série'),
           action: { kind: 'add-set', session: slot.def.id, key: slot.x.key },
         });
       } else {
@@ -113,9 +114,9 @@ export function programTweaks(s: AppState, today: string): Tweak[] {
         if (host && key)
           out.push({
             id: `vol-${r}-add-${key}`,
-            title: `${regionName(r)} : ${planned[r]} séries par semaine`,
-            text: `C’est ta priorité, la cible est d’environ ${targets[r]}. Ajoute ${nameOf(s, key).toLowerCase()} à ta séance ${host.name}.`,
-            cta: 'Ajouter l’exercice',
+            title: tr('{regionName} : {planned} séries par semaine', { regionName: regionName(r), planned: planned[r] }),
+            text: tr('C’est ta priorité, la cible est d’environ {targets}. Ajoute {nameOf} à ta séance {name}.', { targets: targets[r], nameOf: lower(nameOf(s, key)), name: host.name }),
+            cta: tr('Ajouter l’exercice'),
             action: { kind: 'add-exercise', session: host.id, key },
           });
       }
@@ -131,13 +132,13 @@ export function programTweaks(s: AppState, today: string): Tweak[] {
     const before = Math.max(...h.slice(3, 6).map((o) => o.best));
     const older = h[6] ? h[6].best : before;
     if (recent > before * 1.01 || before > older * 1.02) continue;
-    const alt = alternatives(s, key, today, [...inProgram]).find((x) => x.why === 'Même mouvement') ?? alternatives(s, key, today, [...inProgram])[0];
+    const alt = alternatives(s, key, today, [...inProgram]).find((x) => x.why === tr('Même mouvement')) ?? alternatives(s, key, today, [...inProgram])[0];
     if (!alt) continue;
     out.push({
       id: `stall-${key}`,
-      title: `${nameOf(s, key)} plafonne`,
-      text: `Pas de record depuis ${h.length - 1} séances. Change de variante pour 4 à 6 semaines : ${alt.name.toLowerCase()} travaille les mêmes muscles sous un autre angle, puis reviens-y.`,
-      cta: 'Changer de variante',
+      title: tr('{nameOf} plafonne', { nameOf: nameOf(s, key) }),
+      text: tr('Pas de record depuis {n} séances. Change de variante pour 4 à 6 semaines : {name} travaille les mêmes muscles sous un autre angle, puis reviens-y.', { n: h.length - 1, name: lower(alt.name) }),
+      cta: tr('Changer de variante'),
       action: { kind: 'swap', from: key, to: alt.key },
     });
   }
@@ -148,9 +149,9 @@ export function programTweaks(s: AppState, today: string): Tweak[] {
     const perWeek = Math.round((adh.done / adh.planned) * a.days * 10) / 10;
     out.push({
       id: `days-${a.days}`,
-      title: `${adh.done} séances sur ${adh.planned} ces 3 semaines`,
-      text: `Tu tiens environ ${perWeek.toLocaleString('fr-FR')} séances par semaine. Un programme pensé pour ${a.days - 1} jours répartit mieux le volume qu’un ${a.days} jours à moitié fait.`,
-      cta: `Passer à ${a.days - 1} jours`,
+      title: tr('{done} séances sur {planned} ces 3 semaines', { done: adh.done, planned: adh.planned }),
+      text: tr('Tu tiens environ {perWeek} séances par semaine. Un programme pensé pour {n} jours répartit mieux le volume qu’un {days} jours à moitié fait.', { perWeek: perWeek.toLocaleString(loc()), n: a.days - 1, days: a.days }),
+      cta: tr('Passer à {n} jours', { n: a.days - 1 }),
       action: { kind: 'days', days: a.days - 1 },
     });
   }
@@ -165,9 +166,9 @@ export function programTweaks(s: AppState, today: string): Tweak[] {
     if (weeks >= DELOAD_MAX || (weeks >= DELOAD_AFTER && stalls >= 2)) {
       out.unshift({
         id: `deload-${weeks}`,
-        title: `${weeks} semaines d’entraînement sans pause`,
-        text: `${stalls >= 2 ? `${stalls} exercices plafonnent. ` : ''}Une semaine de décharge (un tiers de séries en moins, charges −10 %) laisse le corps encaisser. Tu repars plus fort, sans perdre de muscle.`,
-        cta: 'Commencer la décharge',
+        title: tr('{weeks} semaines d’entraînement sans pause', { weeks }),
+        text: tr('{v}Une semaine de décharge (un tiers de séries en moins, charges −10 %) laisse le corps encaisser. Tu repars plus fort, sans perdre de muscle.', { v: stalls >= 2 ? tn(stalls, '{n} exercice plafonne. ', '{n} exercices plafonnent. ') : '' }),
+        cta: tr('Commencer la décharge'),
         action: { kind: 'deload' },
       });
     }
@@ -179,9 +180,9 @@ export function programTweaks(s: AppState, today: string): Tweak[] {
     const next = p.meta.block + 1;
     out.unshift({
       id: `block-${next}-${p.start}`,
-      title: `Bloc ${p.meta.block} terminé`,
-      text: `${p.weeks.length} semaines bouclées. Le bloc ${next} reprend la même structure avec un peu plus de volume : c’est comme ça qu’on progresse sans se blesser.`,
-      cta: `Lancer le bloc ${next}`,
+      title: tr('Bloc {block} terminé', { block: p.meta.block }),
+      text: tr('{length} semaines bouclées. Le bloc {next} reprend la même structure avec un peu plus de volume : c’est comme ça qu’on progresse sans se blesser.', { length: p.weeks.length, next }),
+      cta: tr('Lancer le bloc {next}', { next }),
       action: { kind: 'next-block', block: next },
     });
   }
@@ -194,18 +195,18 @@ export function applyTweak(t: Tweak, today = dayKey()): string {
   const action = t.action;
   if (action.kind === 'deload') {
     startDeload(today);
-    return 'Semaine de décharge lancée jusqu’à dimanche';
+    return tr('Semaine de décharge lancée jusqu’à dimanche');
   }
   if (action.kind === 'next-block') {
     const s = getState();
     applyProgram(programFor(s.settings.athlete, s.settings.gym, today, s, action.block).program);
-    return `Bloc ${action.block} lancé : 8 nouvelles semaines`;
+    return tr('Bloc {block} lancé : 8 nouvelles semaines', { block: action.block });
   }
   if (action.kind === 'days') {
     setState((d) => void (d.settings.athlete.days = action.days));
     const s = getState();
     applyProgram(programFor(s.settings.athlete, s.settings.gym).program);
-    return `Programme reconstruit sur ${action.days} jours. L’ancien est gardé dans Programme.`;
+    return tr('Programme reconstruit sur {days} jours. L’ancien est gardé dans Programme.', { days: action.days });
   }
   setState((d) => {
     if (action.kind === 'add-set') {
@@ -218,7 +219,7 @@ export function applyTweak(t: Tweak, today = dayKey()): string {
       for (const def of d.program.sessions) for (const x of def.exercises) if (x.key === action.from) x.key = action.to;
     }
   });
-  return 'Programme ajusté';
+  return tr('Programme ajusté');
 }
 
 export function dismissTweak(id: string, today: string) {

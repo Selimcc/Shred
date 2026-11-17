@@ -8,6 +8,7 @@ import { streakInfo } from './logic';
 import { moment } from './moments';
 import { signedIn } from './session';
 import { getState, subscribe } from './store';
+import { tr } from '../../shared/i18n';
 
 const KEY = 'shred:wallet';
 const CLAIMED = 'shred:plates-day';
@@ -69,7 +70,7 @@ async function claim() {
     const r = await club.claimPlates(today, st.current);
     write(CLAIMED, today);
     setWallet(r.wallet);
-    if (r.bonus > 0) setTimeout(() => moment('plates', `+${r.gained} disques`, `${st.current} jours de série : bonus de palier`), 4200);
+    if (r.bonus > 0) setTimeout(() => moment('plates', tr('+{gained} disques', { gained: r.gained }), tr('{current} jours de série : bonus de palier', { current: st.current })), 4200);
   } catch {
     // Hors ligne : on réessaiera au prochain changement ou au retour dans l'app.
   } finally {

@@ -1,3 +1,4 @@
+import { tr } from './i18n';
 // Thèmes de saison : les fêtes, leurs dates, ce que Pulse en dit. Partagé par l'app (habillage) et le serveur
 // (le coach, qui n'accepte qu'un identifiant de cette liste).
 
@@ -17,41 +18,41 @@ export interface Season {
 export const SEASONS: Record<SeasonId, Season> = {
   halloween: {
     id: 'halloween',
-    name: 'Halloween',
-    when: 'Du 18 octobre au 1er novembre',
-    wish: 'Joyeux Halloween',
+    name: tr('Halloween'),
+    when: tr('Du 18 octobre au 1er novembre'),
+    wish: tr('Joyeux Halloween'),
     coach:
-      'Nous sommes dans la période d’Halloween : tu peux glisser une touche de saison (citrouille, frisson, bonbons à mériter), une fois au plus par réponse.',
+      tr('Nous sommes dans la période d’Halloween : tu peux glisser une touche de saison (citrouille, frisson, bonbons à mériter), une fois au plus par réponse.'),
   },
   noel: {
     id: 'noel',
-    name: 'Noël',
-    when: 'Du 1er au 27 décembre',
-    wish: 'Joyeux Noël',
+    name: tr('Noël'),
+    when: tr('Du 1er au 27 décembre'),
+    wish: tr('Joyeux Noël'),
     coach:
-      'Nous sommes dans la période de Noël : tu peux glisser une touche de saison (sapin, repas de fête, traîneau), une fois au plus par réponse, sans culpabiliser les repas de fête.',
+      tr('Nous sommes dans la période de Noël : tu peux glisser une touche de saison (sapin, repas de fête, traîneau), une fois au plus par réponse, sans culpabiliser les repas de fête.'),
   },
   'nouvel-an': {
     id: 'nouvel-an',
-    name: 'Nouvel an',
-    when: 'Du 28 décembre au 3 janvier',
-    wish: 'Bonne année',
-    coach: 'Nous sommes autour du Nouvel an : tu peux glisser une touche de saison (bonnes résolutions, nouvelle année), une fois au plus par réponse.',
+    name: tr('Nouvel an'),
+    when: tr('Du 28 décembre au 3 janvier'),
+    wish: tr('Bonne année'),
+    coach: tr('Nous sommes autour du Nouvel an : tu peux glisser une touche de saison (bonnes résolutions, nouvelle année), une fois au plus par réponse.'),
   },
   'saint-valentin': {
     id: 'saint-valentin',
     name: 'Saint-Valentin',
-    when: 'Du 10 au 15 février',
-    wish: 'Joyeuse Saint-Valentin',
+    when: tr('Du 10 au 15 février'),
+    wish: tr('Joyeuse Saint-Valentin'),
     coach:
-      'Nous sommes autour de la Saint-Valentin : tu peux glisser une touche de saison (avec tendresse, sans supposer que la personne est en couple), une fois au plus par réponse.',
+      tr('Nous sommes autour de la Saint-Valentin : tu peux glisser une touche de saison (avec tendresse, sans supposer que la personne est en couple), une fois au plus par réponse.'),
   },
   paques: {
     id: 'paques',
-    name: 'Pâques',
-    when: 'La semaine avant Pâques et le lundi',
-    wish: 'Joyeuses Pâques',
-    coach: 'Nous sommes autour de Pâques : tu peux glisser une touche de saison (chocolat, chasse aux œufs, printemps), une fois au plus par réponse.',
+    name: tr('Pâques'),
+    when: tr('La semaine avant Pâques et le lundi'),
+    wish: tr('Joyeuses Pâques'),
+    coach: tr('Nous sommes autour de Pâques : tu peux glisser une touche de saison (chocolat, chasse aux œufs, printemps), une fois au plus par réponse.'),
   },
 };
 

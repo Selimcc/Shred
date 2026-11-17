@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n';
 /** Redimensionne une photo côté téléphone avant envoi : moins de données, moins de tokens. */
 export async function prepareImage(file: File, maxSide = 1024, quality = 0.8) {
   const bitmap = await loadBitmap(file);
@@ -33,13 +34,13 @@ function draw(src: ImageBitmap | HTMLImageElement, maxSide: number, quality: num
   canvas.width = Math.round(w * scale);
   canvas.height = Math.round(h * scale);
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas indisponible');
+  if (!ctx) throw new Error(tr('Canvas indisponible'));
   // En réduisant, Safari peut laisser le dernier pixel du bord à moitié transparent, et le JPEG le rend noir :
   // l'image est d'abord peinte un pixel plus grande dessous, le bord s'appuie alors sur ses vraies couleurs.
   ctx.drawImage(src, -1, -1, canvas.width + 2, canvas.height + 2);
   ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
   return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Compression impossible'))), 'image/jpeg', quality),
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(tr('Compression impossible')))), 'image/jpeg', quality),
   );
 }
 

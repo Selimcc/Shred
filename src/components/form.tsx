@@ -2,6 +2,7 @@ import { type ReactNode, useState } from 'react';
 import { parseDecimal } from '../lib/actions';
 import { Icon } from './Icon';
 import { toast } from './ui';
+import { tr } from '../../shared/i18n';
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
@@ -44,7 +45,7 @@ export async function copyText(value: string): Promise<boolean> {
     await navigator.clipboard.writeText(value);
     return true;
   } catch {
-    toast('Copie impossible : sélectionne le texte à la main', true);
+    toast(tr('Copie impossible : sélectionne le texte à la main'), true);
     return false;
   }
 }
@@ -66,7 +67,7 @@ export function CopyRow({ label, value, display }: { label: string; value: strin
         </div>
       </div>
       <button className="btn small" onClick={copy}>
-        {copied ? 'Copié' : 'Copier'}
+        {copied ? tr('Copié') : tr('Copier')}
       </button>
     </div>
   );
@@ -151,7 +152,7 @@ export function PasswordInput({
         style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}
         onClick={() => setShow(!show)}
       >
-        {show ? 'Masquer' : 'Afficher'}
+        {show ? tr('Masquer') : tr('Afficher')}
       </button>
     </div>
   );

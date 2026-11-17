@@ -6,6 +6,7 @@ import { type Sealed, seal, sha256, unseal } from './crypto';
 import { type Account, getSession, setSession } from './session';
 import { mergeStates, sameData } from './merge';
 import { type AppState, getState, migrate, replaceState, subscribe } from './store';
+import { tr } from '../../shared/i18n';
 
 /** Au plus une sauvegarde automatique tous les quarts d'heure (la base gratuite limite les écritures). */
 const MIN_INTERVAL = 15 * 60_000;
@@ -153,7 +154,7 @@ export async function reconcile(acc: Account, mine: boolean): Promise<void> {
   }
   if (mine && !meta.dirty) {
     await restore(remote);
-    toast('Données à jour depuis ton compte');
+    toast(tr('Données à jour depuis ton compte'));
     return;
   }
   // Deux versions différentes : on fusionne jour par jour au lieu de demander laquelle écraser.
@@ -166,7 +167,7 @@ export async function reconcile(acc: Account, mine: boolean): Promise<void> {
   const merged = mergeStates(local, remote.state, mine && meta.dirty);
   await restore({ state: merged, savedAt: remote.savedAt });
   await uploadBackup(true);
-  if (!sameData(local, remote.state)) toast(mine ? 'Données fusionnées avec ton autre appareil' : 'Données de ce téléphone et du compte fusionnées');
+  if (!sameData(local, remote.state)) toast(mine ? tr('Données fusionnées avec ton autre appareil') : tr('Données de ce téléphone et du compte fusionnées'));
 }
 
 /** Au démarrage et au retour dans l'app : sauvegarde ce qui a changé, récupère ce qui vient d'ailleurs. */

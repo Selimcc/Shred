@@ -8,9 +8,10 @@ import { ask, toast } from '../components/ui';
 import { applyMealPlan, buildMealPlan } from '../lib/coaching';
 import { formatNumber } from '../lib/date';
 import { useApp } from '../lib/store';
+import { loc, tr } from '../../shared/i18n';
 
 export function shoppingText(prep: MealPrep): string {
-  return [`Courses Shred (${prep.days} jours)`, ...prep.shopping.flatMap((s) => [`\n${s.section}`, ...s.items.map((i) => `- ${i}`)])].join('\n');
+  return [tr('Courses Shred ({days} jours)', { days: prep.days }), ...prep.shopping.flatMap((s) => [`\n${s.section}`, ...s.items.map((i) => `- ${i}`)])].join('\n');
 }
 
 export function PrepView({ prep }: { prep: MealPrep }) {
@@ -18,7 +19,7 @@ export function PrepView({ prep }: { prep: MealPrep }) {
     <div className="stack" style={{ gap: 18 }}>
       {prep.batches.map((b) => (
         <section className="stack" key={b.when}>
-          <h2>Préparation du {b.when.toLowerCase()}</h2>
+          <h2>{b.when}</h2>
           <div className="group">
             {b.recipes.map((rc) => (
               <div className="row" key={rc.name} style={{ alignItems: 'flex-start' }}>
@@ -26,7 +27,7 @@ export function PrepView({ prep }: { prep: MealPrep }) {
                   <div className="title">
                     {rc.name} <span className="tag num">× {rc.portions}</span>
                   </div>
-                  <div className="small muted">Par boîte : {rc.detail}</div>
+                  <div className="small muted">{tr('Par boîte : {detail}', { detail: rc.detail })}</div>
                 </div>
               </div>
             ))}
@@ -40,9 +41,9 @@ export function PrepView({ prep }: { prep: MealPrep }) {
       ))}
       <section className="stack">
         <div className="section-head" style={{ marginBottom: 0 }}>
-          <h2>Liste de courses</h2>
-          <button className="link small" onClick={async () => (await copyText(shoppingText(prep))) && toast('Liste copiée')}>
-            Copier
+          <h2>{tr('Liste de courses')}</h2>
+          <button className="link small" onClick={async () => (await copyText(shoppingText(prep))) && toast(tr('Liste copiée'))}>
+            {tr('Copier')}
           </button>
         </div>
         {prep.shopping.map((sec) => (
@@ -72,16 +73,15 @@ export function MealPlanner() {
     return (
       <div className="stack" style={{ gap: 18 }}>
         <p className="small muted" style={{ margin: 0 }}>
-          Un plan de repas calé sur tes {formatNumber(t.kcal)} kcal et {t.protein} g de protéines, selon tes préférences (Réglages, Profil sportif) : deux
-          plats à préparer le dimanche, deux le mercredi, petit-déjeuner et collation simples. Les repas deviennent tes repas prévus, cochables en un tap.
+          {tr('Un plan de repas calé sur tes {n} kcal et {protein} g de protéines, selon tes préférences (Réglages, Profil sportif) : deux plats à préparer le dimanche, deux le mercredi, petit-déjeuner et collation simples. Les repas deviennent tes repas prévus, cochables en un tap.', { n: formatNumber(t.kcal), protein: t.protein })}
         </p>
         <button className="btn primary block" onClick={() => setDraft(buildMealPlan(seed))}>
-          <Icon name="utensils" size={18} /> {s.prep ? 'Générer un nouveau plan' : 'Générer mon meal plan'}
+          <Icon name="utensils" size={18} /> {s.prep ? tr('Générer un nouveau plan') : tr('Générer mon meal plan')}
         </button>
         {s.prep && (
           <>
             <p className="small faint" style={{ margin: 0 }}>
-              Plan en cours depuis le {new Date(`${s.prep.createdAt}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}.
+              {tr('Plan en cours depuis le {toLocaleDateString}.', { toLocaleDateString: new Date(`${s.prep.createdAt}T12:00:00`).toLocaleDateString(loc(), { day: 'numeric', month: 'long' }) })}
             </p>
             <PrepView prep={s.prep} />
           </>
@@ -96,18 +96,17 @@ export function MealPlanner() {
     <div className="stack" style={{ gap: 18 }}>
       <div className="card stack" style={{ gap: 4 }}>
         <div style={{ fontWeight: 850 }}>
-          Journée type : {formatNumber(day.kcal)} kcal · {day.protein} g de protéines
+          {tr('Journée type : {n} kcal · {protein} g de protéines', { n: formatNumber(day.kcal), protein: day.protein })}
         </div>
         <div className="small muted">
-          Objectif {formatNumber(t.kcal)} kcal et {t.protein} g ({gap > 0 ? '+' : ''}
-          {gap} %). Glucides {day.carbs} g, lipides {day.fat} g.
+          {tr('Objectif {n} kcal et {protein} g ({gap} %). Glucides {carbs} g, lipides {fat} g.', { n: formatNumber(t.kcal), protein: t.protein, gap: `${gap > 0 ? '+' : ''}${gap}`, carbs: day.carbs, fat: day.fat })}
         </div>
       </div>
       {SLOTS.filter((sl) => draft.meals.some((m) => m.slot === sl.id)).map((sl) => (
         <section key={sl.id} className="stack">
           <h2>
             {sl.name}
-            {draft.meals.filter((m) => m.slot === sl.id).length > 1 ? ' (au choix)' : ''}
+            {draft.meals.filter((m) => m.slot === sl.id).length > 1 ? tr(' (au choix)') : ''}
           </h2>
           <div className="group">
             {draft.meals
@@ -115,10 +114,10 @@ export function MealPlanner() {
               .map((m) => (
                 <div className="row" key={m.id} style={{ alignItems: 'flex-start' }}>
                   <div className="grow">
-                    <div className="title">{m.label}</div>
-                    <div className="small muted">{m.detail}</div>
+                    <div className="title">{tr(m.label)}</div>
+                    <div className="small muted">{tr(m.detail)}</div>
                     <div className="small faint num">
-                      {m.kcal} kcal, {m.protein} g P, {m.carbs} g G, {m.fat} g L
+                      {tr('{kcal} kcal, {protein} g P, {carbs} g G, {fat} g L', { kcal: m.kcal, protein: m.protein, carbs: m.carbs, fat: m.fat })}
                     </div>
                   </div>
                 </div>
@@ -135,19 +134,19 @@ export function MealPlanner() {
             setDraft(buildMealPlan(seed + 1));
           }}
         >
-          Autre plan
+          {tr('Autre plan')}
         </button>
         <button
           className="btn primary"
           style={{ flex: 1 }}
           onClick={async () => {
-            if (s.mealPlan.some((m) => !m.id.startsWith('gen-') && m.slot !== 'extra') && !(await ask('Remplacer tes repas prévus par ce plan ?', 'Remplacer'))) return;
+            if (s.mealPlan.some((m) => !m.id.startsWith('gen-') && m.slot !== 'extra') && !(await ask(tr('Remplacer tes repas prévus par ce plan ?'), tr('Remplacer')))) return;
             applyMealPlan(draft);
             setDraft(null);
-            toast('Meal plan enregistré : tes repas prévus sont à jour');
+            toast(tr('Meal plan enregistré : tes repas prévus sont à jour'));
           }}
         >
-          Utiliser ce plan
+          {tr('Utiliser ce plan')}
         </button>
       </div>
     </div>

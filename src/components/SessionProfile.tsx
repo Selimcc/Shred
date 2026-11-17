@@ -1,17 +1,18 @@
 // Profil d'une séance d'endurance : chaque bloc est une colonne, sa largeur est sa durée, sa hauteur
 // et sa teinte disent l'intensité (zones 1 à 5). Les blocs faits s'allument au fil de la séance.
 import { useState } from 'react';
-import { catalogEntry } from '../../shared/catalog';
+import { catalogEntry, exerciseName } from '../../shared/catalog';
 import { type Block, blocksSeconds, fmtClock, hardSeconds, sessionBlocks, ZONE_NAMES } from '../../shared/effort';
 import type { Exercise } from '../../shared/types';
+import { lower, tr } from '../../shared/i18n';
 
 const HEIGHT = { 1: 22, 2: 40, 3: 60, 4: 80, 5: 100 } as const;
 
 function blockLabel(b: Block, ex: Exercise | undefined): string {
-  if (b.rest) return `Récupération, ${fmtSec(b.sec)}`;
-  const name = ex?.name ?? catalogEntry(b.key)?.name ?? (b.key === 'run-warmup' ? 'Échauffement' : 'Retour au calme');
+  if (b.rest) return tr('Récupération, {fmtSec}', { fmtSec: fmtSec(b.sec) });
+  const name = ex?.name ?? (catalogEntry(b.key) ? exerciseName(b.key) : undefined) ?? (b.key === 'run-warmup' ? tr('Échauffement') : tr('Retour au calme'));
   const reps = ex && ex.sets > 1 ? ` ${b.rep + 1}/${ex.sets}` : '';
-  return `${name}${reps} : ${ex?.reps ?? fmtSec(b.sec)}${ex?.target ? `, ${ex.target}` : ''}`;
+  return tr('{name} : {detail}', { name: `${name}${reps}`, detail: `${ex?.reps ?? fmtSec(b.sec)}${ex?.target ? `, ${ex.target}` : ''}` });
 }
 
 function fmtSec(sec: number): string {
@@ -46,7 +47,7 @@ export function SessionProfile({ exercises, done, compact = false }: { exercises
   const ticks = compact ? [] : tickMarks(total);
 
   return (
-    <figure className={`profile ${compact ? 'compact' : ''}`} aria-label={`Profil de la séance : ${fmtClock(total)}, dont ${fmtClock(hard)} en zone 4 et 5`}>
+    <figure className={`profile ${compact ? 'compact' : ''}`} aria-label={tr('Profil de la séance : {time}, dont {time2} en zone 4 et 5', { time: fmtClock(total), time2: fmtClock(hard) })}>
       {!compact && (
         <figcaption className="profile-head">
           <span className="profile-readout" aria-live="polite">
@@ -54,14 +55,13 @@ export function SessionProfile({ exercises, done, compact = false }: { exercises
               <>
                 <b>{blockLabel(shown, exercises[shown.ex])}</b>
                 <span className="faint num">
-                  {' '}
-                  de {fmtSec(elapsed)} à {fmtSec(elapsed + shown.sec)}, zone {shown.zone} {ZONE_NAMES[shown.zone].toLowerCase()}
+                  {' '}{tr('de {fmtSec} à {fmtSec2}, zone {zone} {ZONE_NAMES}', { fmtSec: fmtSec(elapsed), fmtSec2: fmtSec(elapsed + shown.sec), zone: shown.zone, ZONE_NAMES: lower(ZONE_NAMES[shown.zone]) })}
                 </span>
               </>
             ) : (
               <>
                 <b className="num">{fmtClock(total)}</b>
-                <span className="muted">{hard >= 60 ? `, dont ${fmtClock(hard)} en zone 4 et 5` : ', tout en aisance'}</span>
+                <span className="muted">{hard >= 60 ? tr(', dont {time} en zone 4 et 5', { time: fmtClock(hard) }) : tr(', tout en aisance')}</span>
               </>
             )}
           </span>
@@ -92,7 +92,7 @@ export function SessionProfile({ exercises, done, compact = false }: { exercises
       )}
       {!compact && (
         <div className="profile-legend small muted" aria-hidden="true">
-          <span>Intensité</span>
+          <span>{tr('Intensité')}</span>
           {([1, 2, 3, 4, 5] as const).map((z) => (
             <span key={z} className="profile-key">
               <i className={`z${z}`} style={{ height: `${4 + z * 2}px` }} />Z{z}

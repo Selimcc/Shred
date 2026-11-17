@@ -6,6 +6,7 @@ import { readDay, useApp } from '../lib/store';
 import { Icon } from './Icon';
 import { Ring } from './Ring';
 import { Sheet, toast } from './ui';
+import { lower, pct, tr } from '../../shared/i18n';
 
 const TONE_COLOR = { go: 'var(--mint)', ok: 'var(--amber)', low: 'var(--rose)' } as const;
 
@@ -60,7 +61,7 @@ function fill(m?: MuscleState): string {
   return 'color-mix(in srgb, var(--mint) 62%, var(--map-idle))';
 }
 
-function Figure({ parts, neutral, states, label }: { parts: [Region, string[]][]; neutral: string[]; states: Map<Region, MuscleState>; label: string }) {
+function Figure({ parts, neutral, states, label, front }: { parts: [Region, string[]][]; neutral: string[]; states: Map<Region, MuscleState>; label: string; front: boolean }) {
   return (
     <figure className="body-figure">
       <svg viewBox={`0 0 ${W} 270`} role="img" aria-label={label}>
@@ -72,15 +73,15 @@ function Figure({ parts, neutral, states, label }: { parts: [Region, string[]][]
             <path key={`${region}${i}`} d={d} fill={fill(states.get(region))} className="body-muscle">
               <title>
                 {REGION_NAMES[region]}
-                {states.get(region)?.hours !== null && states.get(region) ? `, récupéré à ${states.get(region)!.recovery} %` : ''}
+                {states.get(region)?.hours !== null && states.get(region) ? tr(', récupéré à {recovery} %', { recovery: states.get(region)!.recovery }) : ''}
               </title>
             </path>
           )),
         )}
         {/* Lignes des abdos, pour le relief. */}
-        {label.startsWith('Face') && <path d="M60,79 L60,120 M51,93 L69,93 M51,107 L69,107" className="body-lines" />}
+        {front && <path d="M60,79 L60,120 M51,93 L69,93 M51,107 L69,107" className="body-lines" />}
       </svg>
-      <figcaption className="small faint">{label.startsWith('Face') ? 'Face' : 'Dos'}</figcaption>
+      <figcaption className="small faint">{front ? tr('Face') : tr('Dos')}</figcaption>
     </figure>
   );
 }
@@ -92,8 +93,8 @@ export function BodyMap({ states }: { states: MuscleState[] }) {
   const byRegion = useMemo(() => new Map(states.map((m) => [m.region, m])), [states]);
   return (
     <div className="body-map">
-      <Figure parts={FRONT} neutral={NEUTRAL} states={byRegion} label="Face : récupération par muscle" />
-      <Figure parts={BACK} neutral={NEUTRAL} states={byRegion} label="Dos : récupération par muscle" />
+      <Figure parts={FRONT} neutral={NEUTRAL} states={byRegion} label={tr('Face : récupération par muscle')} front />
+      <Figure parts={BACK} neutral={NEUTRAL} states={byRegion} label={tr('Dos : récupération par muscle')} front={false} />
     </div>
   );
 }
@@ -111,21 +112,21 @@ export function ReadinessCard({ today }: { today: string }) {
   const names = (list: MuscleState[]) =>
     list
       .slice(0, 2)
-      .map((m) => REGION_NAMES[m.region].toLowerCase())
+      .map((m) => lower(REGION_NAMES[m.region]))
       .join(', ');
   const muscleLine = tired.length
-    ? `À ménager : ${names(tired)}`
+    ? tr('À ménager : {names}', { names: names(tired) })
     : busy.length
-      ? `En récupération : ${names(busy)}`
+      ? tr('En récupération : {names}', { names: names(busy) })
       : worked.length
-        ? 'Tes muscles sont récupérés'
-        : 'Rien de travaillé ces 7 derniers jours';
+        ? tr('Tes muscles sont récupérés')
+        : tr('Rien de travaillé ces 7 derniers jours');
   if (!r && !muscles.some((m) => m.hours !== null)) return null;
   return (
     <>
-      <button className={`card readiness-card ${r ? r.tone : ''}`} onClick={() => setOpen(true)} aria-label="Forme du jour et récupération : voir le détail">
+      <button className={`card readiness-card ${r ? r.tone : ''}`} onClick={() => setOpen(true)} aria-label={tr('Forme du jour et récupération : voir le détail')}>
         {r ? (
-          <Ring value={r.score} max={100} color={TONE_COLOR[r.tone]} size={64} stroke={6} label="Forme du jour">
+          <Ring value={r.score} max={100} color={TONE_COLOR[r.tone]} size={64} stroke={6} label={tr('Forme du jour')}>
             <span className="readiness-num num">{r.score}</span>
           </Ring>
         ) : (
@@ -135,9 +136,9 @@ export function ReadinessCard({ today }: { today: string }) {
         )}
         <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}>
           <span className="small muted" style={{ display: 'block' }}>
-            Forme du jour{r?.partial ? ' (charge seule)' : ''}
+            {tr('Forme du jour')}{r?.partial ? tr(' (charge seule)') : ''}
           </span>
-          <span className="readiness-title">{r ? r.title : 'Récupération musculaire'}</span>
+          <span className="readiness-title">{r ? r.title : tr('Récupération musculaire')}</span>
           <span className="small muted ellipsis" style={{ display: 'block' }}>
             {muscleLine}
           </span>
@@ -156,15 +157,15 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
   const worked = muscles.filter((m) => m.hours !== null).sort((a, b) => b.fatigue - a.fatigue);
   const form = readDay(s, today).form;
   return (
-    <Sheet title="Forme du jour" onClose={onClose}>
+    <Sheet title={tr('Forme du jour')} onClose={onClose}>
       <div className="stack" style={{ gap: 18 }}>
         {r && (
           <>
             <div className="readiness-head">
-              <Ring value={r.score} max={100} color={TONE_COLOR[r.tone]} size={108} stroke={9} label="Forme du jour">
+              <Ring value={r.score} max={100} color={TONE_COLOR[r.tone]} size={108} stroke={9} label={tr('Forme du jour')}>
                 <div>
                   <div className="readiness-big num">{r.score}</div>
-                  <div className="small faint">sur 100</div>
+                  <div className="small faint">{tr('sur 100')}</div>
                 </div>
               </Ring>
               <div style={{ minWidth: 0 }}>
@@ -191,7 +192,7 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
             </div>
             {r.partial && (
               <p className="small faint" style={{ margin: 0 }}>
-                Relie Apple Santé (Réglages, Connexions) pour ajouter ta VFC, ton sommeil et ton cœur au repos au score.
+                {tr('Relie Apple Santé (Réglages, Connexions) pour ajouter ta VFC, ton sommeil et ton cœur au repos au score.')}
               </p>
             )}
             {r.tone === 'low' && form !== 'low' && (
@@ -199,10 +200,10 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
                 className="btn block"
                 onClick={() => {
                   setForm(today, 'low');
-                  toast('Mode Fatigué : séance allégée pour aujourd’hui');
+                  toast(tr('Mode Fatigué : séance allégée pour aujourd’hui'));
                 }}
               >
-                <Icon name="moon" size={17} /> Passer la séance en mode Fatigué
+                <Icon name="moon" size={17} />{' '}{tr('Passer la séance en mode Fatigué')}
               </button>
             )}
           </>
@@ -210,22 +211,22 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
 
         <section className="stack" style={{ gap: 10 }}>
           <div className="section-head" style={{ margin: 0 }}>
-            <h2 style={{ fontSize: '1.05rem' }}>Récupération musculaire</h2>
-            <span className="small faint">7 derniers jours</span>
+            <h2 style={{ fontSize: '1.05rem' }}>{tr('Récupération musculaire')}</h2>
+            <span className="small faint">{tr('7 derniers jours')}</span>
           </div>
           <BodyMap states={muscles} />
           <div className="body-legend small">
             <span>
-              <i style={{ background: 'color-mix(in srgb, var(--mint) 62%, var(--map-idle))' }} /> Récupéré
+              <i style={{ background: 'color-mix(in srgb, var(--mint) 62%, var(--map-idle))' }} />{' '}{tr('Récupéré')}
             </span>
             <span>
-              <i style={{ background: 'var(--amber)' }} /> En cours
+              <i style={{ background: 'var(--amber)' }} />{' '}{tr('En cours')}
             </span>
             <span>
-              <i style={{ background: 'var(--rose)' }} /> Fatigué
+              <i style={{ background: 'var(--rose)' }} />{' '}{tr('Fatigué')}
             </span>
             <span>
-              <i style={{ background: 'var(--map-idle)' }} /> Pas travaillé
+              <i style={{ background: 'var(--map-idle)' }} />{' '}{tr('Pas travaillé')}
             </span>
           </div>
           {worked.length > 0 ? (
@@ -235,27 +236,26 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
                   <span className="grow">
                     <span style={{ display: 'block', fontWeight: 650 }}>{REGION_NAMES[m.region]}</span>
                     <span className="small muted">
-                      {m.hours! < 24 ? `travaillé il y a ${m.hours} h` : `travaillé il y a ${Math.round(m.hours! / 24)} j`}
-                      {readyIn(m) > 0 ? `, frais dans ${readyIn(m) < 24 ? `${readyIn(m)} h` : `${Math.round(readyIn(m) / 24)} j`}` : ''}
+                      {m.hours! < 24 ? tr('travaillé il y a {hours} h', { hours: m.hours }) : tr('travaillé il y a {n} j', { n: Math.round(m.hours! / 24) })}
+                      {readyIn(m) > 0 ? tr(', frais dans {v}', { v: readyIn(m) < 24 ? `${readyIn(m)} h` : `${Math.round(readyIn(m) / 24)} j` }) : ''}
                     </span>
                   </span>
                   <span
                     className="num"
                     style={{ fontWeight: 800, color: m.fatigue >= 0.55 ? 'var(--rose)' : m.fatigue >= 0.2 ? 'var(--amber)' : 'var(--mint)' }}
                   >
-                    {m.recovery} %
+                    {pct(m.recovery)}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
             <p className="small muted" style={{ margin: 0 }}>
-              Aucune série ces 7 derniers jours : tout est frais.
+              {tr('Aucune série ces 7 derniers jours : tout est frais.')}
             </p>
           )}
           <p className="small faint" style={{ margin: 0 }}>
-            Chaque série fatigue ses muscles (le principal en entier, les autres à moitié) ; la fatigue diminue de moitié environ toutes les 24 heures.
-            Estimation, pas un avis médical.
+            {tr('Chaque série fatigue ses muscles (le principal en entier, les autres à moitié) ; la fatigue diminue de moitié environ toutes les 24 heures. Estimation, pas un avis médical.')}
           </p>
         </section>
       </div>

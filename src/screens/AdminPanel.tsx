@@ -11,6 +11,7 @@ import { Pulse } from '../components/Pulse';
 import { playSeasonScene } from '../components/SeasonScene';
 import { SEASON_IDS, SEASONS } from '../../shared/season';
 import { setSeasonLab, useSeasonLab } from '../lib/season';
+import { loc, tn, tr } from '../../shared/i18n';
 
 interface Tester {
   id: string;
@@ -37,17 +38,17 @@ const ONLINE = 5 * 60_000;
 const WEEK = 7 * 86400_000;
 
 function since(at: number | null, now: number): string {
-  if (!at) return 'Pas encore vu';
+  if (!at) return tr('Pas encore vu');
   const m = Math.round((now - at) / 60_000);
-  if (m < 5) return 'En ligne';
-  if (m < 60) return `Vu il y a ${m} min`;
+  if (m < 5) return tr('En ligne');
+  if (m < 60) return tr('Vu il y a {m} min', { m });
   const h = Math.round(m / 60);
-  if (h < 24) return `Vu il y a ${h} h`;
+  if (h < 24) return tr('Vu il y a {h} h', { h });
   const d = Math.round(h / 24);
-  return d === 1 ? 'Vu hier' : d < 30 ? `Vu il y a ${d} jours` : `Vu le ${new Date(at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
+  return d === 1 ? tr('Vu hier') : d < 30 ? tr('Vu il y a {d} jours', { d }) : tr('Vu le {toLocaleDateString}', { toLocaleDateString: new Date(at).toLocaleDateString(loc(), { day: 'numeric', month: 'short' }) });
 }
 
-const date = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+const date = (iso: string) => new Date(iso).toLocaleDateString(loc(), { day: 'numeric', month: 'long', year: 'numeric' });
 
 /** Version plus ancienne que celle du serveur : l'app n'a pas encore pris la mise à jour. */
 function older(v: string | null, current: string) {
@@ -114,7 +115,7 @@ export function AdminPanel() {
         <SeasonLabCard />
         <p className="muted">{error}</p>
         <button className="btn block" onClick={() => void load()}>
-          Réessayer
+          {tr('Réessayer')}
         </button>
       </div>
     );
@@ -128,16 +129,16 @@ export function AdminPanel() {
     );
 
   const tiles: { id: Filter; n: number; label: string }[] = [
-    { id: 'all', n: counts.all, label: counts.all > 1 ? 'testeurs' : 'testeur' },
-    { id: 'online', n: counts.online, label: 'en ligne' },
-    { id: 'today', n: counts.today, label: 'aujourd’hui' },
-    { id: 'idle', n: counts.idle, label: 'absents 7 j' },
+    { id: 'all', n: counts.all, label: tn(counts.all, 'testeur', 'testeurs') },
+    { id: 'online', n: counts.online, label: tr('en ligne') },
+    { id: 'today', n: counts.today, label: tr('aujourd’hui') },
+    { id: 'idle', n: counts.idle, label: tr('absents 7 j') },
   ];
 
   return (
     <div className="stack" style={{ gap: 16 }}>
       <SeasonLabCard />
-      <div className="admin-tiles" role="group" aria-label="Filtrer les testeurs">
+      <div className="admin-tiles" role="group" aria-label={tr('Filtrer les testeurs')}>
         {tiles.map((t) => (
           <button key={t.id} className={`admin-tile ${filter === t.id ? 'on' : ''} ${t.id}`} onClick={() => setFilter(t.id)} aria-pressed={filter === t.id}>
             <span className="admin-tile-n num">{t.n}</span>
@@ -146,11 +147,11 @@ export function AdminPanel() {
         ))}
       </div>
 
-      <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Prénom, @pseudo ou email" aria-label="Chercher un testeur" />
+      <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Prénom, @pseudo ou email')} aria-label={tr('Chercher un testeur')} />
 
       {list.length === 0 ? (
         <p className="small muted" style={{ margin: 0 }}>
-          Personne dans cette vue.
+          {tr('Personne dans cette vue.')}
         </p>
       ) : (
         <div className="group">
@@ -165,7 +166,7 @@ export function AdminPanel() {
                 </span>
                 <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}>
                   <span className="title" style={{ display: 'block' }}>
-                    {t.name} {t.role === 'admin' && <span className="badge-admin">ADMIN</span>} {t.me && <span className="small faint">(toi)</span>}
+                    {t.name} {t.role === 'admin' && <span className="badge-admin">{tr('ADMIN')}</span>} {t.me && <span className="small faint">{tr('(toi)')}</span>}
                   </span>
                   <span className="small muted ellipsis" style={{ display: 'block' }}>
                     {t.handle ? `@${t.handle}` : t.email}
@@ -184,7 +185,7 @@ export function AdminPanel() {
       )}
 
       <p className="small faint" style={{ margin: 0 }}>
-        « En ligne » : actif dans les 5 dernières minutes. La version en orange n’a pas encore pris la mise à jour {data.version}.
+        {tr('« En ligne » : actif dans les 5 dernières minutes. La version en orange n’a pas encore pris la mise à jour {version}.', { version: data.version })}
       </p>
 
       {open && (
@@ -217,17 +218,17 @@ function SeasonLabCard() {
   return (
     <section className="card season-lab">
       <div className="section-head" style={{ margin: 0 }}>
-        <h2 style={{ fontSize: '1.05rem' }}>Tester les fêtes</h2>
+        <h2 style={{ fontSize: '1.05rem' }}>{tr('Tester les fêtes')}</h2>
         {lab && (
           <button className="link small" onClick={() => setSeasonLab(null)}>
-            Arrêter
+            {tr('Arrêter')}
           </button>
         )}
       </div>
       <p className="small muted" style={{ margin: '4px 0 12px' }}>
-        Sur cet appareil seulement, jusqu’à la fermeture de l’app. Personne d’autre ne le voit.
+        {tr('Sur cet appareil seulement, jusqu’à la fermeture de l’app. Personne d’autre ne le voit.')}
       </p>
-      <div className="season-lab-row" role="group" aria-label="Fête à tester">
+      <div className="season-lab-row" role="group" aria-label={tr('Fête à tester')}>
         {SEASON_IDS.map((id) => (
           <button key={id} type="button" className={`season-lab-pick sc-${id} ${lab?.season === id ? 'on' : ''}`} onClick={() => pick(id)} aria-pressed={lab?.season === id}>
             <Pulse season={id} mood="happy" size={40} />
@@ -239,10 +240,10 @@ function SeasonLabCard() {
         <div className="season-lab-actions">
           <label className="row" style={{ padding: 0, gap: 10 }}>
             <input type="checkbox" checked={lab.holiday} onChange={(e) => setSeasonLab({ ...lab, holiday: e.target.checked })} />
-            <span className="small">Simuler le jour J ({SEASONS[lab.season].wish})</span>
+            <span className="small">{tr('Simuler le jour J ({wish})', { wish: SEASONS[lab.season].wish })}</span>
           </label>
           <button className="btn small" onClick={playSeasonScene}>
-            <Icon name="play" size={14} filled /> Lancer la scène
+            <Icon name="play" size={14} filled />{' '}{tr('Lancer la scène')}
           </button>
         </div>
       )}
@@ -254,13 +255,13 @@ function TesterSheet({ t, now, current, today, onClose, onRemoved }: { t: Tester
   const [busy, setBusy] = useState(false);
   const [reset, setReset] = useState<{ code: string; expires: string } | null>(null);
   const rows: [string, string][] = [
-    ['Dernière visite', t.lastSeen ? `${since(t.lastSeen, now)}${t.lastSeen && now - t.lastSeen >= ONLINE ? ` (${new Date(t.lastSeen).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })})` : ''}` : 'Pas encore vu depuis le suivi'],
-    ['Appareil', t.platform ?? 'Inconnu'],
-    ['Version', t.version ? `${t.version}${older(t.version, current) ? ` (à jour : ${current})` : ''}` : 'Inconnue'],
-    ['Séance du jour envoyée', t.lastDay ? (t.lastDay === today ? 'Aujourd’hui' : new Date(t.lastDay).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })) : 'Jamais'],
-    ['Inscrit le', date(t.createdAt)],
-    ['Email', t.email],
-    ['Compte', t.private ? 'Privé' : 'Public'],
+    [tr('Dernière visite'), t.lastSeen ? `${since(t.lastSeen, now)}${t.lastSeen && now - t.lastSeen >= ONLINE ? ` (${new Date(t.lastSeen).toLocaleString(loc(), { dateStyle: 'short', timeStyle: 'short' })})` : ''}` : tr('Pas encore vu depuis le suivi')],
+    [tr('Appareil'), t.platform ?? tr('Inconnu')],
+    [tr('Version'), t.version ? `${t.version}${older(t.version, current) ? tr(' (à jour : {current})', { current }) : ''}` : tr('Inconnue')],
+    [tr('Séance du jour envoyée'), t.lastDay ? (t.lastDay === today ? tr('Aujourd’hui') : new Date(t.lastDay).toLocaleDateString(loc(), { day: 'numeric', month: 'long' })) : tr('Jamais')],
+    [tr('Inscrit le'), date(t.createdAt)],
+    [tr('Email'), t.email],
+    [tr('Compte'), t.private ? tr('Privé') : tr('Public')],
   ];
   return (
     <Sheet title={t.name} onClose={onClose}>
@@ -269,7 +270,7 @@ function TesterSheet({ t, now, current, today, onClose, onRemoved }: { t: Tester
           <MemberAvatar m={t} size={64} />
           <div className="grow" style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 850, fontSize: '1.3rem' }}>
-              {t.name} {t.role === 'admin' && <span className="badge-admin">ADMIN</span>}
+              {t.name} {t.role === 'admin' && <span className="badge-admin">{tr('ADMIN')}</span>}
             </div>
             {t.handle && <div className="small member-handle">@{t.handle}</div>}
           </div>
@@ -277,9 +278,9 @@ function TesterSheet({ t, now, current, today, onClose, onRemoved }: { t: Tester
         <div className="member-stats" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
           {(
             [
-              [t.posts, t.posts > 1 ? 'publications' : 'publication'],
-              [t.followers, t.followers > 1 ? 'abonnés' : 'abonné'],
-              [t.following, t.following > 1 ? 'abonnements' : 'abonnement'],
+              [t.posts, tn(t.posts, 'publication', 'publications')],
+              [t.followers, tn(t.followers, 'abonné', 'abonnés')],
+              [t.following, tn(t.following, 'abonnement', 'abonnements')],
             ] as const
           ).map(([n, label]) => (
             <div key={label} className="member-stat">
@@ -312,11 +313,11 @@ function TesterSheet({ t, now, current, today, onClose, onRemoved }: { t: Tester
                 }
               }}
             >
-              <Icon name="lock" size={17} /> Code pour changer son mot de passe
+              <Icon name="lock" size={17} />{' '}{tr('Code pour changer son mot de passe')}
             </button>
             {reset && (
               <div className="card stack" style={{ border: '2px solid var(--gold)' }}>
-                <div className="small muted">Code valable 48 h</div>
+                <div className="small muted">{tr('Code valable 48 h')}</div>
                 <div className="display num" style={{ fontSize: '1.6rem', userSelect: 'all' }}>
                   {reset.code}
                 </div>
@@ -324,11 +325,11 @@ function TesterSheet({ t, now, current, today, onClose, onRemoved }: { t: Tester
                   className="btn primary block"
                   onClick={() =>
                     shareText(
-                      `Ton code pour changer ton mot de passe Shred : ${reset.code} (valable 48 h). Ouvre l’app, « Me connecter », « Mot de passe oublié ? », avec ton email ${t.email}.`,
+                      tr('Ton code pour changer ton mot de passe Shred : {code} (valable 48 h). Ouvre l’app, « Me connecter », « Mot de passe oublié ? », avec ton email {email}.', { code: reset.code, email: t.email }),
                     )
                   }
                 >
-                  <Icon name="share" size={18} /> Envoyer le code
+                  <Icon name="share" size={18} />{' '}{tr('Envoyer le code')}
                 </button>
               </div>
             )}
@@ -336,11 +337,11 @@ function TesterSheet({ t, now, current, today, onClose, onRemoved }: { t: Tester
               className="btn block danger"
               disabled={busy}
               onClick={async () => {
-                if (!(await ask(`Retirer ${t.name} ? Son compte et toutes ses données sont supprimés du serveur.`, 'Retirer', true))) return;
+                if (!(await ask(tr('Retirer {name} ? Son compte et toutes ses données sont supprimés du serveur.', { name: t.name }), tr('Retirer'), true))) return;
                 setBusy(true);
                 try {
                   await api(`/api/admin/users/${t.id}`, { method: 'DELETE' });
-                  toast(`${t.name} a été retiré`);
+                  toast(tr('{name} a été retiré', { name: t.name }));
                   onRemoved();
                 } catch (e) {
                   toast(errorText(e), true);
@@ -348,7 +349,7 @@ function TesterSheet({ t, now, current, today, onClose, onRemoved }: { t: Tester
                 }
               }}
             >
-              <Icon name="trash" size={17} /> Retirer ce testeur
+              <Icon name="trash" size={17} />{' '}{tr('Retirer ce testeur')}
             </button>
           </div>
         )}

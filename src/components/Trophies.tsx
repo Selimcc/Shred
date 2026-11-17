@@ -6,6 +6,7 @@ import { useApp } from '../lib/store';
 import { TIER_LABEL, type Trophy, TROPHIES, trophyStats, unlockedOf } from '../lib/trophies';
 import { Icon } from './Icon';
 import { Sheet } from './ui';
+import { loc, tr } from '../../shared/i18n';
 
 export function Medal({ t, on, size = 64 }: { t: Trophy; on: boolean; size?: number }) {
   return (
@@ -17,8 +18,8 @@ export function Medal({ t, on, size = 64 }: { t: Trophy; on: boolean; size?: num
   );
 }
 
-const shortDate = (k: string) => parseKey(k).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-const fmt = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000).toLocaleString('fr-FR')} k` : n.toLocaleString('fr-FR'));
+const shortDate = (k: string) => parseKey(k).toLocaleDateString(loc(), { day: 'numeric', month: 'short' });
+const fmt = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000).toLocaleString(loc())} k` : n.toLocaleString(loc()));
 
 export function TrophyCase() {
   const s = useApp();
@@ -34,9 +35,9 @@ export function TrophyCase() {
     <>
       <section className="section">
         <div className="section-head">
-          <h2>Trophées</h2>
+          <h2>{tr('Trophées')}</h2>
           <button className="link small" onClick={() => setOpen(true)}>
-            {won.length} sur {TROPHIES.length}
+            {tr('{length} sur {length2}', { length: won.length, length2: TROPHIES.length })}
           </button>
         </div>
         <button className="card trophy-card" onClick={() => setOpen(true)}>
@@ -44,13 +45,13 @@ export function TrophyCase() {
             {recent.length ? (
               recent.map((x) => <Medal key={x.id} t={x} on size={58} />)
             ) : (
-              <span className="small muted">Ta première séance validée t’apporte ton premier trophée.</span>
+              <span className="small muted">{tr('Ta première séance validée t’apporte ton premier trophée.')}</span>
             )}
           </div>
           {next && (
             <div className="trophy-next">
               <div className="small">
-                Prochain : <b>{next.title}</b>
+                {tr('Prochain :')}{' '}<b>{next.title}</b>
                 <span className="faint">
                   {' '}
                   {fmt(Math.min(next.value(st), next.goal))} / {fmt(next.goal)}
@@ -66,7 +67,7 @@ export function TrophyCase() {
 
       {/* Hors de la section : son animation d'entrée ferait de la feuille un élément de la section. */}
       {open && (
-        <Sheet title="Trophées" onClose={() => setOpen(false)}>
+        <Sheet title={tr('Trophées')} onClose={() => setOpen(false)}>
           <div className="stack" style={{ gap: 20 }}>
             {[...new Set(TROPHIES.map((x) => x.family))].map((fam) => (
               <section key={fam} className="stack" style={{ gap: 10 }}>

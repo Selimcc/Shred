@@ -3,9 +3,11 @@
 // fiables pour suivre une sèche ou une prise, pas une étiquette au gramme près.
 import type { Athlete, DietPrefs } from './athlete';
 import type { Macros, MealSlot, PlannedMeal } from './types';
+import { list, loc, lower, tr } from './i18n';
 
 type Flag = 'meat' | 'fish' | 'pork' | 'dairy' | 'egg';
-type Section = 'Viandes et poissons' | 'Frais' | 'Épicerie' | 'Fruits et légumes' | 'Surgelés';
+/** Rayon du magasin, traduit. */
+type Section = string;
 
 interface Food extends Macros {
   name: string;
@@ -29,49 +31,49 @@ const f = (name: string, kcal: number, protein: number, carbs: number, fat: numb
 });
 
 export const FOODS = {
-  oats: f('flocons d’avoine', 370, 13, 60, 7, 'Épicerie', 1),
-  milk: f('lait demi-écrémé', 46, 3.3, 4.8, 1.6, 'Frais', 1, { flags: ['dairy'] }),
-  soyMilk: f('boisson soja', 40, 3.5, 1.5, 2, 'Épicerie', 1),
-  whey: f('whey', 380, 78, 6, 6, 'Épicerie', 2, { flags: ['dairy'] }),
-  banana: f('banane', 90, 1.1, 20, 0.3, 'Fruits et légumes', 1, { unit: { g: 120, name: 'banane', plural: 'bananes' } }),
-  skyr: f('skyr', 60, 10, 4, 0.2, 'Frais', 1, { flags: ['dairy'] }),
-  cottage: f('fromage blanc 0 %', 46, 8, 4, 0.2, 'Frais', 1, { flags: ['dairy'] }),
-  berries: f('fruits rouges surgelés', 45, 1, 8, 0.3, 'Surgelés', 2),
-  pb: f('beurre de cacahuète', 600, 25, 12, 50, 'Épicerie', 2),
-  egg: f('œufs', 140, 12.5, 0.7, 10, 'Frais', 1, { flags: ['egg'], unit: { g: 55, name: 'œuf', plural: 'œufs' } }),
-  eggWhite: f('blancs d’œufs (brique)', 48, 11, 0.7, 0.2, 'Frais', 1, { flags: ['egg'] }),
-  bread: f('pain complet', 240, 9, 41, 3, 'Épicerie', 1),
-  chicken: f('blanc de poulet', 110, 23, 0, 1.5, 'Viandes et poissons', 2, { flags: ['meat'] }),
-  turkey: f('escalope de dinde', 105, 23, 0, 1.2, 'Viandes et poissons', 1, { flags: ['meat'] }),
-  beef: f('bœuf haché 5 %', 125, 21, 0, 5, 'Viandes et poissons', 2, { flags: ['meat'] }),
-  salmon: f('pavé de saumon', 200, 20, 0, 13, 'Viandes et poissons', 3, { flags: ['fish'] }),
-  tuna: f('thon au naturel', 115, 26, 0, 1, 'Épicerie', 2, { flags: ['fish'] }),
-  sardine: f('sardines à l’huile, égouttées', 210, 24, 0, 13, 'Épicerie', 1, { flags: ['fish'] }),
-  cod: f('cabillaud surgelé', 80, 18, 0, 0.7, 'Surgelés', 2, { flags: ['fish'] }),
-  tofu: f('tofu ferme', 145, 15, 2, 8.5, 'Frais', 2),
-  lentils: f('lentilles corail crues', 340, 24, 50, 1.5, 'Épicerie', 1),
-  chickpeas: f('pois chiches en conserve', 140, 8, 20, 2.5, 'Épicerie', 1),
-  kidney: f('haricots rouges en conserve', 115, 8, 16, 0.5, 'Épicerie', 1),
-  rice: f('riz basmati', 355, 8, 78, 0.6, 'Épicerie', 1),
-  pasta: f('pâtes complètes', 350, 13, 66, 2.5, 'Épicerie', 1),
-  couscous: f('semoule complète', 355, 12, 70, 2, 'Épicerie', 1),
-  quinoa: f('quinoa', 370, 14, 64, 6, 'Épicerie', 2),
-  sweetPotato: f('patate douce', 86, 1.6, 20, 0.1, 'Fruits et légumes', 2),
-  wrap: f('tortillas de blé', 300, 8, 50, 7, 'Épicerie', 1, { unit: { g: 60, name: 'tortilla', plural: 'tortillas' } }),
-  veg: f('légumes poêlés surgelés', 35, 2, 5, 0.3, 'Surgelés', 1),
-  broccoli: f('brocoli', 34, 2.8, 4, 0.4, 'Fruits et légumes', 1),
-  greenBeans: f('haricots verts', 30, 2, 4, 0.2, 'Surgelés', 1),
-  tomato: f('coulis de tomate', 35, 1.5, 6, 0.3, 'Épicerie', 1),
-  onion: f('oignon', 40, 1.2, 8, 0.1, 'Fruits et légumes', 1),
-  oil: f('huile d’olive', 900, 0, 0, 100, 'Épicerie', 2),
-  avocado: f('avocat', 160, 2, 2, 15, 'Fruits et légumes', 2, { unit: { g: 140, name: 'avocat', plural: 'avocats' } }),
-  cheese: f('emmental râpé', 380, 28, 0, 30, 'Frais', 2, { flags: ['dairy'] }),
-  feta: f('feta', 265, 14, 1, 21, 'Frais', 2, { flags: ['dairy'] }),
-  hummus: f('houmous', 300, 8, 14, 24, 'Frais', 2),
-  almonds: f('amandes', 600, 21, 9, 50, 'Épicerie', 3),
-  coconut: f('lait de coco léger', 120, 1, 3, 11, 'Épicerie', 2),
-  soy: f('sauce soja', 60, 8, 6, 0, 'Épicerie', 1),
-  apple: f('pomme', 52, 0.3, 12, 0.2, 'Fruits et légumes', 1, { unit: { g: 150, name: 'pomme', plural: 'pommes' } }),
+  oats: f(tr('flocons d’avoine'), 370, 13, 60, 7, tr('Épicerie'), 1),
+  milk: f(tr('lait demi-écrémé'), 46, 3.3, 4.8, 1.6, tr('Frais'), 1, { flags: ['dairy'] }),
+  soyMilk: f(tr('boisson soja'), 40, 3.5, 1.5, 2, tr('Épicerie'), 1),
+  whey: f(tr('whey'), 380, 78, 6, 6, tr('Épicerie'), 2, { flags: ['dairy'] }),
+  banana: f(tr('banane'), 90, 1.1, 20, 0.3, tr('Fruits et légumes'), 1, { unit: { g: 120, name: tr('banane'), plural: tr('bananes') } }),
+  skyr: f(tr('skyr'), 60, 10, 4, 0.2, tr('Frais'), 1, { flags: ['dairy'] }),
+  cottage: f(tr('fromage blanc 0 %'), 46, 8, 4, 0.2, tr('Frais'), 1, { flags: ['dairy'] }),
+  berries: f(tr('fruits rouges surgelés'), 45, 1, 8, 0.3, tr('Surgelés'), 2),
+  pb: f(tr('beurre de cacahuète'), 600, 25, 12, 50, tr('Épicerie'), 2),
+  egg: f(tr('œufs'), 140, 12.5, 0.7, 10, tr('Frais'), 1, { flags: ['egg'], unit: { g: 55, name: tr('œuf'), plural: tr('œufs') } }),
+  eggWhite: f(tr('blancs d’œufs (brique)'), 48, 11, 0.7, 0.2, tr('Frais'), 1, { flags: ['egg'] }),
+  bread: f(tr('pain complet'), 240, 9, 41, 3, tr('Épicerie'), 1),
+  chicken: f(tr('blanc de poulet'), 110, 23, 0, 1.5, tr('Viandes et poissons'), 2, { flags: ['meat'] }),
+  turkey: f(tr('escalope de dinde'), 105, 23, 0, 1.2, tr('Viandes et poissons'), 1, { flags: ['meat'] }),
+  beef: f(tr('bœuf haché 5 %'), 125, 21, 0, 5, tr('Viandes et poissons'), 2, { flags: ['meat'] }),
+  salmon: f(tr('pavé de saumon'), 200, 20, 0, 13, tr('Viandes et poissons'), 3, { flags: ['fish'] }),
+  tuna: f(tr('thon au naturel'), 115, 26, 0, 1, tr('Épicerie'), 2, { flags: ['fish'] }),
+  sardine: f(tr('sardines à l’huile, égouttées'), 210, 24, 0, 13, tr('Épicerie'), 1, { flags: ['fish'] }),
+  cod: f(tr('cabillaud surgelé'), 80, 18, 0, 0.7, tr('Surgelés'), 2, { flags: ['fish'] }),
+  tofu: f(tr('tofu ferme'), 145, 15, 2, 8.5, tr('Frais'), 2),
+  lentils: f(tr('lentilles corail crues'), 340, 24, 50, 1.5, tr('Épicerie'), 1),
+  chickpeas: f(tr('pois chiches en conserve'), 140, 8, 20, 2.5, tr('Épicerie'), 1),
+  kidney: f(tr('haricots rouges en conserve'), 115, 8, 16, 0.5, tr('Épicerie'), 1),
+  rice: f(tr('riz basmati'), 355, 8, 78, 0.6, tr('Épicerie'), 1),
+  pasta: f(tr('pâtes complètes'), 350, 13, 66, 2.5, tr('Épicerie'), 1),
+  couscous: f(tr('semoule complète'), 355, 12, 70, 2, tr('Épicerie'), 1),
+  quinoa: f(tr('quinoa'), 370, 14, 64, 6, tr('Épicerie'), 2),
+  sweetPotato: f(tr('patate douce'), 86, 1.6, 20, 0.1, tr('Fruits et légumes'), 2),
+  wrap: f(tr('tortillas de blé'), 300, 8, 50, 7, tr('Épicerie'), 1, { unit: { g: 60, name: tr('tortilla'), plural: tr('tortillas') } }),
+  veg: f(tr('légumes poêlés surgelés'), 35, 2, 5, 0.3, tr('Surgelés'), 1),
+  broccoli: f(tr('brocoli'), 34, 2.8, 4, 0.4, tr('Fruits et légumes'), 1),
+  greenBeans: f(tr('haricots verts'), 30, 2, 4, 0.2, tr('Surgelés'), 1),
+  tomato: f(tr('coulis de tomate'), 35, 1.5, 6, 0.3, tr('Épicerie'), 1),
+  onion: f(tr('oignon'), 40, 1.2, 8, 0.1, tr('Fruits et légumes'), 1),
+  oil: f(tr('huile d’olive'), 900, 0, 0, 100, tr('Épicerie'), 2),
+  avocado: f(tr('avocat'), 160, 2, 2, 15, tr('Fruits et légumes'), 2, { unit: { g: 140, name: tr('avocat'), plural: tr('avocats') } }),
+  cheese: f(tr('emmental râpé'), 380, 28, 0, 30, tr('Frais'), 2, { flags: ['dairy'] }),
+  feta: f(tr('feta'), 265, 14, 1, 21, tr('Frais'), 2, { flags: ['dairy'] }),
+  hummus: f(tr('houmous'), 300, 8, 14, 24, tr('Frais'), 2),
+  almonds: f(tr('amandes'), 600, 21, 9, 50, tr('Épicerie'), 3),
+  coconut: f(tr('lait de coco léger'), 120, 1, 3, 11, tr('Épicerie'), 2),
+  soy: f(tr('sauce soja'), 60, 8, 6, 0, tr('Épicerie'), 1),
+  apple: f(tr('pomme'), 52, 0.3, 12, 0.2, tr('Fruits et légumes'), 1, { unit: { g: 150, name: tr('pomme'), plural: tr('pommes') } }),
 } satisfies Record<string, Food>;
 
 export type FoodKey = keyof typeof FOODS;
@@ -102,35 +104,35 @@ const MAIN: MealSlot[] = ['lunch', 'dinner'];
 
 export const RECIPES: Recipe[] = [
   // Petits-déjeuners
-  r('overnight-oats', 'Overnight oats, whey et banane', ['breakfast'], [['oats', 80], ['milk', 250], ['whey', 30], ['banana', 120]], { prep: true, quick: true }, ['Mélange avoine, lait et whey dans un bocal, laisse au frigo la nuit, ajoute la banane le matin.']),
-  r('omelette-toast', 'Omelette et tartines', ['breakfast', 'dinner'], [['egg', 165], ['eggWhite', 100], ['bread', 80], ['apple', 150]], { quick: true }, ['Bats les œufs et les blancs, cuis à la poêle, sers avec le pain grillé et la pomme.']),
-  r('skyr-bowl', 'Bol skyr, avoine, fruits rouges et cacahuète', ['breakfast', 'snack'], [['skyr', 250], ['oats', 40], ['berries', 100], ['pb', 15]], { quick: true }, ['Verse le skyr, ajoute avoine, fruits rouges et beurre de cacahuète.']),
-  r('soy-porridge', 'Porridge soja, blancs d’œufs et banane', ['breakfast'], [['oats', 80], ['soyMilk', 300], ['eggWhite', 150], ['banana', 120], ['pb', 10]], { quick: true }, ['Cuis l’avoine dans la boisson soja, ajoute les blancs en remuant 2 minutes, puis banane et cacahuète.']),
-  r('pb-toast-shake', 'Tartines cacahuète banane et shake', ['breakfast', 'snack'], [['bread', 80], ['pb', 20], ['banana', 120], ['whey', 30], ['milk', 250]], { quick: true }, ['Tartine le beurre de cacahuète, coupe la banane dessus, secoue la whey dans le lait.']),
+  r('overnight-oats', tr('Overnight oats, whey et banane'), ['breakfast'], [['oats', 80], ['milk', 250], ['whey', 30], ['banana', 120]], { prep: true, quick: true }, [tr('Mélange avoine, lait et whey dans un bocal, laisse au frigo la nuit, ajoute la banane le matin.')]),
+  r('omelette-toast', tr('Omelette et tartines'), ['breakfast', 'dinner'], [['egg', 165], ['eggWhite', 100], ['bread', 80], ['apple', 150]], { quick: true }, [tr('Bats les œufs et les blancs, cuis à la poêle, sers avec le pain grillé et la pomme.')]),
+  r('skyr-bowl', tr('Bol skyr, avoine, fruits rouges et cacahuète'), ['breakfast', 'snack'], [['skyr', 250], ['oats', 40], ['berries', 100], ['pb', 15]], { quick: true }, [tr('Verse le skyr, ajoute avoine, fruits rouges et beurre de cacahuète.')]),
+  r('soy-porridge', tr('Porridge soja, blancs d’œufs et banane'), ['breakfast'], [['oats', 80], ['soyMilk', 300], ['eggWhite', 150], ['banana', 120], ['pb', 10]], { quick: true }, [tr('Cuis l’avoine dans la boisson soja, ajoute les blancs en remuant 2 minutes, puis banane et cacahuète.')]),
+  r('pb-toast-shake', tr('Tartines cacahuète banane et shake'), ['breakfast', 'snack'], [['bread', 80], ['pb', 20], ['banana', 120], ['whey', 30], ['milk', 250]], { quick: true }, [tr('Tartine le beurre de cacahuète, coupe la banane dessus, secoue la whey dans le lait.')]),
 
   // Plats (meal prep)
-  r('chicken-rice', 'Poulet, riz et brocoli', MAIN, [['chicken', 160], ['rice', 85], ['broccoli', 200], ['oil', 10]], { prep: true }, ['Cuis le riz.', 'Coupe le poulet en dés, saisis-le 8 minutes à l’huile avec sel, poivre, paprika.', 'Cuis le brocoli 6 minutes à la vapeur ou au micro-ondes.']),
-  r('bolognese', 'Bolognaise de bœuf, pâtes complètes', MAIN, [['beef', 150], ['pasta', 95], ['tomato', 150], ['onion', 50], ['veg', 100], ['oil', 8]], { prep: true }, ['Cuis les pâtes.', 'Fais revenir oignon et bœuf, ajoute coulis et légumes, laisse mijoter 15 minutes.']),
-  r('chili', 'Chili con carne et riz', MAIN, [['beef', 130], ['kidney', 120], ['tomato', 150], ['onion', 50], ['rice', 70], ['oil', 8]], { prep: true }, ['Cuis le riz.', 'Fais revenir oignon et bœuf, ajoute coulis, haricots, cumin et paprika, mijote 20 minutes.']),
-  r('chicken-curry', 'Curry de poulet au lait de coco, riz', MAIN, [['chicken', 160], ['coconut', 100], ['veg', 150], ['rice', 80]], { prep: true }, ['Cuis le riz.', 'Saisis le poulet, ajoute curry en poudre, légumes et lait de coco, mijote 12 minutes.']),
-  r('salmon-sweet', 'Saumon, patate douce et haricots verts', MAIN, [['salmon', 130], ['sweetPotato', 250], ['greenBeans', 200]], { prep: true }, ['Rôtis la patate douce en cubes 25 minutes à 200 °C.', 'Cuis le saumon 12 minutes au four, les haricots verts 8 minutes à la vapeur.']),
-  r('tuna-pasta', 'Pâtes au thon et tomate', MAIN, [['tuna', 140], ['pasta', 90], ['tomato', 150], ['oil', 8]], { prep: true, quick: true }, ['Cuis les pâtes, réchauffe coulis et thon émietté, mélange.']),
-  r('turkey-couscous', 'Dinde, semoule et légumes', MAIN, [['turkey', 160], ['couscous', 85], ['veg', 200], ['oil', 10]], { prep: true, quick: true }, ['Verse la semoule dans le même volume d’eau bouillante, couvre 5 minutes.', 'Poêle la dinde en lamelles puis les légumes.']),
-  r('chicken-wrap', 'Wraps poulet, avocat et crudités', MAIN, [['chicken', 140], ['wrap', 120], ['avocado', 70], ['veg', 80], ['skyr', 50]], { quick: true }, ['Poêle le poulet émincé, garnis les tortillas avec avocat, crudités et skyr citronné.']),
-  r('cod-rice', 'Cabillaud, riz et légumes', MAIN, [['cod', 200], ['rice', 85], ['veg', 200], ['oil', 12]], { prep: true }, ['Cuis le riz.', 'Cuis le cabillaud 15 minutes au four avec citron, les légumes à la poêle.']),
-  r('sardine-pasta', 'Pâtes aux sardines', MAIN, [['sardine', 150], ['pasta', 85], ['tomato', 120], ['veg', 100]], { quick: true }, ['Cuis les pâtes, ajoute coulis, légumes et sardines émiettées.']),
-  r('dahl', 'Dahl de lentilles corail, riz', MAIN, [['lentils', 90], ['coconut', 80], ['tomato', 100], ['onion', 50], ['rice', 50], ['skyr', 100]], { prep: true }, ['Fais revenir l’oignon, ajoute lentilles, coulis, lait de coco, curry et 300 ml d’eau, cuis 20 minutes.', 'Sers avec le riz et une cuillère de skyr.']),
-  r('tofu-stirfry', 'Tofu sauté, riz et légumes soja', MAIN, [['tofu', 200], ['rice', 80], ['veg', 200], ['soy', 15], ['oil', 8]], { prep: true, quick: true }, ['Cuis le riz.', 'Dore le tofu en dés, ajoute légumes et sauce soja, 6 minutes à feu vif.']),
-  r('chili-veg', 'Chili sin carne, haricots et pois chiches', MAIN, [['kidney', 150], ['chickpeas', 120], ['tomato', 150], ['onion', 50], ['rice', 70], ['cheese', 20]], { prep: true }, ['Cuis le riz.', 'Mijote oignon, coulis, haricots, pois chiches et épices 20 minutes, parsème de fromage.']),
-  r('feta-omelette', 'Omelette feta et légumes, pain', ['dinner', 'lunch'], [['egg', 165], ['eggWhite', 100], ['feta', 40], ['veg', 150], ['bread', 70]], { quick: true }, ['Poêle les légumes, verse les œufs battus, émiette la feta, plie l’omelette.']),
-  r('quinoa-bowl', 'Bowl quinoa, pois chiches et feta', MAIN, [['quinoa', 75], ['chickpeas', 150], ['feta', 50], ['veg', 150], ['oil', 8]], { prep: true }, ['Cuis le quinoa 12 minutes.', 'Mélange avec pois chiches, légumes, feta et un filet d’huile.']),
+  r('chicken-rice', tr('Poulet, riz et brocoli'), MAIN, [['chicken', 160], ['rice', 85], ['broccoli', 200], ['oil', 10]], { prep: true }, [tr('Cuis le riz.'), tr('Coupe le poulet en dés, saisis-le 8 minutes à l’huile avec sel, poivre, paprika.'), tr('Cuis le brocoli 6 minutes à la vapeur ou au micro-ondes.')]),
+  r('bolognese', tr('Bolognaise de bœuf, pâtes complètes'), MAIN, [['beef', 150], ['pasta', 95], ['tomato', 150], ['onion', 50], ['veg', 100], ['oil', 8]], { prep: true }, [tr('Cuis les pâtes.'), tr('Fais revenir oignon et bœuf, ajoute coulis et légumes, laisse mijoter 15 minutes.')]),
+  r('chili', tr('Chili con carne et riz'), MAIN, [['beef', 130], ['kidney', 120], ['tomato', 150], ['onion', 50], ['rice', 70], ['oil', 8]], { prep: true }, [tr('Cuis le riz.'), tr('Fais revenir oignon et bœuf, ajoute coulis, haricots, cumin et paprika, mijote 20 minutes.')]),
+  r('chicken-curry', tr('Curry de poulet au lait de coco, riz'), MAIN, [['chicken', 160], ['coconut', 100], ['veg', 150], ['rice', 80]], { prep: true }, [tr('Cuis le riz.'), tr('Saisis le poulet, ajoute curry en poudre, légumes et lait de coco, mijote 12 minutes.')]),
+  r('salmon-sweet', tr('Saumon, patate douce et haricots verts'), MAIN, [['salmon', 130], ['sweetPotato', 250], ['greenBeans', 200]], { prep: true }, [tr('Rôtis la patate douce en cubes 25 minutes à 200 °C.'), tr('Cuis le saumon 12 minutes au four, les haricots verts 8 minutes à la vapeur.')]),
+  r('tuna-pasta', tr('Pâtes au thon et tomate'), MAIN, [['tuna', 140], ['pasta', 90], ['tomato', 150], ['oil', 8]], { prep: true, quick: true }, [tr('Cuis les pâtes, réchauffe coulis et thon émietté, mélange.')]),
+  r('turkey-couscous', tr('Dinde, semoule et légumes'), MAIN, [['turkey', 160], ['couscous', 85], ['veg', 200], ['oil', 10]], { prep: true, quick: true }, [tr('Verse la semoule dans le même volume d’eau bouillante, couvre 5 minutes.'), tr('Poêle la dinde en lamelles puis les légumes.')]),
+  r('chicken-wrap', tr('Wraps poulet, avocat et crudités'), MAIN, [['chicken', 140], ['wrap', 120], ['avocado', 70], ['veg', 80], ['skyr', 50]], { quick: true }, [tr('Poêle le poulet émincé, garnis les tortillas avec avocat, crudités et skyr citronné.')]),
+  r('cod-rice', tr('Cabillaud, riz et légumes'), MAIN, [['cod', 200], ['rice', 85], ['veg', 200], ['oil', 12]], { prep: true }, [tr('Cuis le riz.'), tr('Cuis le cabillaud 15 minutes au four avec citron, les légumes à la poêle.')]),
+  r('sardine-pasta', tr('Pâtes aux sardines'), MAIN, [['sardine', 150], ['pasta', 85], ['tomato', 120], ['veg', 100]], { quick: true }, [tr('Cuis les pâtes, ajoute coulis, légumes et sardines émiettées.')]),
+  r('dahl', tr('Dahl de lentilles corail, riz'), MAIN, [['lentils', 90], ['coconut', 80], ['tomato', 100], ['onion', 50], ['rice', 50], ['skyr', 100]], { prep: true }, [tr('Fais revenir l’oignon, ajoute lentilles, coulis, lait de coco, curry et 300 ml d’eau, cuis 20 minutes.'), tr('Sers avec le riz et une cuillère de skyr.')]),
+  r('tofu-stirfry', tr('Tofu sauté, riz et légumes soja'), MAIN, [['tofu', 200], ['rice', 80], ['veg', 200], ['soy', 15], ['oil', 8]], { prep: true, quick: true }, [tr('Cuis le riz.'), tr('Dore le tofu en dés, ajoute légumes et sauce soja, 6 minutes à feu vif.')]),
+  r('chili-veg', tr('Chili sin carne, haricots et pois chiches'), MAIN, [['kidney', 150], ['chickpeas', 120], ['tomato', 150], ['onion', 50], ['rice', 70], ['cheese', 20]], { prep: true }, [tr('Cuis le riz.'), tr('Mijote oignon, coulis, haricots, pois chiches et épices 20 minutes, parsème de fromage.')]),
+  r('feta-omelette', tr('Omelette feta et légumes, pain'), ['dinner', 'lunch'], [['egg', 165], ['eggWhite', 100], ['feta', 40], ['veg', 150], ['bread', 70]], { quick: true }, [tr('Poêle les légumes, verse les œufs battus, émiette la feta, plie l’omelette.')]),
+  r('quinoa-bowl', tr('Bowl quinoa, pois chiches et feta'), MAIN, [['quinoa', 75], ['chickpeas', 150], ['feta', 50], ['veg', 150], ['oil', 8]], { prep: true }, [tr('Cuis le quinoa 12 minutes.'), tr('Mélange avec pois chiches, légumes, feta et un filet d’huile.')]),
 
   // Collations
-  r('skyr-almonds', 'Skyr, fruits et amandes', ['snack'], [['skyr', 250], ['berries', 100], ['almonds', 15]], { quick: true }, ['Mélange le tout.']),
-  r('cottage-whey', 'Fromage blanc, whey et pomme', ['snack'], [['cottage', 250], ['whey', 20], ['apple', 150]], { quick: true }, ['Mélange la whey au fromage blanc, sers avec la pomme.']),
-  r('hummus-eggs', 'Tartine houmous et œufs durs', ['snack'], [['bread', 60], ['hummus', 40], ['egg', 110]], { quick: true }, ['Cuis les œufs 9 minutes, tartine le houmous.']),
-  r('tuna-toast', 'Tartines au thon', ['snack', 'lunch'], [['bread', 80], ['tuna', 100], ['skyr', 40]], { quick: true }, ['Mélange thon et skyr, poivre, tartine.']),
-  r('fruit-nuts', 'Banane et amandes', ['snack'], [['banana', 120], ['almonds', 25], ['soyMilk', 250]], { quick: true }, ['Rien à cuisiner.']),
+  r('skyr-almonds', tr('Skyr, fruits et amandes'), ['snack'], [['skyr', 250], ['berries', 100], ['almonds', 15]], { quick: true }, [tr('Mélange le tout.')]),
+  r('cottage-whey', tr('Fromage blanc, whey et pomme'), ['snack'], [['cottage', 250], ['whey', 20], ['apple', 150]], { quick: true }, [tr('Mélange la whey au fromage blanc, sers avec la pomme.')]),
+  r('hummus-eggs', tr('Tartine houmous et œufs durs'), ['snack'], [['bread', 60], ['hummus', 40], ['egg', 110]], { quick: true }, [tr('Cuis les œufs 9 minutes, tartine le houmous.')]),
+  r('tuna-toast', tr('Tartines au thon'), ['snack', 'lunch'], [['bread', 80], ['tuna', 100], ['skyr', 40]], { quick: true }, [tr('Mélange thon et skyr, poivre, tartine.')]),
+  r('fruit-nuts', tr('Banane et amandes'), ['snack'], [['banana', 120], ['almonds', 25], ['soyMilk', 250]], { quick: true }, [tr('Rien à cuisiner.')]),
 ];
 
 /* ---------- Filtres selon les préférences ---------- */
@@ -197,7 +199,7 @@ export function qtyText(key: FoodKey, g: number): string {
     return `${n} ${n > 1 ? food.unit.plural : food.unit.name}`;
   }
   const liquid = key === 'milk' || key === 'soyMilk' || key === 'coconut';
-  return `${Math.round(g)} ${liquid ? 'ml' : 'g'} de ${food.name}`;
+  return tr('{qty} {unit} de {food}', { qty: Math.round(g), unit: liquid ? 'ml' : 'g', food: food.name });
 }
 
 export interface Portion {
@@ -318,10 +320,10 @@ function buildPrep(picked: { slot: MealSlot; p: Portion; batch: 0 | 1 }[], days:
   const sections = new Map<string, string[]>();
   for (const [k, g] of totals) {
     const food: Food = FOODS[k];
-    const qty = food.unit ? `${Math.ceil(g / food.unit.g)} ${food.unit.plural}` : g >= 1000 ? `${(Math.ceil(g / 100) / 10).toLocaleString('fr-FR')} ${k === 'milk' || k === 'soyMilk' ? 'L' : 'kg'}` : `${Math.ceil(g / 10) * 10} ${k === 'milk' || k === 'soyMilk' || k === 'coconut' ? 'ml' : 'g'}`;
-    sections.set(food.section, [...(sections.get(food.section) ?? []), `${food.name} : ${qty}`]);
+    const qty = food.unit ? `${Math.ceil(g / food.unit.g)} ${food.unit.plural}` : g >= 1000 ? `${(Math.ceil(g / 100) / 10).toLocaleString(loc())} ${k === 'milk' || k === 'soyMilk' ? 'L' : 'kg'}` : `${Math.ceil(g / 10) * 10} ${k === 'milk' || k === 'soyMilk' || k === 'coconut' ? 'ml' : 'g'}`;
+    sections.set(food.section, [...(sections.get(food.section) ?? []), tr('{name} : {detail}', { name: food.name, detail: qty })]);
   }
-  const order: Section[] = ['Viandes et poissons', 'Fruits et légumes', 'Frais', 'Surgelés', 'Épicerie'];
+  const order: Section[] = [tr('Viandes et poissons'), tr('Fruits et légumes'), tr('Frais'), tr('Surgelés'), tr('Épicerie')];
   const shopping = order.filter((s) => sections.has(s)).map((s) => ({ section: s, items: sections.get(s)!.sort() }));
 
   const mains = picked.filter((x) => (x.slot === 'lunch' || x.slot === 'dinner') && x.p.recipe.prep);
@@ -332,13 +334,13 @@ function buildPrep(picked: { slot: MealSlot; p: Portion; batch: 0 | 1 }[], days:
       when,
       recipes: list.map((x) => ({ name: x.p.recipe.name, portions: portions(x), detail: portionDetail(x.p) })),
       steps: [
-        'Lance les féculents en premier (riz, pâtes, semoule, quinoa) : c’est le plus long.',
-        ...list.flatMap((x) => x.p.recipe.steps.map((st) => `${x.p.recipe.name} : ${st}`)),
-        'Répartis dans des boîtes, une par repas. Frigo 3 à 4 jours maximum.',
+        tr('Lance les féculents en premier (riz, pâtes, semoule, quinoa) : c’est le plus long.'),
+        ...list.flatMap((x) => x.p.recipe.steps.map((st) => tr('{name} : {detail}', { name: x.p.recipe.name, detail: st }))),
+        tr('Répartis dans des boîtes, une par repas. Frigo 3 à 4 jours maximum.'),
       ],
     };
   };
-  const batches = [batch(0, 'Dimanche'), batch(1, 'Mercredi soir')].filter((b): b is NonNullable<typeof b> => b !== null);
+  const batches = [batch(0, tr('Préparation du dimanche')), batch(1, tr('Préparation du mercredi soir'))].filter((b): b is NonNullable<typeof b> => b !== null);
   return { createdAt: new Date().toISOString().slice(0, 10), days, batches, shopping };
 }
 
@@ -365,42 +367,42 @@ const d = (name: string, detail: string, kcal: number, protein: number, carbs: n
 
 /** Plats courants dehors, en portion standard. Estimations moyennes, à corriger si l'étiquette dit autre chose. */
 const OUT: Dish[] = [
-  d('Poke bowl poulet', 'Base riz, poulet, edamame, légumes, sauce à part', 600, 38, 75, 15, ['meat']),
-  d('Poke bowl saumon', 'Base riz, saumon, avocat, sauce à part', 650, 30, 80, 22, ['fish']),
-  d('Poke bowl tofu', 'Base riz, tofu, légumes, sauce à part', 550, 22, 75, 16),
-  d('Sandwich poulet crudités', 'Demi-baguette, sans mayonnaise', 520, 30, 60, 16, ['meat']),
-  d('Wrap poulet', 'Wrap de boulangerie ou fast-food', 450, 28, 45, 16, ['meat']),
-  d('Sushis et makis, 12 pièces', 'Saumon et thon, sans tempura', 480, 22, 80, 8, ['fish']),
-  d('Assiette kebab sans frites', 'Viande, salade, tomate, sauce blanche à part', 650, 45, 35, 35, ['meat']),
-  d('Burger simple sans frites', 'Un steak, une tranche de fromage', 500, 26, 45, 24, ['meat', 'dairy']),
-  d('Salade César au poulet', 'Sauce à part, croûtons en moins', 550, 35, 25, 35, ['meat', 'dairy', 'egg']),
-  d('Bol riz poulet teriyaki', 'Restaurant japonais ou asiatique', 700, 40, 95, 15, ['meat']),
-  d('Bo bun bœuf', 'Vermicelles, bœuf, crudités, nems à part', 600, 30, 75, 18, ['meat']),
-  d('Grillade, riz et légumes', 'Brasserie : poulet ou steak, sans sauce', 700, 50, 70, 22, ['meat']),
-  d('Pizza margherita, une moitié', 'Pâte fine', 550, 22, 70, 18, ['dairy']),
-  d('Wrap falafels', 'Houmous, crudités', 600, 18, 70, 26),
-  d('Omelette nature, salade, pain', 'Café ou brasserie', 500, 28, 35, 28, ['egg']),
+  d(tr('Poke bowl poulet'), tr('Base riz, poulet, edamame, légumes, sauce à part'), 600, 38, 75, 15, ['meat']),
+  d(tr('Poke bowl saumon'), tr('Base riz, saumon, avocat, sauce à part'), 650, 30, 80, 22, ['fish']),
+  d(tr('Poke bowl tofu'), tr('Base riz, tofu, légumes, sauce à part'), 550, 22, 75, 16),
+  d(tr('Sandwich poulet crudités'), tr('Demi-baguette, sans mayonnaise'), 520, 30, 60, 16, ['meat']),
+  d(tr('Wrap poulet'), tr('Wrap de boulangerie ou fast-food'), 450, 28, 45, 16, ['meat']),
+  d(tr('Sushis et makis, 12 pièces'), tr('Saumon et thon, sans tempura'), 480, 22, 80, 8, ['fish']),
+  d(tr('Assiette kebab sans frites'), tr('Viande, salade, tomate, sauce blanche à part'), 650, 45, 35, 35, ['meat']),
+  d(tr('Burger simple sans frites'), tr('Un steak, une tranche de fromage'), 500, 26, 45, 24, ['meat', 'dairy']),
+  d(tr('Salade César au poulet'), tr('Sauce à part, croûtons en moins'), 550, 35, 25, 35, ['meat', 'dairy', 'egg']),
+  d(tr('Bol riz poulet teriyaki'), tr('Restaurant japonais ou asiatique'), 700, 40, 95, 15, ['meat']),
+  d(tr('Bo bun bœuf'), tr('Vermicelles, bœuf, crudités, nems à part'), 600, 30, 75, 18, ['meat']),
+  d(tr('Grillade, riz et légumes'), tr('Brasserie : poulet ou steak, sans sauce'), 700, 50, 70, 22, ['meat']),
+  d(tr('Pizza margherita, une moitié'), tr('Pâte fine'), 550, 22, 70, 18, ['dairy']),
+  d(tr('Wrap falafels'), tr('Houmous, crudités'), 600, 18, 70, 26),
+  d(tr('Omelette nature, salade, pain'), tr('Café ou brasserie'), 500, 28, 35, 28, ['egg']),
 ];
 
 /** Produits faciles à trouver en supermarché, sans marque. */
 const SHOP: Dish[] = [
-  d('Quart de poulet rôti', 'Rayon traiteur, sans la peau', 330, 45, 0, 16, ['meat']),
-  d('Blanc de poulet en tranches (4)', '120 g', 125, 26, 1, 2, ['meat']),
-  d('Salade de lentilles', 'Barquette de 250 g', 330, 15, 40, 10),
-  d('Taboulé', 'Barquette de 250 g', 400, 8, 60, 13),
-  d('Riz ou quinoa à réchauffer', 'Sachet de 250 g', 380, 8, 75, 5),
-  d('Skyr nature', 'Pot de 450 g', 270, 45, 18, 1, ['dairy']),
-  d('Fromage blanc 0 %', '250 g', 115, 20, 10, 0, ['dairy']),
-  d('Thon au naturel', 'Boîte de 140 g égouttée', 160, 36, 0, 1, ['fish']),
-  d('Saumon fumé (4 tranches)', '100 g', 180, 22, 0, 10, ['fish']),
-  d('Œufs durs (2)', 'Rayon frais', 155, 13, 1, 11, ['egg']),
-  d('Pain complet (2 tranches)', '80 g', 190, 7, 33, 2),
-  d('Banane', 'Une moyenne', 110, 1, 25, 0),
-  d('Boisson protéinée', 'Bouteille de 330 ml', 200, 25, 15, 3, ['dairy']),
-  d('Barre protéinée', 'Une barre de 60 g', 200, 20, 20, 7, ['dairy']),
-  d('Houmous', '100 g', 300, 8, 14, 24),
-  d('Carottes râpées', 'Barquette de 200 g', 70, 2, 12, 1),
-  d('Sandwich poulet préemballé', 'Pain de mie, crudités', 400, 22, 45, 14, ['meat']),
+  d(tr('Quart de poulet rôti'), tr('Rayon traiteur, sans la peau'), 330, 45, 0, 16, ['meat']),
+  d(tr('Blanc de poulet en tranches (4)'), '120 g', 125, 26, 1, 2, ['meat']),
+  d(tr('Salade de lentilles'), tr('Barquette de 250 g'), 330, 15, 40, 10),
+  d(tr('Taboulé'), tr('Barquette de 250 g'), 400, 8, 60, 13),
+  d(tr('Riz ou quinoa à réchauffer'), tr('Sachet de 250 g'), 380, 8, 75, 5),
+  d(tr('Skyr nature'), tr('Pot de 450 g'), 270, 45, 18, 1, ['dairy']),
+  d(tr('Fromage blanc 0 %'), '250 g', 115, 20, 10, 0, ['dairy']),
+  d(tr('Thon au naturel'), tr('Boîte de 140 g égouttée'), 160, 36, 0, 1, ['fish']),
+  d(tr('Saumon fumé (4 tranches)'), '100 g', 180, 22, 0, 10, ['fish']),
+  d(tr('Œufs durs (2)'), tr('Rayon frais'), 155, 13, 1, 11, ['egg']),
+  d(tr('Pain complet (2 tranches)'), '80 g', 190, 7, 33, 2),
+  d(tr('Banane'), tr('Une moyenne'), 110, 1, 25, 0),
+  d(tr('Boisson protéinée'), tr('Bouteille de 330 ml'), 200, 25, 15, 3, ['dairy']),
+  d(tr('Barre protéinée'), tr('Une barre de 60 g'), 200, 20, 20, 7, ['dairy']),
+  d(tr('Houmous'), '100 g', 300, 8, 14, 24),
+  d(tr('Carottes râpées'), tr('Barquette de 200 g'), 70, 2, 12, 1),
+  d(tr('Sandwich poulet préemballé'), tr('Pain de mie, crudités'), 400, 22, 45, 14, ['meat']),
 ];
 
 function dishAllowed(x: Dish, diet: DietPrefs, words: string[]): boolean {
@@ -480,7 +482,7 @@ export function suggestMeals(remaining: Macros, mode: SuggestMode, diet: DietPre
   const items = rotate(distinct, seed, 3).map((c) => ({
     id: c.list.map((x) => x.name).join('+'),
     title: c.list.map((x) => x.name).join(' + '),
-    detail: c.list.map((x) => `${x.name.toLowerCase()} : ${x.detail}`).join(' ; '),
+    detail: list(c.list.map((x) => tr('{name} : {detail}', { name: lower(x.name), detail: x.detail }))),
     macros: c.m,
   }));
   return { aim, items };

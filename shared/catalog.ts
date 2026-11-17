@@ -1,6 +1,7 @@
 // Bibliothèque d'exercices. Pour en ajouter un : une ligne ici (+ deux images
 // src/assets/exercises/<key>-0.jpg et -1.jpg si tu veux une démo). Rien d'autre à toucher.
 import type { CatalogEntry, Discipline, ExerciseKind, MuscleGroup, Zone } from './types';
+import { tr } from './i18n';
 
 const c = (
   key: string,
@@ -107,12 +108,12 @@ export const CATALOG: CatalogEntry[] = [
   // Abdos et gainage
   c('hanging-leg-raise', 'Relevés de jambes suspendu', 'core', 'core', ['Abdos'], 'Enroule le bassin vers le haut, sans te balancer.', [3, '10–15', 60]),
   c('cable-crunch', 'Crunch à la poulie', 'isolation', 'core', ['Abdos'], 'Enroule la colonne : ce sont les abdos qui tirent, pas les bras.', [3, '12–15', 60]),
-  c('ab-wheel', 'Roue abdominale', 'core', 'core', ['Abdos', 'Gainage'], 'Va aussi loin que possible sans creuser le bas du dos.', [3, '8–12', 60]),
+  c('ab-wheel', 'Roue abdominale', 'core', 'core', ['Abdos', 'Sangle abdominale'], 'Va aussi loin que possible sans creuser le bas du dos.', [3, '8–12', 60]),
   c('crunch', 'Crunchs', 'core', 'core', ['Abdos'], 'Décolle les épaules, bas du dos au sol.', [3, '15–20', 45]),
-  c('plank', 'Gainage', 'core', 'core', ['Gainage'], 'Corps aligné, fessiers et abdos serrés.', [3, '30–60 s', 45]),
-  c('side-plank', 'Gainage latéral (par côté)', 'core', 'core', ['Obliques', 'Gainage'], 'Corps aligné de la tête aux pieds, hanches hautes.', [3, '30–45 s', 45]),
-  c('wood-chop', 'Wood chop à la poulie (par côté)', 'core', 'core', ['Obliques', 'Gainage'], 'Bras tendus, tourne le buste en diagonale, hanches stables.', [3, '12', 45]),
-  c('pallof', 'Pallof press (par côté)', 'core', 'core', ['Obliques', 'Gainage'], 'Pousse la poignée devant toi et résiste à la rotation.', [3, '12', 45]),
+  c('plank', 'Gainage', 'core', 'core', ['Sangle abdominale'], 'Corps aligné, fessiers et abdos serrés.', [3, '30–60 s', 45]),
+  c('side-plank', 'Gainage latéral (par côté)', 'core', 'core', ['Obliques', 'Sangle abdominale'], 'Corps aligné de la tête aux pieds, hanches hautes.', [3, '30–45 s', 45]),
+  c('wood-chop', 'Wood chop à la poulie (par côté)', 'core', 'core', ['Obliques', 'Sangle abdominale'], 'Bras tendus, tourne le buste en diagonale, hanches stables.', [3, '12', 45]),
+  c('pallof', 'Pallof press (par côté)', 'core', 'core', ['Obliques', 'Sangle abdominale'], 'Pousse la poignée devant toi et résiste à la rotation.', [3, '12', 45]),
   c('russian-twist', 'Russian twist', 'core', 'core', ['Obliques'], 'Pieds décollés, tourne les épaules, pas seulement les bras.', [3, '20', 45]),
 
   // Cou
@@ -126,8 +127,8 @@ export const CATALOG: CatalogEntry[] = [
   c('rowing-erg', 'Rameur', 'cardio', 'cardio', ['Cardio', 'Dos'], 'Jambes, puis buste, puis bras.', [1, '20 min', 0]),
   c('bike', 'Vélo d’appartement', 'cardio', 'cardio', ['Cardio'], 'Résistance moyenne, cadence régulière.', [1, '30 min', 0]),
   c('kettlebell-swing', 'Kettlebell swing', 'power', 'cardio', ['Fessiers', 'Cardio'], 'Le mouvement vient des hanches, pas des bras.', [5, '20', 60]),
-  c('mountain-climber', 'Mountain climbers', 'cardio', 'cardio', ['Cardio', 'Gainage'], 'Hanches basses, genoux vers la poitrine en rythme.', [4, '30 s', 30]),
-  c('farmer-walk', 'Marche du fermier', 'power', 'cardio', ['Grip', 'Trapèzes', 'Gainage'], 'Épaules basses, pas courts et rapides.', [3, '30 m', 90]),
+  c('mountain-climber', 'Mountain climbers', 'cardio', 'cardio', ['Cardio', 'Sangle abdominale'], 'Hanches basses, genoux vers la poitrine en rythme.', [4, '30 s', 30]),
+  c('farmer-walk', 'Marche du fermier', 'power', 'cardio', ['Grip', 'Trapèzes', 'Sangle abdominale'], 'Épaules basses, pas courts et rapides.', [3, '30 m', 90]),
 
   // Course à pied
   c('run-easy', 'Footing en endurance', 'cardio', 'cardio', ['Endurance'], 'Allure où tu peux parler en phrases entières. C’est la base de tout.', [1, '40 min', 0]),
@@ -157,7 +158,7 @@ export const CATALOG: CatalogEntry[] = [
   e('swim-drill-fist', 'Éducatif : poings fermés', 'swim', 2, ['Technique', 'Appui'], 'Nage poings fermés : tu sens l’avant-bras tirer l’eau. Rouvre les mains sur la dernière longueur.', [4, '50 m', 20]),
   e('swim-drill-side', 'Éducatif : 6 battements sur le côté', 'swim', 2, ['Rotation', 'Respiration'], 'Six battements sur le côté, un bras devant, puis un mouvement de bras et change de côté.', [4, '50 m', 20]),
   e('swim-drill-scull', 'Éducatif : godille', 'swim', 2, ['Appui', 'Sensations'], 'Bras devant, petits mouvements en 8 avec les mains : sens l’appui de l’eau.', [4, '25 m', 20]),
-  e('swim-kick', 'Battements avec planche', 'swim', 3, ['Jambes', 'Gainage'], 'Jambes presque tendues, battements qui partent de la hanche, chevilles souples.', [4, '50 m', 20]),
+  e('swim-kick', 'Battements avec planche', 'swim', 3, ['Jambes', 'Sangle abdominale'], 'Jambes presque tendues, battements qui partent de la hanche, chevilles souples.', [4, '50 m', 20]),
   e('swim-pull', 'Pull buoy', 'swim', 3, ['Bras', 'Dos'], 'Pull buoy entre les cuisses : tout le travail aux bras, bassin haut, gainage serré.', [4, '100 m', 20]),
   e('swim-css', 'Série au seuil (CSS)', 'swim', 4, ['Seuil'], 'La même allure sur toutes les répétitions, 15 s de repos. Si tu ralentis, c’était trop vite au départ.', [8, '100 m', 15]),
   e('swim-intervals', 'Série rapide', 'swim', 5, ['VMA nage', 'Vitesse'], 'Vite mais propre : dès que ta nage se dégrade, ralentis un peu.', [8, '50 m', 30]),
@@ -203,23 +204,29 @@ const TAGS: Record<string, [Discipline, Zone]> = {
 for (const x of CATALOG) if (TAGS[x.key]) [x.discipline, x.zone] = TAGS[x.key];
 
 export const DISCIPLINE_NAMES: Record<Discipline, string> = {
-  run: 'Course', bike: 'Vélo', swim: 'Natation', row: 'Rameur', ski: 'SkiErg', walk: 'Marche', combat: 'Combat',
+  run: tr('Course'), bike: tr('Vélo'), swim: tr('Natation'), row: tr('Rameur'), ski: tr('SkiErg'), walk: tr('Marche'), combat: tr('Combat'),
 };
 
 export const GROUP_NAMES: Record<MuscleGroup, string> = {
-  chest: 'Pecs',
-  back: 'Dos',
-  shoulders: 'Épaules',
-  arms: 'Bras',
-  legs: 'Jambes',
-  core: 'Abdos',
-  neck: 'Cou',
-  cardio: 'Cardio',
-  other: 'Récup',
+  chest: tr('Pecs'),
+  back: tr('Dos'),
+  shoulders: tr('Épaules'),
+  arms: tr('Bras'),
+  legs: tr('Jambes'),
+  core: tr('Abdos'),
+  neck: tr('Cou'),
+  cardio: tr('Cardio'),
+  other: tr('Récup'),
 };
 
 const BY_KEY = new Map(CATALOG.map((e) => [e.key, e]));
 
 export function catalogEntry(key: string, custom: Record<string, CatalogEntry> = {}): CatalogEntry | undefined {
   return custom[key] ?? BY_KEY.get(key);
+}
+
+/** Le nom à afficher : traduit pour la bibliothèque, tel quel pour un exercice créé par l'utilisateur (ou la clé). */
+export function exerciseName(key: string, custom: Record<string, CatalogEntry> = {}): string {
+  const e = catalogEntry(key, custom);
+  return e ? (e.custom ? e.name : tr(e.name)) : key;
 }

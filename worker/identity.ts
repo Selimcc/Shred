@@ -10,6 +10,7 @@
 // KV : handle:<pseudo> → id (recherche), hold:<pseudo> → id (ancien pseudo réservé, expire seul).
 import { BIO_MAX, fold, HANDLE_MAX, handleProblem, NICK_MAX, normHandle, skeleton } from '../shared/handle';
 import { type Env, HttpError, json, readJson } from './env';
+import { requestLang, say, tx } from './i18n';
 import { capDaily, counters } from './usage';
 import { type Account, getAccount, indexEntry, type IndexEntry, listAccounts, saveIndex, type User, writeAccount } from './users';
 
@@ -37,9 +38,9 @@ export function cleanText(v: unknown, max: number, lines = 1): string {
 async function takenBy(env: Env, h: string, me: string, list: IndexEntry[]): Promise<string | null> {
   const sk = skeleton(h);
   const other = list.find((u) => u.id !== me && u.handle && (u.handle === h || skeleton(u.handle) === sk));
-  if (other) return other.handle === h ? 'Ce pseudo est déjà pris' : 'Trop proche du pseudo d’un autre membre';
+  if (other) return other.handle === h ? say('Ce pseudo est déjà pris') : say('Trop proche du pseudo d’un autre membre');
   const hold = await env.KV.get(`hold:${h}`);
-  if (hold && hold !== me) return 'Ce pseudo est déjà pris';
+  if (hold && hold !== me) return say('Ce pseudo est déjà pris');
   return null;
 }
 
@@ -146,7 +147,7 @@ export async function identityRoutes(req: Request, env: Env, user: User, url: UR
     return json({
       handle: h,
       ok: false,
-      reason: problem,
+      reason: tx(requestLang(req), problem),
       suggestions: await suggestions(env, h.length >= 2 ? h : user.name, user.id, list),
     });
   }
@@ -191,7 +192,7 @@ export async function identityRoutes(req: Request, env: Env, user: User, url: UR
             day: 'numeric',
             month: 'long',
           });
-          throw new HttpError(429, `Tu as déjà changé de pseudo ${CHANGES_PER_WINDOW} fois en 14 jours. Prochain changement possible le ${when}.`);
+          throw new HttpError(429, 'Tu as déjà changé de pseudo {n} fois en 14 jours. Prochain changement possible le {date}.', { n: CHANGES_PER_WINDOW, date: when });
         }
         // Deux personnes qui veulent le même pseudo à la même seconde : une seule passe.
         if (!(await counters.once(env, `claim:${skeleton(h)}`, 30))) throw new HttpError(409, 'Ce pseudo vient d’être pris, choisis-en un autre');

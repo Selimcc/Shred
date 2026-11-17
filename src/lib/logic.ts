@@ -2,6 +2,7 @@ import { adaptSession } from './dynamic';
 import { type Exercise, findSession, type Macros, resolveSession, scheduleFor, type Session } from '../../shared/program';
 import { addDays, mondayOf, weekdayOf } from './date';
 import { type AppState, type DayLog, readDay, type SetLog } from './state';
+import { loc, tr } from '../../shared/i18n';
 
 /** Id de la séance du jour : celle choisie ce jour-là, sinon celle du planning. */
 export function sessionIdFor(s: AppState, key: string): string {
@@ -239,7 +240,7 @@ export function formatSets(sets: SetLog[]): string {
   return sets.map((l) => (l.w !== undefined ? `${fmtKg(l.w)}×${l.r ?? '?'}` : `${l.r ?? '?'}`)).join(', ');
 }
 
-export const fmtKg = (w: number) => `${w.toLocaleString('fr-FR')} kg`;
+export const fmtKg = (w: number) => `${w.toLocaleString(loc())} kg`;
 
 /* ---------- Poids de corps ---------- */
 
@@ -278,12 +279,12 @@ export function weeklyChange(s: AppState, today: string): number | null {
 
 export function bestLifts(s: AppState) {
   const keys: [string, string][] = [
-    ['squat', 'Squat'],
-    ['bench', 'Développé couché'],
-    ['deadlift', 'Soulevé de terre'],
-    ['incline-db-press', 'Développé incliné haltères'],
-    ['db-shoulder-press', 'Développé militaire'],
-    ['pullup', 'Tractions (lest)'],
+    ['squat', tr('Squat')],
+    ['bench', tr('Développé couché')],
+    ['deadlift', tr('Soulevé de terre')],
+    ['incline-db-press', tr('Développé incliné haltères')],
+    ['db-shoulder-press', tr('Développé militaire')],
+    ['pullup', tr('Tractions (lest)')],
   ];
   return keys.map(([key, name]) => {
     let best: { w: number; r: number; date: string } | null = null;

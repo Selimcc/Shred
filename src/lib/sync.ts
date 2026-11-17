@@ -15,6 +15,7 @@ import { startTrophies } from './trophies';
 import { dayValidated, mealsCount, reconcileStreak, sessionFor, streakInfo } from './logic';
 import { signedIn } from './session';
 import { getState, readDay, setState, subscribe } from './store';
+import { tn, tr } from '../../shared/i18n';
 
 /** Résumé du jour envoyé au serveur, utilisé pour personnaliser les rappels. */
 export function daySummary() {
@@ -26,6 +27,7 @@ export function daySummary() {
     date: today,
     label: sessionFor(s, today).name,
     lifting: sessionFor(s, today).lifting,
+    rest: sessionFor(s, today).type === 'rest',
     mainDone: day.mainDone,
     meals: mealsCount(day),
     validated: dayValidated(s, today),
@@ -91,7 +93,7 @@ export function startSync() {
 function announce(r: ImportResult | null) {
   // Une séance du jour validée par la sortie : Pulse la fête (voir moments.ts), pas besoin de message en plus.
   if (r?.validated.some((x) => x.date === dayKey())) return;
-  if (r?.added) toast(`${r.added} sortie${r.added > 1 ? 's' : ''} importée${r.added > 1 ? 's' : ''}`);
+  if (r?.added) toast(tn(r.added, '{n} sortie importée', '{n} sorties importées'));
 }
 
 /** Retour de la page d'autorisation Strava : on vérifie que le compte est relié, puis on importe. */
@@ -110,7 +112,7 @@ export async function returnFromStrava() {
   } catch {
     // stockage indisponible : sans conséquence
   }
-  toast(`Strava relié${st.athlete ? ` (${st.athlete})` : ''}`);
+  toast(tr('Strava relié{v}', { v: st.athlete ? ` (${st.athlete})` : '' }));
   announce(await syncStrava(true));
 }
 

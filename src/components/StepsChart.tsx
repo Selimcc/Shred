@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { addDays, formatNumber, formatShort, WEEKDAY_LETTERS, weekdayOf } from '../lib/date';
 import { STEP_GOAL } from '../lib/health';
 import type { HealthDay } from '../lib/store';
+import { tr } from '../../shared/i18n';
 
 /** Pas des 14 derniers jours : barre orange quand l'objectif de 8 000 est atteint. */
 export function StepsChart({ health, today }: { health: Record<string, HealthDay>; today: string }) {
@@ -21,10 +22,10 @@ export function StepsChart({ health, today }: { health: Record<string, HealthDay
   return (
     <div>
       <div className="small" style={{ minHeight: 20, marginBottom: 4 }}>
-        <strong className="num">{selected !== undefined ? `${formatNumber(selected)} pas` : 'Pas de données'}</strong>
-        <span className="muted"> le {formatShort(days[sel])}</span>
+        <strong className="num">{selected !== undefined ? tr('{n} pas', { n: formatNumber(selected) }) : tr('Pas de données')}</strong>
+        <span className="muted">{' '}{tr('le {date}', { date: formatShort(days[sel]) })}</span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Pas des 14 derniers jours" style={{ display: 'block', touchAction: 'pan-y' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={tr('Pas des 14 derniers jours')} style={{ display: 'block', touchAction: 'pan-y' }}>
         <line x1={pad.l} x2={W - pad.r} y1={goalY} y2={goalY} stroke="var(--ink-3)" strokeWidth="1" />
         <text x={W - pad.r} y={goalY - 4} textAnchor="end" fontSize="10" fill="var(--ink-3)">
           8 000
@@ -55,7 +56,7 @@ export function StepsChart({ health, today }: { health: Record<string, HealthDay
               >
                 {WEEKDAY_LETTERS[weekdayOf(d)]}
               </text>
-              <title>{`${formatShort(d)} : ${v !== undefined ? `${formatNumber(v)} pas` : 'pas de données'}`}</title>
+              <title>{tr('{name} : {detail}', { name: formatShort(d), detail: v !== undefined ? tr('{n} pas', { n: formatNumber(v) }) : tr('pas de données') })}</title>
             </g>
           );
         })}
@@ -63,11 +64,11 @@ export function StepsChart({ health, today }: { health: Record<string, HealthDay
       <div className="small muted" style={{ display: 'flex', gap: 14, marginTop: 6 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <i style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--flame)', display: 'inline-block' }} />
-          Objectif atteint
+          {tr('Objectif atteint')}
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <i style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--ink-3)', display: 'inline-block' }} />
-          En dessous
+          {tr('En dessous')}
         </span>
       </div>
     </div>

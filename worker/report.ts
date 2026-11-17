@@ -2,6 +2,7 @@
 // Le bilan est calculé sur le téléphone (les données sont chiffrées ici) : la personne l'envoie elle-même.
 import { type Env, HttpError, json, readJson } from './env';
 import type { User } from './users';
+import { requestLang, tx } from './i18n';
 
 export const emailReady = (env: Env) => Boolean(env.RESEND_API_KEY);
 
@@ -18,7 +19,7 @@ export async function sendReport(req: Request, env: Env, user: User): Promise<Re
   const week = String(b.week ?? '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) throw new HttpError(400, 'Semaine invalide');
   if (typeof b.html !== 'string' || b.html.length > 100_000 || typeof b.text !== 'string') throw new HttpError(400, 'Bilan invalide');
-  const subject = String(b.subject ?? 'Ton bilan de la semaine').slice(0, 120);
+  const subject = String(b.subject ?? tx(requestLang(req), 'Ton bilan de la semaine')).slice(0, 120);
 
   // Un mail par semaine, plus 2 renvois manuels maximum par jour.
   const sentKey = `mail:${week}`;
@@ -39,7 +40,7 @@ export async function sendReport(req: Request, env: Env, user: User): Promise<Re
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
     console.error('Resend', res.status, detail.slice(0, 300));
-    throw new HttpError(502, res.status === 403 ? 'Mail refusé : sans domaine vérifié, Resend n’envoie qu’à l’adresse de ton compte Resend.' : `Envoi refusé (${res.status})`);
+    throw res.status === 403 ? new HttpError(502, 'Mail refusé : sans domaine vérifié, Resend n’envoie qu’à l’adresse de ton compte Resend.') : new HttpError(502, 'Envoi refusé ({status})', { status: res.status });
   }
   await Promise.all([
     user.store.put(sentKey, new Date().toISOString(), { expirationTtl: 60 * 86400 }),

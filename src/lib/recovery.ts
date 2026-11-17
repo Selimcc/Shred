@@ -2,6 +2,7 @@
 // le cœur au repos et la VFC envoyés par Apple Santé.
 import { addDays, diffDays } from './date';
 import type { AppState, Form } from './state';
+import { tr } from '../../shared/i18n';
 
 /** Semaines d'entraînement avant de proposer une décharge (plus tôt si plusieurs exercices plafonnent). */
 export const DELOAD_AFTER = 6;
@@ -56,17 +57,17 @@ export function formHint(s: AppState, today: string): FormHint | null {
   const low: string[] = [];
   const good: string[] = [];
   if (h.sleepMin !== undefined) {
-    if (h.sleepMin < 6 * 60) low.push(`${fmtSleep(h.sleepMin)} de sommeil`);
-    else if (h.sleepMin >= 7.5 * 60) good.push(`${fmtSleep(h.sleepMin)} de sommeil`);
+    if (h.sleepMin < 6 * 60) low.push(tr('{fmtSleep} de sommeil', { fmtSleep: fmtSleep(h.sleepMin) }));
+    else if (h.sleepMin >= 7.5 * 60) good.push(tr('{fmtSleep} de sommeil', { fmtSleep: fmtSleep(h.sleepMin) }));
   }
   const hrv0 = baseline(s, today, 'hrv');
   if (h.hrv !== undefined && hrv0) {
-    if (h.hrv < hrv0 * 0.8) low.push(`VFC basse (${h.hrv} ms contre ${Math.round(hrv0)} d’habitude)`);
-    else if (h.hrv >= hrv0 * 1.05) good.push('VFC au-dessus de ta moyenne');
+    if (h.hrv < hrv0 * 0.8) low.push(tr('VFC basse ({hrv} ms contre {n} d’habitude)', { hrv: h.hrv, n: Math.round(hrv0) }));
+    else if (h.hrv >= hrv0 * 1.05) good.push(tr('VFC au-dessus de ta moyenne'));
   }
   const hr0 = baseline(s, today, 'restingHr');
-  if (h.restingHr !== undefined && hr0 && h.restingHr >= hr0 + 5) low.push(`cœur au repos à ${h.restingHr} bpm (${Math.round(hr0)} d’habitude)`);
+  if (h.restingHr !== undefined && hr0 && h.restingHr >= hr0 + 5) low.push(tr('cœur au repos à {restingHr} bpm ({n} d’habitude)', { restingHr: h.restingHr, n: Math.round(hr0) }));
   if (low.length) return { form: 'low', reasons: low };
   if (good.length >= 2 || (good.length === 1 && h.hrv === undefined)) return { form: 'high', reasons: good };
-  return { form: 'ok', reasons: h.sleepMin !== undefined ? [`${fmtSleep(h.sleepMin)} de sommeil`] : [] };
+  return { form: 'ok', reasons: h.sleepMin !== undefined ? [tr('{fmtSleep} de sommeil', { fmtSleep: fmtSleep(h.sleepMin) })] : [] };
 }

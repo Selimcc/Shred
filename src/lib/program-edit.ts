@@ -3,6 +3,7 @@ import { catalogEntry } from '../../shared/catalog';
 import { TEMPLATES } from '../../shared/templates';
 import type { CatalogEntry, ExerciseSlot, HabitDef, MealSlot, PlannedMeal, SessionDef, SessionType } from '../../shared/types';
 import { setState, uid } from './store';
+import { tr } from '../../shared/i18n';
 
 const findDef = (sessions: SessionDef[], id: string) => sessions.find((s) => s.id === id);
 
@@ -34,7 +35,7 @@ export function addSession(type: SessionType = 'lifting'): string {
     const n = d.program.sessions.filter((s) => s.type === type).length + 1;
     d.program.sessions.push({
       id,
-      name: type === 'lifting' ? `Séance ${n}` : type === 'cardio' ? `Cardio ${n}` : `Repos ${n}`,
+      name: type === 'lifting' ? tr('Séance {n}', { n }) : type === 'cardio' ? tr('Cardio {n}', { n }) : tr('Repos {n}', { n }),
       focus: '',
       type,
       exercises: type === 'rest' ? [{ key: 'walk' }, { key: 'mobility' }] : [],
@@ -104,7 +105,7 @@ export function createCustomExercise(entry: Omit<CatalogEntry, 'key' | 'custom'>
 export function addPlannedMeal(slot: MealSlot): string {
   const id = `m-${uid()}`;
   setState((d) => {
-    d.mealPlan.push({ id, slot, label: 'Nouveau repas', detail: '', kcal: 500, protein: 30, carbs: 50, fat: 15 });
+    d.mealPlan.push({ id, slot, label: tr('Nouveau repas'), detail: '', kcal: 500, protein: 30, carbs: 50, fat: 15 });
   });
   return id;
 }
@@ -124,7 +125,7 @@ export function removePlannedMeal(id: string) {
 
 /* ---------- Habitudes ---------- */
 
-export function addHabit(name = 'Nouvelle habitude'): string {
+export function addHabit(name = tr('Nouvelle habitude')): string {
   const id = `h-${uid()}`;
   setState((d) => {
     d.habits.push({ id, name, icon: 'check' });

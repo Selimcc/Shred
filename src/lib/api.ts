@@ -1,5 +1,6 @@
 import { authToken, COOKIE, markExpired, type Role } from './session';
 import type { MealItem } from './store';
+import { lang, tr } from '../../shared/i18n';
 
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';
 export const DEMO = import.meta.env.MODE === 'demo';
@@ -53,6 +54,8 @@ export function authHeaders(token: string | undefined, json = true): Record<stri
     'x-shred': '1',
     ...(CLIENT ? { 'x-shred-client': CLIENT } : {}),
     ...(token && token !== COOKIE ? { authorization: `Bearer ${token}` } : {}),
+    // La langue de l'app : erreurs et notifications du serveur dans la même langue.
+    'x-shred-lang': lang(),
   };
 }
 
@@ -60,7 +63,7 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   if (DEMO) return demoApi<T>(path, init.body);
   const needsAuth = init.auth !== false;
   const token = authToken();
-  if (needsAuth && !token) throw new ApiError(0, 'Connecte-toi à ton compte (Réglages, Compte) pour utiliser cette fonction.');
+  if (needsAuth && !token) throw new ApiError(0, tr('Connecte-toi à ton compte (Réglages, Compte) pour utiliser cette fonction.'));
   let res: Response;
   try {
     res = await fetch(BASE + path, {
@@ -69,11 +72,11 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
       body: init.body ? JSON.stringify(init.body) : undefined,
     });
   } catch {
-    throw new ApiError(0, 'Serveur injoignable. Vérifie ta connexion.');
+    throw new ApiError(0, tr('Serveur injoignable. Vérifie ta connexion.'));
   }
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (res.status === 401 && needsAuth) markExpired();
-  if (!res.ok) throw new ApiError(res.status, data.error ?? (res.status === 404 && !res.headers.get('content-type')?.includes('json') ? 'Serveur introuvable' : `Erreur ${res.status}`));
+  if (!res.ok) throw new ApiError(res.status, data.error ?? (res.status === 404 && !res.headers.get('content-type')?.includes('json') ? tr('Serveur introuvable') : tr('Erreur {status}', { status: res.status })));
   return data as T;
 }
 
@@ -86,26 +89,26 @@ async function demoApi<T>(path: string, body: unknown): Promise<T> {
   if (path === '/api/health') {
     return {
       ok: true,
-      version: 'démo',
+      version: tr('démo'),
       ai: 'mock',
       aiLimit: 10,
       push: false,
       subscribed: false,
-      user: { id: 'demo', name: 'Démo', email: 'demo@exemple.com', role: 'admin' },
+      user: { id: 'demo', name: tr('Démo'), email: 'demo@exemple.com', role: 'admin' },
     } as T;
   }
   if (path === '/api/meal/analyze') {
     const analysis: MealAnalysis = {
       is_food: true,
-      title: 'Poulet, riz, haricots verts',
+      title: tr('Poulet, riz, haricots verts'),
       items: [
-        { name: 'Blanc de poulet grillé', grams: 140, kcal: 230, protein: 43, carbs: 0, fat: 5 },
-        { name: 'Riz basmati cuit', grams: 220, kcal: 285, protein: 6, carbs: 62, fat: 1 },
-        { name: 'Haricots verts', grams: 150, kcal: 45, protein: 3, carbs: 7, fat: 0 },
-        { name: 'Huile d’olive', grams: 8, kcal: 72, protein: 0, carbs: 0, fat: 8 },
+        { name: tr('Blanc de poulet grillé'), grams: 140, kcal: 230, protein: 43, carbs: 0, fat: 5 },
+        { name: tr('Riz basmati cuit'), grams: 220, kcal: 285, protein: 6, carbs: 62, fat: 1 },
+        { name: tr('Haricots verts'), grams: 150, kcal: 45, protein: 3, carbs: 7, fat: 0 },
+        { name: tr('Huile d’olive'), grams: 8, kcal: 72, protein: 0, carbs: 0, fat: 8 },
       ],
       confidence: 'medium',
-      advice: 'Mode démo : estimation fictive. Une fois déployée, l’app analyse vraiment ta photo.',
+      advice: tr('Mode démo : estimation fictive. Une fois déployée, l’app analyse vraiment ta photo.'),
     };
     return analysis as T;
   }
@@ -113,8 +116,8 @@ async function demoApi<T>(path: string, body: unknown): Promise<T> {
     const msgs = (body as { messages: { content: string }[] }).messages;
     const q = msgs[msgs.length - 1]?.content ?? '';
     return {
-      reply: `Mode démo : je ne suis pas encore branché. Tu m’as demandé « ${q.slice(0, 70)} ». Une fois l’app déployée avec ta clé API, je te réponds avec ton programme et tes données du jour.`,
+      reply: tr('Mode démo : je ne suis pas encore branché. Tu m’as demandé « {q} ». Une fois l’app déployée avec ta clé API, je te réponds avec ton programme et tes données du jour.', { q: q.slice(0, 70) }),
     } as T;
   }
-  throw new ApiError(0, 'Indisponible en mode démo. Déploie l’app pour activer cette fonction.');
+  throw new ApiError(0, tr('Indisponible en mode démo. Déploie l’app pour activer cette fonction.'));
 }

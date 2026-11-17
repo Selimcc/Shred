@@ -26,13 +26,14 @@ import { timeOf } from '../lib/health';
 import { localRetriever, memoryText } from '../lib/knowledge';
 import { useConnector } from '../lib/connector';
 import { signedIn } from '../lib/session';
+import { list, tn, tr } from '../../shared/i18n';
 
 const SUGGESTIONS = [
-  'Je n’ai que 45 minutes aujourd’hui, adapte ma séance',
-  'Une machine est prise, par quoi remplacer ?',
-  'Que manger ce soir avec ce qu’il me reste ?',
-  'Fais le bilan de ma semaine',
-  'Comment rattraper mon point faible ?',
+  tr('Je n’ai que 45 minutes aujourd’hui, adapte ma séance'),
+  tr('Une machine est prise, par quoi remplacer ?'),
+  tr('Que manger ce soir avec ce qu’il me reste ?'),
+  tr('Fais le bilan de ma semaine'),
+  tr('Comment rattraper mon point faible ?'),
 ];
 
 export function buildContext(s: AppState, today: string): string {
@@ -44,44 +45,44 @@ export function buildContext(s: AppState, today: string): string {
   const tg = s.settings.targets;
   const lines: string[] = [];
   const p = s.settings;
-  const profile = [p.name, p.age ? `${p.age} ans` : '', p.height ? `${p.height} cm` : ''].filter(Boolean).join(', ');
-  if (profile) lines.push(`Profil : ${profile}`);
-  lines.push(`Date : ${formatLong(today)}, ${new Date().toTimeString().slice(0, 5)}`);
+  const profile = [p.name, p.age ? tr('{age} ans', { age: p.age }) : '', p.height ? `${p.height} cm` : ''].filter(Boolean).join(', ');
+  if (profile) lines.push(tr('Profil : {profile}', { profile }));
+  lines.push(tr('Date : {date}, {toTimeString}', { date: formatLong(today), toTimeString: new Date().toTimeString().slice(0, 5) }));
   lines.push(
-    `Séance du jour : ${session.name} (${session.focus}), ${prog.done}/${prog.total} séries, ${day.mainDone ? 'terminée' : 'pas terminée'}`,
+    tr('Séance du jour : {name} ({focus}), {done}/{total} séries, {v}', { name: session.name, focus: session.focus, done: prog.done, total: prog.total, v: day.mainDone ? tr('terminée') : tr('pas terminée') }),
   );
   const done = session.exercises
     .filter((e) => day.sets[e.key]?.some((l) => l.done))
-    .map((e) => `- ${e.name} : ${formatSets(day.sets[e.key].filter((l) => l.done))}`);
-  if (done.length) lines.push(`Séries faites aujourd'hui :\n${done.join('\n')}`);
+    .map((e) => `- ${tr('{name} : {detail}', { name: e.name, detail: formatSets(day.sets[e.key].filter((l) => l.done)) })}`);
+  if (done.length) lines.push(tr('Séries faites aujourd\'hui :\n{join}', { join: done.join('\n') }));
   lines.push(
-    `Nutrition aujourd'hui : ${t.kcal}/${tg.kcal} kcal, ${t.protein}/${tg.protein} g protéines, ${t.carbs}/${tg.carbs} g glucides, ${t.fat}/${tg.fat} g lipides (${mealsCount(day)}/4 repas notés)`,
+    tr('Nutrition aujourd\'hui : {kcal}/{kcal2} kcal, {protein}/{protein2} g protéines, {carbs}/{carbs2} g glucides, {fat}/{fat2} g lipides ({mealsCount}/4 repas notés)', { kcal: t.kcal, kcal2: tg.kcal, protein: t.protein, protein2: tg.protein, carbs: t.carbs, carbs2: tg.carbs, fat: t.fat, fat2: tg.fat, mealsCount: mealsCount(day) }),
   );
-  if (day.meals.length) lines.push(`Repas notés : ${day.meals.map((m) => `${m.label} (${m.kcal} kcal)`).join(' ; ')}`);
+  if (day.meals.length) lines.push(tr('Repas notés : {join}', { join: day.meals.map((m) => `${m.label} (${m.kcal} kcal)`).join(' ; ') }));
   const habits = s.habits.filter((h) => day.habits[h.id]).map((h) => h.name);
-  lines.push(`Habitudes cochées : ${habits.length ? habits.join(', ') : 'aucune'}`);
+  lines.push(tr('Habitudes cochées : {v}', { v: habits.length ? list(habits) : tr('aucune') }));
   const h = s.health[today];
   if (h) {
     lines.push(
-      `Activité (Apple Santé) : ${h.steps ?? '?'} pas, ${h.active ?? '?'} kcal actives, ${h.resting ?? '?'} kcal au repos${h.gymIn ? `, arrivé à la salle à ${timeOf(h.gymIn)}${h.gymOut ? `, reparti à ${timeOf(h.gymOut)}` : ''}` : ''}`,
+      tr('Activité (Apple Santé) : {n} pas, {n2} kcal actives, {n3} kcal au repos{v}', { n: h.steps ?? '?', n2: h.active ?? '?', n3: h.resting ?? '?', v: h.gymIn ? `${tr(', arrivé à la salle à {time}', { time: timeOf(h.gymIn) })}${h.gymOut ? tr(', reparti à {time}', { time: timeOf(h.gymOut) }) : ''}` : '' }),
     );
   }
-  lines.push(`Série : ${st.current} jours (record ${st.best}), ${st.freezes} gel(s) disponibles`);
+  lines.push(tr('Série : {current} jours (record {best}), {freezes}', { current: st.current, best: st.best, freezes: tn(st.freezes, '{n} gel disponible', '{n} gels disponibles') }));
   lines.push(profileSummary(s, today));
 
   const lastWeight = Object.entries(s.body.weight).sort(([a], [b]) => b.localeCompare(a))[0];
   if (lastWeight) {
     const wc = weeklyChange(s, today);
     lines.push(
-      `Poids : dernière pesée ${formatNumber(lastWeight[1], 1)} kg le ${lastWeight[0]}${wc !== null ? `, variation moyenne sur 7 j : ${wc > 0 ? '+' : ''}${formatNumber(wc, 2)} kg` : ''}`,
+      tr('Poids : dernière pesée {n} kg le {lastWeight}{v}', { n: formatNumber(lastWeight[1], 1), lastWeight: lastWeight[0], v: wc !== null ? tr(', variation moyenne sur 7 j : {change} kg', { change: `${wc > 0 ? '+' : ''}${formatNumber(wc, 2)}` }) : '' }),
     );
   }
   const week = Array.from({ length: 7 }, (_, i) => addDays(today, -i - 1)).map((d) => {
     const dl = s.days[d];
     const name = sessionFor(s, d).name;
-    return `${d} ${name} ${dl?.mainDone ? 'faite' : 'non faite'}${dayValidated(s, d) ? ', journée validée' : ''}`;
+    return `${d} ${name} ${dl?.mainDone ? tr('faite') : tr('non faite')}${dayValidated(s, d) ? tr(', journée validée') : ''}`;
   });
-  lines.push(`7 derniers jours :\n${week.join('\n')}`);
+  lines.push(tr('7 derniers jours :\n{join}', { join: week.join('\n') }));
   return lines.join('\n');
 }
 
@@ -112,12 +113,12 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
     // Recherche locale dans l'historique : seuls les extraits utiles partent avec la question.
     const hits = localRetriever(getState(), today).searchSync(q, { k: viaApp ? 6 : 8, budget: viaApp ? 3000 : 4500 });
     if (viaApp && connected) {
-      await openInClaude(`${q}\n\nUtilise mes données Shred pour répondre.`);
+      await openInClaude(tr('{q}\n\nUtilise mes données Shred pour répondre.', { q }));
       return;
     }
     if (viaApp) {
       const how = await openInClaude(claudePrompt(getState(), today, q, hits));
-      if (how === 'copied') toast('Question et contexte copiés : colle-les dans Claude.');
+      if (how === 'copied') toast(tr('Question et contexte copiés : colle-les dans Claude.'));
       return;
     }
     setState((d) => {
@@ -132,7 +133,7 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
           messages: st.coach.slice(-16).map(({ role, content }) => ({ role, content })),
           context: buildContext(st, today),
           program: programText(st),
-          notes: [st.settings.coachNotes, athleteSummary(st.settings.athlete, st.settings.gym), `Objectif : ${WEIGHT_GOALS[st.settings.weightGoal].label}.`].filter(Boolean).join('\n'),
+          notes: [st.settings.coachNotes, athleteSummary(st.settings.athlete, st.settings.gym), tr('Objectif : {label}.', { label: WEIGHT_GOALS[st.settings.weightGoal].label })].filter(Boolean).join('\n'),
           name: st.settings.name || undefined,
           memory: hits.length ? memoryText(hits) : undefined,
           season: activeSeason(st, today) ?? undefined,
@@ -151,13 +152,13 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: viaApp ? undefined : 'calc(100dvh - var(--tabbar) - 120px)' }}>
       <button className="link small" style={{ marginBottom: 14, alignSelf: 'flex-start', color: 'var(--ink-2)' }} onClick={onBack}>
-        ← Aujourd’hui
+        {tr('← Aujourd’hui')}
       </button>
       <header className="topbar coach-head" style={{ justifyContent: 'flex-start' }}>
         <Pulse mood="think" tier={flameInfo(s, today).tier} size={56} />
         <div style={{ flex: 1 }}>
-          <h1>Pulse, ton coach</h1>
-          <div className="date">{viaApp ? (connected ? 'Je t’ouvre Claude, qui lit ton historique Shred' : 'Je t’ouvre Claude avec ton contexte, sans frais') : 'Je connais ton programme et ta journée'}</div>
+          <h1>{tr('Pulse, ton coach')}</h1>
+          <div className="date">{viaApp ? (connected ? tr('Je t’ouvre Claude, qui lit ton historique Shred') : tr('Je t’ouvre Claude avec ton contexte, sans frais')) : tr('Je connais ton programme et ta journée')}</div>
         </div>
         {!viaApp && messages.length > 0 && (
           <button
@@ -168,7 +169,7 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
               })
             }
           >
-            Effacer
+            {tr('Effacer')}
           </button>
         )}
       </header>
@@ -177,14 +178,13 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
         {viaApp && (
           <p className="muted" style={{ marginTop: 0 }}>
             {connected
-              ? 'Écris ta question : elle s’ouvre dans Claude, qui va chercher dans Shred ce qu’il lui faut (séances, records, repas, poids). Tu continues la conversation là-bas.'
-              : 'Écris ta question : l’app l’envoie dans Claude avec ta journée et les extraits de ton historique qui y répondent (séances, records, repas, poids). Tu continues la conversation là-bas, avec ton compte Claude.'}
+              ? tr('Écris ta question : elle s’ouvre dans Claude, qui va chercher dans Shred ce qu’il lui faut (séances, records, repas, poids). Tu continues la conversation là-bas.')
+              : tr('Écris ta question : l’app l’envoie dans Claude avec ta journée et les extraits de ton historique qui y répondent (séances, records, repas, poids). Tu continues la conversation là-bas, avec ton compte Claude.')}
           </p>
         )}
         {!viaApp && messages.length === 0 && (
           <p className="muted" style={{ marginTop: 0 }}>
-            Pose une question sur ta séance, tes repas ou ta progression. Il voit tes séries, tes calories et ta série du
-            jour.
+            {tr('Pose une question sur ta séance, tes repas ou ta progression. Il voit tes séries, tes calories et ta série du jour.')}
           </p>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -205,7 +205,7 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
               {m.content}
               {m.sources && m.sources.length > 0 && (
                 <div className="small faint" style={{ marginTop: 6, fontSize: '0.74rem' }}>
-                  D’après : {m.sources.join(', ')}
+                  {tr('D’après : {join}', { join: m.sources.join(', ') })}
                 </div>
               )}
             </div>
@@ -253,7 +253,7 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
             className="input"
             rows={1}
             style={{ resize: 'none', maxHeight: 120 }}
-            placeholder={viaApp ? 'Ta question pour Pulse' : 'Écris à Pulse'}
+            placeholder={viaApp ? tr('Ta question pour Pulse') : tr('Écris à Pulse')}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
@@ -262,9 +262,9 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
                 send(text);
               }
             }}
-            aria-label="Message au coach"
+            aria-label={tr('Message au coach')}
           />
-          <button className="btn primary" style={{ width: 48, padding: 0 }} disabled={!text.trim() || busy} aria-label="Envoyer">
+          <button className="btn primary" style={{ width: 48, padding: 0 }} disabled={!text.trim() || busy} aria-label={tr('Envoyer')}>
             <Icon name="send" size={20} />
           </button>
         </form>

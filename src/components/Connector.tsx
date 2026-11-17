@@ -6,6 +6,7 @@ import { formatShort, dayKey } from '../lib/date';
 import { ask, errorText, Sheet, toast } from './ui';
 import { CopyRow } from './form';
 import { Icon } from './Icon';
+import { tr } from '../../shared/i18n';
 
 const since = (ms: number) => formatShort(dayKey(new Date(ms)));
 
@@ -15,10 +16,10 @@ export function ConnectorCard() {
   const clients = status?.clients ?? [];
   const url = status?.url ?? `${location.origin}/api/mcp`;
   const cut = async (id: string, name: string) => {
-    if (!(await ask(`${name} ne pourra plus lire tes données Shred. Tu pourras le reconnecter depuis Claude.`, 'Déconnecter', true))) return;
+    if (!(await ask(tr('{name} ne pourra plus lire tes données Shred. Tu pourras le reconnecter depuis Claude.', { name }), tr('Déconnecter'), true))) return;
     try {
       await disconnectClient(id);
-      toast(`${name} déconnecté`);
+      toast(tr('{name} déconnecté', { name }));
     } catch (e) {
       toast(errorText(e), true);
     }
@@ -27,7 +28,7 @@ export function ConnectorCard() {
     <div className="card stack connector-card" style={{ gap: 12 }}>
       <div className="connector-head">
         <Icon name="plug" size={20} />
-        <b>{clients.length ? 'Shred est connecté à Claude' : 'Connecte Shred à Claude'}</b>
+        <b>{clients.length ? tr('Shred est connecté à Claude') : tr('Connecte Shred à Claude')}</b>
       </div>
       {clients.length > 0 && (
         <ul className="connector-list">
@@ -35,10 +36,10 @@ export function ConnectorCard() {
             <li key={c.id}>
               <span className="grow">
                 {c.name}
-                <span className="small muted"> · depuis le {since(c.since)}</span>
+                <span className="small muted">{' '}{tr('· depuis le {date}', { date: since(c.since) })}</span>
               </span>
               <button className="btn small" onClick={() => cut(c.id, c.name)}>
-                Déconnecter
+                {tr('Déconnecter')}
               </button>
             </li>
           ))}
@@ -47,27 +48,26 @@ export function ConnectorCard() {
       {!clients.length && (
         <>
           <p className="small muted" style={{ margin: 0 }}>
-            Claude lit tes séances, tes records, tes repas et ton poids quand tu lui poses une question, avec ton propre abonnement (même
-            gratuit). Lecture seule.
+            {tr('Claude lit tes séances, tes records, tes repas et ton poids quand tu lui poses une question, avec ton propre abonnement (même gratuit). Lecture seule.')}
           </p>
           <ol className="connector-steps small">
-            <li>Sur claude.ai ou l’app de bureau Claude : Personnaliser, Connecteurs, puis « Ajouter un connecteur personnalisé ».</li>
-            <li>Nom : Shred. Adresse :</li>
+            <li>{tr('Sur claude.ai ou l’app de bureau Claude : Personnaliser, Connecteurs, puis « Ajouter un connecteur personnalisé ».')}</li>
+            <li>{tr('Nom : Shred. Adresse :')}</li>
           </ol>
-          <CopyRow label="Adresse du connecteur" value={url} />
+          <CopyRow label={tr('Adresse du connecteur')} value={url} />
           <ol className="connector-steps small" start={3}>
-            <li>Claude te renvoie ici : connecte-toi et autorise. Shred est ensuite dispo dans tes conversations, aussi sur mobile.</li>
+            <li>{tr('Claude te renvoie ici : connecte-toi et autorise. Shred est ensuite dispo dans tes conversations, aussi sur mobile.')}</li>
           </ol>
         </>
       )}
       <a className="btn small" href="https://claude.ai" target="_blank" rel="noopener noreferrer" style={{ alignSelf: 'flex-start' }}>
-        <Icon name="external" size={16} /> Ouvrir Claude
+        <Icon name="external" size={16} />{' '}{tr('Ouvrir Claude')}
       </a>
     </div>
   );
 }
 
-const READS = ['Tes séances, séries et records', 'Tes repas, calories et poids', 'Ton profil, ton programme et ta série'];
+const READS = [tr('Tes séances, séries et records'), tr('Tes repas, calories et poids'), tr('Ton profil, ton programme et ta série')];
 
 /** La demande d'accès : qui demande, ce qu'il pourra lire, accepter ou refuser. */
 export function ConnectClaude({ handle, onClose }: { handle: string; onClose: () => void }) {
@@ -92,19 +92,19 @@ export function ConnectClaude({ handle, onClose }: { handle: string; onClose: ()
     }
   };
 
-  const name = info?.name ?? 'Une application';
+  const name = info?.name ?? tr('Une application');
   return (
     <Sheet
-      title="Connecter Claude"
+      title={tr('Connecter Claude')}
       onClose={onClose}
       footer={
         info ? (
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn" style={{ flex: 1 }} disabled={busy !== null} onClick={() => decide(false)}>
-              {busy === 'no' ? 'Refus…' : 'Refuser'}
+              {busy === 'no' ? tr('Refus…') : tr('Refuser')}
             </button>
             <button className="btn primary" style={{ flex: 1 }} disabled={busy !== null} onClick={() => decide(true)}>
-              {busy === 'yes' ? 'Autorisation…' : 'Autoriser'}
+              {busy === 'yes' ? tr('Autorisation…') : tr('Autoriser')}
             </button>
           </div>
         ) : undefined
@@ -115,21 +115,20 @@ export function ConnectClaude({ handle, onClose }: { handle: string; onClose: ()
         {info && (
           <>
             <div>
-              <h2 className="consent-title">{name} veut lire tes données Shred</h2>
+              <h2 className="consent-title">{tr('{name} veut lire tes données Shred', { name })}</h2>
               <p className="small muted" style={{ margin: '6px 0 0' }}>
                 {info.domain ? (
                   <>
-                    <Icon name="lock" size={14} /> Application vérifiée : {info.domain}.
+                    <Icon name="lock" size={14} />{' '}{tr('Application vérifiée : {domain}.', { domain: info.domain })}
                   </>
                 ) : (
-                  'Ce nom est donné par l’application elle-même.'
-                )}{' '}
-                Les accès partiront vers <b>{info.host}</b>.
+                  tr('Ce nom est donné par l’application elle-même.')
+                )}{' '}{tr('Les accès partiront vers')}{' '}<b>{info.host}</b>.
               </p>
             </div>
             {info.loopback && (
               <div className="card notice small">
-                Une application sur ton ordinateur demande l’accès. Continue seulement si tu viens de lancer la connexion toi-même.
+                {tr('Une application sur ton ordinateur demande l’accès. Continue seulement si tu viens de lancer la connexion toi-même.')}
               </div>
             )}
             <ul className="consent-reads">
@@ -140,8 +139,7 @@ export function ConnectClaude({ handle, onClose }: { handle: string; onClose: ()
               ))}
             </ul>
             <p className="small muted" style={{ margin: 0 }}>
-              Lecture seule : rien ne peut être modifié ni publié. Claude lit ta dernière sauvegarde quand tu lui poses une question ; le serveur
-              ne peut l’ouvrir que pendant ces requêtes. Tu coupes l’accès quand tu veux dans Réglages, IA.
+              {tr('Lecture seule : rien ne peut être modifié ni publié. Claude lit ta dernière sauvegarde quand tu lui poses une question ; le serveur ne peut l’ouvrir que pendant ces requêtes. Tu coupes l’accès quand tu veux dans Réglages, IA.')}
             </p>
           </>
         )}

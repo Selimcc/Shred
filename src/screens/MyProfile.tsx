@@ -23,8 +23,9 @@ import { strengthProfile } from '../lib/strength';
 import { BodyForm, DietForm, SportForm } from './AthleteForms';
 import { MemberAvatar } from './Club';
 import type { SettingsPage } from './Settings';
+import { lower, tn, tr } from '../../shared/i18n';
 
-const LEVELS: Record<Athlete['experience'], string> = { beginner: 'débutant', intermediate: 'intermédiaire', advanced: 'confirmé' };
+const LEVELS: Record<Athlete['experience'], string> = { beginner: tr('débutant'), intermediate: tr('intermédiaire'), advanced: tr('confirmé') };
 
 type Part = 'id' | 'me' | 'sport' | 'food' | 'coach';
 
@@ -71,10 +72,10 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
   const level = levelFor(totalXp(s)).level;
   const sparks = s.club?.sparks ?? 0;
   const stats: [number, string][] = [
-    [level, 'niveau'],
-    [flames.current, 'série'],
-    [flames.earned.length, flames.earned.length > 1 ? 'flammes' : 'flamme'],
-    [sparks, sparks > 1 ? 'étincelles' : 'étincelle'],
+    [level, tr('niveau')],
+    [flames.current, tr('série')],
+    [flames.earned.length, tn(flames.earned.length, 'flamme', 'flammes')],
+    [sparks, tn(sparks, 'étincelle', 'étincelles')],
   ];
   const groups = s.settings.modules.strength ? strengthProfile(s, today).groups : [];
   const radar = groups.some((g) => g.score !== null);
@@ -94,7 +95,7 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
         if (mine) setMe({ id: mine.id, avatar: r.avatar });
       }
       setCrop(null);
-      toast('Photo de profil mise à jour');
+      toast(tr('Photo de profil mise à jour'));
     } catch (err) {
       toast(errorText(err), true);
     }
@@ -102,18 +103,18 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
 
   const d = a.diet;
   const food = [
-    d.meals === 4 ? '3 repas + collation' : '3 repas',
-    d.vegetarian && 'végétarien',
-    d.noPork && 'sans porc',
-    d.lactoseFree && 'sans lactose',
-    d.cook === 'quick' && 'cuisine rapide',
-    d.budget === 'tight' && 'petit budget',
+    d.meals === 4 ? tr('3 repas + collation') : tr('3 repas'),
+    d.vegetarian && tr('végétarien'),
+    d.noPork && tr('sans porc'),
+    d.lactoseFree && tr('sans lactose'),
+    d.cook === 'quick' && tr('cuisine rapide'),
+    d.budget === 'tight' && tr('petit budget'),
   ].filter(Boolean);
   const body = [
-    s.settings.age && `${s.settings.age} ans`,
+    s.settings.age && tr('{age} ans', { age: s.settings.age }),
     s.settings.height && `${s.settings.height} cm`,
     weight && `${formatNumber(weight, 1)} kg`,
-    a.bodyFat && `${a.bodyFat} % de masse grasse`,
+    a.bodyFat && tr('{bodyFat} % de masse grasse', { bodyFat: a.bodyFat }),
   ].filter(Boolean);
 
   return (
@@ -123,7 +124,7 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
           className="member-photo"
           onClick={() => canPhoto && file.current?.click()}
           disabled={!canPhoto}
-          aria-label={canPhoto ? 'Changer ma photo de profil' : undefined}
+          aria-label={canPhoto ? tr('Changer ma photo de profil') : undefined}
         >
           <MemberAvatar m={{ id: me?.id ?? 'me', name: s.settings.name || '?', avatar: me?.avatar ?? null }} size={72} />
           {canPhoto && (
@@ -135,7 +136,7 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
         <input ref={file} type="file" accept="image/*" hidden onChange={photo} />
         {crop && <AvatarCrop file={crop} onCancel={() => setCrop(null)} onDone={upload} />}
         <div className="grow" style={{ minWidth: 0 }}>
-          <div className="profile-name">{s.settings.name || 'Ton prénom'}</div>
+          <div className="profile-name">{s.settings.name || tr('Ton prénom')}</div>
           {identity?.handle && (
             <div className="small ellipsis">
               <span className="member-handle">@{identity.handle}</span>
@@ -167,16 +168,16 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
             open={open === 'id'}
             onToggle={toggle}
             icon="at"
-            title="Nom d’utilisateur, surnom et bio"
-            sub={identity ? [`@${identity.handle}`, identity.nick, identity.bio ? 'bio' : 'sans bio'].filter(Boolean).join(', ') : 'Ce que le club voit de toi'}
+            title={tr('Nom d’utilisateur, surnom et bio')}
+            sub={identity ? [`@${identity.handle}`, identity.nick, identity.bio ? tr('bio') : tr('sans bio')].filter(Boolean).join(', ') : tr('Ce que le club voit de toi')}
           >
             <IdentityForm onSaved={setIdentity} />
           </Section>
         )}
-        <Section id="me" open={open === 'me'} onToggle={toggle} icon="user" title="Moi" sub={[s.settings.name || 'Prénom à renseigner', ...body].join(', ')}>
+        <Section id="me" open={open === 'me'} onToggle={toggle} icon="user" title={tr('Moi')} sub={[s.settings.name || tr('Prénom à renseigner'), ...body].join(', ')}>
           {!social && (
-            <Field label="Prénom">
-              <input className="input" value={s.settings.name} placeholder="Ton prénom" onChange={(e) => setState((x) => void (x.settings.name = e.target.value.slice(0, 30)))} />
+            <Field label={tr('Prénom')}>
+              <input className="input" value={s.settings.name} placeholder={tr('Ton prénom')} onChange={(e) => setState((x) => void (x.settings.name = e.target.value.slice(0, 30)))} />
             </Field>
           )}
           <BodyForm
@@ -197,20 +198,20 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
           open={open === 'sport'}
           onToggle={toggle}
           icon="dumbbell"
-          title="Sport et niveau"
-          sub={`${sportLabel(a)}, ${LEVELS[a.experience]}, ${a.days} × ${a.minutes} min, ${ACTIVITIES[a.activity].label.toLowerCase()} au quotidien`}
+          title={tr('Sport et niveau')}
+          sub={tr('{sportLabel}, {LEVELS}, {days} × {minutes} min, {label} au quotidien', { sportLabel: sportLabel(a), LEVELS: LEVELS[a.experience], days: a.days, minutes: a.minutes, label: lower(ACTIVITIES[a.activity].label) })}
         >
           <SportForm athlete={a} onAthlete={saveAthlete} />
         </Section>
-        <Section id="food" open={open === 'food'} onToggle={toggle} icon="utensils" title="Alimentation" sub={food.join(', ')}>
+        <Section id="food" open={open === 'food'} onToggle={toggle} icon="utensils" title={tr('Alimentation')} sub={food.join(', ')}>
           <DietForm diet={d} onDiet={(diet) => saveAthlete({ ...a, diet })} />
         </Section>
-        <Section id="coach" open={open === 'coach'} onToggle={toggle} icon="chat" title="Pour le coach" sub={s.settings.coachNotes.trim() || 'Blessures, contraintes, aliments à éviter…'}>
+        <Section id="coach" open={open === 'coach'} onToggle={toggle} icon="chat" title={tr('Pour le coach')} sub={s.settings.coachNotes.trim() || tr('Blessures, contraintes, aliments à éviter…')}>
           <textarea
             className="input"
             rows={5}
             style={{ resize: 'vertical' }}
-            placeholder="Objectif, sport à côté, aliments que tu n’aimes pas, budget, blessures…"
+            placeholder={tr('Objectif, sport à côté, aliments que tu n’aimes pas, budget, blessures…')}
             value={s.settings.coachNotes}
             onChange={(e) => setState((x) => void (x.settings.coachNotes = e.target.value.slice(0, 1200)))}
           />
@@ -220,8 +221,8 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
             <Icon name="users" size={18} />
           </span>
           <div className="grow" style={{ minWidth: 0 }}>
-            <div className="title">Ce que le club voit</div>
-            <div className="small muted ellipsis">Compte privé ou public, abonnés, stats visibles</div>
+            <div className="title">{tr('Ce que le club voit')}</div>
+            <div className="small muted ellipsis">{tr('Compte privé ou public, abonnés, stats visibles')}</div>
           </div>
           <Icon name="chevron" size={18} />
         </button>
@@ -229,7 +230,7 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
 
       {radar && (
         <section className="stack" style={{ gap: 8 }}>
-          <h2 style={{ fontSize: '1rem' }}>Ta fiche de force</h2>
+          <h2 style={{ fontSize: '1rem' }}>{tr('Ta fiche de force')}</h2>
           <div className="card" style={{ padding: '8px 8px 4px' }}>
             <Radar groups={groups} />
           </div>
@@ -239,27 +240,27 @@ export function MyProfilePage({ go }: { go: (p: SettingsPage) => void }) {
       {(open === 'me' || open === 'sport' || open === 'food') && (
         <section className="stack" style={{ gap: 10 }}>
           <p className="small muted" style={{ margin: 0 }}>
-            Tes changements sont enregistrés. Applique-les à tes objectifs et à ton programme quand tu veux :
+            {tr('Tes changements sont enregistrés. Applique-les à tes objectifs et à ton programme quand tu veux :')}
           </p>
           <button
             className="btn block"
             onClick={() => {
               const plan = applyTargets();
-              toast(plan ? `Objectif : ${plan.targets.kcal} kcal, ${plan.targets.protein} g de protéines` : 'Indique ton âge, ta taille et ton poids', !plan);
+              toast(plan ? tr('Objectif : {kcal} kcal, {protein} g de protéines', { kcal: plan.targets.kcal, protein: plan.targets.protein }) : tr('Indique ton âge, ta taille et ton poids'), !plan);
             }}
           >
-            Recalculer mes calories
+            {tr('Recalculer mes calories')}
           </button>
           <button
             className="btn block"
             onClick={async () => {
               const { program, swaps } = programFor(s.settings.athlete, s.settings.gym);
-              if (!(await ask(`Remplacer ton programme par « ${program.name} » ?${swaps.length ? ` ${swaps.length} exercice(s) adapté(s) à ta salle.` : ''} Ton historique est conservé.`, 'Remplacer', true))) return;
+              if (!(await ask(tr('Remplacer ton programme par « {name} » ?{v} Ton historique est conservé.', { name: program.name, v: swaps.length ? tn(swaps.length, ' {n} exercice adapté à ta salle.', ' {n} exercices adaptés à ta salle.') : '' }), tr('Remplacer'), true))) return;
               applyProgram(program);
-              toast(`Programme « ${program.name} » chargé`);
+              toast(tr('Programme « {name} » chargé', { name: program.name }));
             }}
           >
-            Générer le programme de mon profil
+            {tr('Générer le programme de mon profil')}
           </button>
         </section>
       )}

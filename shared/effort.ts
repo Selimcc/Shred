@@ -1,6 +1,7 @@
 // Ce que représente une séance d'endurance dans le temps : blocs, intensité, durée et distance.
 // Sert au profil de séance (le graphique d'intensité), à la durée affichée et aux stats par sport.
 import type { Discipline, Exercise, Zone } from './types';
+import { tr } from './i18n';
 
 export interface Block {
   key: string;
@@ -17,11 +18,11 @@ export interface Block {
 }
 
 export const ZONE_NAMES: Record<Zone, string> = {
-  1: 'Récupération',
-  2: 'Endurance',
-  3: 'Tempo',
-  4: 'Seuil',
-  5: 'Maximal',
+  1: tr('Récupération'),
+  2: tr('Endurance'),
+  3: tr('Tempo'),
+  4: tr('Seuil'),
+  5: tr('Maximal'),
 };
 
 /* ---------- Allures par défaut (sans chrono) ---------- */

@@ -1,6 +1,7 @@
 // Mon identité dans le club : prénom, @pseudo, surnom, bio. Gérée par le serveur (unicité du pseudo).
 import { api, DEMO } from './api';
 import { setState } from './store';
+import { tr } from '../../shared/i18n';
 
 export interface Identity {
   name: string;
@@ -22,7 +23,7 @@ export interface HandleCheck {
 
 // Démo : rien ne part au serveur, tout reste dans la page.
 let demoIdentity: Identity = {
-  name: 'Toi',
+  name: tr('Toi'),
   handle: 'toi',
   nick: '',
   bio: '',
@@ -44,7 +45,7 @@ export async function checkHandle(h: string): Promise<HandleCheck> {
       ? {
           handle: h,
           ok: false,
-          reason: 'Ce pseudo est déjà pris',
+          reason: tr('Ce pseudo est déjà pris'),
           suggestions: [`${h}.fit`, `${h}_26`, `${h}.shred`],
         }
       : { handle: h, ok: true, mine: h === demoIdentity.handle };

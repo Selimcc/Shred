@@ -10,6 +10,7 @@ import { addDays } from './date';
 import type { AppState, SetLog } from './state';
 import { isDeload } from './recovery';
 import { e1rm, strengthProfile } from './strength';
+import { loc, lower, tn, tr } from '../../shared/i18n';
 
 /** Charge réalisable pour `reps` reps en gardant `rir` reps en réserve. */
 export function loadFor(oneRm: number, reps: number, rir = 2): number {
@@ -99,24 +100,24 @@ export function adviseLoad(s: AppState, ex: Exercise, date: string): LoadAdvice 
 
   if (trend === 'stall') {
     weight = roundTo(last.top * 0.9, step);
-    text = `Stagnation depuis 3 séances : repars à ${fmt(weight)} (−10 %), remonte en 2 à 3 séances et tu passeras le palier.`;
+    text = tr('Stagnation depuis 3 séances : repars à {fmt} (−10 %), remonte en 2 à 3 séances et tu passeras le palier.', { fmt: fmt(weight) });
   } else if (trend === 'down') {
     weight = last.top;
-    text = `Moins bien que d’habitude (sommeil, calories ?). Garde ${fmt(weight)} et vise juste ${lo} reps propres.`;
+    text = tr('Moins bien que d’habitude (sommeil, calories ?). Garde {fmt} et vise juste {lo} reps propres.', { fmt: fmt(weight), lo });
   } else if (allTop) {
     weight = Math.max(roundTo(last.top + step, step), ideal);
     text =
       weight > last.top + step
-        ? `Trop facile : ${last.sets.length} séries à ${hi} reps ou plus. Passe directement à ${fmt(weight)} pour ${lo} à ${hi} reps.`
-        : `Toutes tes séries à ${hi} reps : passe à ${fmt(weight)} et vise ${lo} reps.`;
+        ? tr('Trop facile : {length} séries à {hi} reps ou plus. Passe directement à {fmt} pour {lo} à {hi} reps.', { length: last.sets.length, hi, fmt: fmt(weight), lo })
+        : tr('Toutes tes séries à {hi} reps : passe à {fmt} et vise {lo} reps.', { hi, fmt: fmt(weight), lo });
   } else if (ideal >= last.top + step) {
     weight = ideal;
-    text = `Tu as de la marge : ${fmt(weight)} pour ${lo} à ${hi} reps devrait passer.`;
+    text = tr('Tu as de la marge : {fmt} pour {lo} à {hi} reps devrait passer.', { fmt: fmt(weight), lo, hi });
   } else {
     weight = last.top;
     const reps = last.sets.map((l) => l.r ?? 0);
     const goal = Math.min(hi, Math.max(...reps) + 1);
-    text = `Reste à ${fmt(weight)} et ajoute 1 rep par série (vise ${goal}) avant de monter.`;
+    text = tr('Reste à {fmt} et ajoute 1 rep par série (vise {goal}) avant de monter.', { fmt: fmt(weight), goal });
   }
 
   // À la limite haute du volume ou en plein déficit, une série de plus n'aide pas : on le signale seulement si le groupe manque de volume.
@@ -126,7 +127,7 @@ export function adviseLoad(s: AppState, ex: Exercise, date: string): LoadAdvice 
     const t = TARGETS[group];
     if (t && v < t[0] && ex.kind === 'compound') {
       sets = ex.sets + 1;
-      text += ` Tes ${GROUP_NAMES[group].toLowerCase()} manquent de volume : fais ${sets} séries.`;
+      text += tr(' Tes {GROUP_NAMES} manquent de volume : fais {sets} séries.', { GROUP_NAMES: lower(GROUP_NAMES[group]), sets });
     }
   }
 
@@ -134,22 +135,22 @@ export function adviseLoad(s: AppState, ex: Exercise, date: string): LoadAdvice 
   const form = s.days[date]?.form;
   if (form === 'low' && trend !== 'stall') {
     weight = floorTo(weight * 0.93, step);
-    text = `Forme basse : ${fmt(weight)} aujourd’hui (−7 %), mêmes reps, 2 reps en réserve. On remonte la prochaine fois.`;
+    text = tr('Forme basse : {fmt} aujourd’hui (−7 %), mêmes reps, 2 reps en réserve. On remonte la prochaine fois.', { fmt: fmt(weight) });
   } else if (form === 'high' && trend !== 'stall' && trend !== 'down') {
-    text += ' En forme : sur la dernière série, va jusqu’à 1 rep de l’échec.';
+    text += tr(' En forme : sur la dernière série, va jusqu’à 1 rep de l’échec.');
   }
   // Semaine de décharge : tout plus léger, pour repartir plus fort.
   if (isDeload(s, date)) {
     weight = floorTo(Math.min(weight, last.top) * 0.9, step);
     sets = ex.sets;
-    text = `Semaine de décharge : ${fmt(weight)} (−10 %), ${sets} séries, 3 reps en réserve. Tu repars plus fort lundi.`;
+    text = tr('Semaine de décharge : {fmt} (−10 %), {sets} séries, 3 reps en réserve. Tu repars plus fort lundi.', { fmt: fmt(weight), sets });
   }
 
   const table = [3, 5, 6, 8, 10, 12, 15].map((r) => ({ reps: r, weight: floorTo(loadFor(oneRm, r), step) }));
   return { oneRm, weight, reps: `${lo === hi ? lo : `${lo}–${hi}`}`, sets, trend, text, table };
 }
 
-const fmt = (w: number) => `${w.toLocaleString('fr-FR')} kg`;
+const fmt = (w: number) => `${w.toLocaleString(loc())} kg`;
 
 /* ---------- Volume par muscle ---------- */
 
@@ -165,15 +166,15 @@ const TARGETS: Partial<Record<MuscleGroup, [number, number]>> = {
 };
 
 export const GROUP_NAMES: Record<MuscleGroup, string> = {
-  chest: 'Pectoraux',
-  back: 'Dos',
-  shoulders: 'Épaules',
-  arms: 'Bras',
-  legs: 'Jambes',
-  core: 'Abdos',
-  neck: 'Cou',
-  cardio: 'Cardio',
-  other: 'Autre',
+  chest: tr('Pectoraux'),
+  back: tr('Dos'),
+  shoulders: tr('Épaules'),
+  arms: tr('Bras'),
+  legs: tr('Jambes'),
+  core: tr('Abdos'),
+  neck: tr('Cou'),
+  cardio: tr('Cardio'),
+  other: tr('Autre'),
 };
 
 /** Séries faites par groupe, moyenne par semaine sur les `weeks` dernières semaines. */
@@ -218,10 +219,10 @@ export function focusPlan(s: AppState, today: string): { items: FocusItem[]; hea
     const missing = Math.ceil(target[0] - sets);
     const text =
       status === 'low'
-        ? `${fmtSets(sets)} par semaine : ajoute ${missing} série${missing > 1 ? 's' : ''} pour atteindre le minimum utile.`
+        ? tn(missing, '{fmtSets} par semaine : ajoute {n} série pour atteindre le minimum utile.', '{fmtSets} par semaine : ajoute {n} séries pour atteindre le minimum utile.', { fmtSets: fmtSets(sets) })
         : status === 'high'
-          ? `${fmtSets(sets)} par semaine : c’est beaucoup, surtout en déficit. Retire quelques séries d’isolation.`
-          : `${fmtSets(sets)} par semaine : dans la bonne zone.`;
+          ? tr('{fmtSets} par semaine : c’est beaucoup, surtout en déficit. Retire quelques séries d’isolation.', { fmtSets: fmtSets(sets) })
+          : tr('{fmtSets} par semaine : dans la bonne zone.', { fmtSets: fmtSets(sets) });
     return { group: g, name: GROUP_NAMES[g], sets, target, status, weak: g === weak, text };
   });
 
@@ -232,11 +233,11 @@ export function focusPlan(s: AppState, today: string): { items: FocusItem[]; hea
     ? null
     : top
       ? top.weak
-        ? `Priorité : ${top.name.toLowerCase()}. C’est ton groupe le moins fort par rapport à ton poids${top.status === 'low' ? ', et il manque de volume' : ''}.`
-        : `Priorité : ${top.name.toLowerCase()}, sous le minimum de séries.`
-      : 'Volume équilibré : continue à monter les charges.';
+        ? tr('Priorité : {name}. C’est ton groupe le moins fort par rapport à ton poids{v}.', { name: lower(top.name), v: top.status === 'low' ? tr(', et il manque de volume') : '' })
+        : tr('Priorité : {name}, sous le minimum de séries.', { name: lower(top.name) })
+      : tr('Volume équilibré : continue à monter les charges.');
   return { items, headline, logged };
 }
 
 const rank = (i: FocusItem) => (i.status === 'low' ? 0 : i.status === 'ok' ? 1 : 2);
-const fmtSets = (n: number) => `${n.toLocaleString('fr-FR')} série${n > 1 ? 's' : ''}`;
+const fmtSets = (n: number) => tn(n, '{n} série', '{n} séries', { n: n.toLocaleString(loc()) });

@@ -9,18 +9,19 @@ import { api, type Health } from '../lib/api';
 import { hasUnsaved, uploadBackup } from '../lib/backup';
 import { useSession } from '../lib/session';
 import { useApp } from '../lib/store';
+import { loc, tn, tr } from '../../shared/i18n';
 
 function ago(ms?: number): string {
-  if (!ms) return 'jamais';
+  if (!ms) return tr('jamais');
   const min = Math.round((Date.now() - ms) / 60000);
-  if (min < 1) return 'à l’instant';
-  if (min < 60) return `il y a ${min} min`;
+  if (min < 1) return tr('à l’instant');
+  if (min < 60) return tr('il y a {min} min', { min });
   const h = Math.round(min / 60);
-  if (h < 24) return `il y a ${h} h`;
-  return new Date(ms).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+  if (h < 24) return tr('il y a {h} h', { h });
+  return new Date(ms).toLocaleDateString(loc(), { day: 'numeric', month: 'long' });
 }
 
-const until = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : '');
+const until = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(loc(), { day: 'numeric', month: 'long' }) : '');
 
 /* ---------- Compte ---------- */
 
@@ -50,13 +51,13 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
     return (
       <div className="stack">
         <p className="muted" style={{ margin: 0 }}>
-          Tu utilises Shred sans compte : tout reste sur ce téléphone, sans rappels, sans sauvegarde et sans IA intégrée.
+          {tr('Tu utilises Shred sans compte : tout reste sur ce téléphone, sans rappels, sans sauvegarde et sans IA intégrée.')}
         </p>
         <p className="small muted" style={{ margin: 0 }}>
-          Avec un compte (sur invitation), tes données de ce téléphone sont gardées et sauvegardées, chiffrées.
+          {tr('Avec un compte (sur invitation), tes données de ce téléphone sont gardées et sauvegardées, chiffrées.')}
         </p>
         <button className="btn primary block" onClick={leaveLocalMode}>
-          Me connecter ou créer mon compte
+          {tr('Me connecter ou créer mon compte')}
         </button>
       </div>
     );
@@ -69,7 +70,7 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
       setCurrent('');
       setNext('');
       setPanel(null);
-      toast('Mot de passe changé, sauvegarde rechiffrée');
+      toast(tr('Mot de passe changé, sauvegarde rechiffrée'));
     });
   };
 
@@ -80,14 +81,14 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
       setCurrent('');
       setEmail('');
       setPanel(null);
-      toast('Email changé : connecte-toi désormais avec celui-ci');
+      toast(tr('Email changé : connecte-toi désormais avec celui-ci'));
     });
   };
 
   const submitDelete = (e: FormEvent) => {
     e.preventDefault();
     void run('delete', async () => {
-      if (!(await ask('Supprimer ton compte et toutes tes données sur le serveur ? Action définitive.', 'Supprimer', true))) return;
+      if (!(await ask(tr('Supprimer ton compte et toutes tes données sur le serveur ? Action définitive.'), tr('Supprimer'), true))) return;
       await deleteAccount(current);
       onClose();
     });
@@ -101,7 +102,7 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
         </span>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 850 }}>
-            {acc.name} {acc.role === 'admin' && <span className="badge-admin">ADMIN</span>}
+            {acc.name} {acc.role === 'admin' && <span className="badge-admin">{tr('ADMIN')}</span>}
           </div>
           <div className="small muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {acc.email}
@@ -110,10 +111,10 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
       </div>
 
       <section className="stack">
-        <h2>Sauvegarde</h2>
+        <h2>{tr('Sauvegarde')}</h2>
         <p className="small muted" style={{ margin: 0 }}>
-          Dernière sauvegarde : {ago(acc.syncedAt)}
-          {hasUnsaved() ? ', des changements attendent' : ''}. Elle se fait toute seule, au plus tous les quarts d’heure et quand tu quittes l’app.
+          {tr('Dernière sauvegarde : {ago}', { ago: ago(acc.syncedAt) })}
+          {hasUnsaved() ? tr(', des changements attendent') : ''}{tr('. Elle se fait toute seule, au plus tous les quarts d’heure et quand tu quittes l’app.')}
         </p>
         <button
           className="btn block"
@@ -121,94 +122,93 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
           onClick={() =>
             run('backup', async () => {
               const r = await uploadBackup(true);
-              toast(r === 'skipped' ? 'Sauvegarde indisponible' : 'Sauvegardé');
+              toast(r === 'skipped' ? tr('Sauvegarde indisponible') : tr('Sauvegardé'));
             })
           }
         >
-          Sauvegarder maintenant
+          {tr('Sauvegarder maintenant')}
         </button>
         <details className="small muted">
-          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Où sont mes données ?</summary>
+          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>{tr('Où sont mes données ?')}</summary>
           <p>
-            Sur ce téléphone, et en sauvegarde sur le serveur Shred (Cloudflare), dans ton espace à toi. La sauvegarde (séances, repas, poids,
-            programme) est chiffrée ici avec une clé tirée de ton mot de passe : le serveur ne garde qu’un bloc illisible.
+            {tr('Sur ce téléphone, et en sauvegarde sur le serveur Shred (Cloudflare), dans ton espace à toi. La sauvegarde (séances, repas, poids, programme) est chiffrée ici avec une clé tirée de ton mot de passe : le serveur ne garde qu’un bloc illisible.')}
           </p>
           <p>
-            Pour envoyer les rappels, le serveur voit un résumé du jour (séance faite ou non, nombre de repas, série) et, si tu relies Apple Santé,
-            tes pas et calories. Ton mot de passe n’est jamais envoyé : le serveur garde seulement une empreinte qui permet de le vérifier.
+            {tr('Pour envoyer les rappels, le serveur voit un résumé du jour (séance faite ou non, nombre de repas, série) et, si tu relies Apple Santé, tes pas et calories. Ton mot de passe n’est jamais envoyé : le serveur garde seulement une empreinte qui permet de le vérifier.')}
           </p>
           <p>
-            Mot de passe oublié : l’administrateur peut te donner un code pour en choisir un autre, mais personne ne peut relire une sauvegarde
-            chiffrée avec l’ancien. Seules les données encore sur ton téléphone repartent, alors évite de te déconnecter sans raison.
+            {tr('Mot de passe oublié : l’administrateur peut te donner un code pour en choisir un autre, mais personne ne peut relire une sauvegarde chiffrée avec l’ancien. Seules les données encore sur ton téléphone repartent, alors évite de te déconnecter sans raison.')}
           </p>
-          <p style={{ marginBottom: 0 }}>Les photos de repas restent sur ce téléphone.</p>
+          <p style={{ marginBottom: 0 }}>{tr('Les photos de repas restent sur ce téléphone.')}</p>
         </details>
       </section>
 
       <section className="stack">
-        <h2>Connexion</h2>
+        <h2>{tr('Connexion')}</h2>
         <button
           className="btn block"
           disabled={busy === 'health'}
           onClick={() => run('health', async () => setHealth(await api<Health>('/api/health')))}
         >
-          Tester la connexion
+          {tr('Tester la connexion')}
         </button>
         {health && (
           <p className="small muted" style={{ margin: 0 }}>
-            Serveur {health.version} joignable. IA intégrée :{' '}
-            {health.ai === 'missing'
-              ? 'pas de clé API sur le serveur, utilise « App Claude »'
-              : health.aiLimit === 0
-                ? 'réservée à l’administrateur'
-                : `${health.ai === 'mock' ? 'simulée, ' : ''}${health.aiLimit} requêtes par jour`}
-            . Notifications : {health.push ? 'prêtes' : 'clés manquantes sur le serveur'}.
+            {tr('Serveur {version} joignable. IA intégrée : {ai}. Notifications : {push}.', {
+              version: health.version,
+              ai:
+                health.ai === 'missing'
+                  ? tr('pas de clé API sur le serveur, utilise « App Claude »')
+                  : health.aiLimit === 0
+                    ? tr('réservée à l’administrateur')
+                    : tr('{v}{aiLimit} requêtes par jour', { v: health.ai === 'mock' ? tr('simulée, ') : '', aiLimit: health.aiLimit }),
+              push: health.push ? tr('prêtes') : tr('clés manquantes sur le serveur'),
+            })}
           </p>
         )}
       </section>
 
       <section className="stack">
-        <h2>Sécurité</h2>
+        <h2>{tr('Sécurité')}</h2>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn" style={{ flex: 1 }} onClick={() => setPanel(panel === 'password' ? null : 'password')}>
-            Changer le mot de passe
+            {tr('Changer le mot de passe')}
           </button>
           <button className="btn" style={{ flex: 1 }} onClick={() => setPanel(panel === 'email' ? null : 'email')}>
-            Changer l’email
+            {tr('Changer l’email')}
           </button>
         </div>
         {panel === 'email' && (
           <form className="stack card" onSubmit={submitEmail}>
             <p className="small muted" style={{ margin: 0 }}>
-              Faute de frappe à l’inscription, nouvelle adresse : c’est avec cet email que tu te connecteras. S’il est déjà utilisé par un autre compte, il
-              faudra en choisir un autre. Tes autres appareils seront déconnectés.
+              {tr('Faute de frappe à l’inscription, nouvelle adresse : c’est avec cet email que tu te connecteras. S’il est déjà utilisé par un autre compte, il faudra en choisir un autre. Tes autres appareils seront déconnectés.')}
             </p>
-            <Field label="Nouvel email">
+            <Field label={tr('Nouvel email')}>
               <input className="input" type="email" inputMode="email" autoComplete="email" autoCapitalize="off" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} placeholder={acc.email} />
             </Field>
             {emailSuggestion(email) && (
               <button type="button" className="link small" style={{ alignSelf: 'flex-start', marginTop: -6 }} onClick={() => setEmail(emailSuggestion(email)!)}>
-                Tu voulais dire <b>{emailSuggestion(email)}</b> ?
+                {tr('Tu voulais dire')}{' '}<b>{emailSuggestion(email)}</b> ?
               </button>
             )}
-            <Field label="Mot de passe">
-              <PasswordInput label="Mot de passe pour confirmer" value={current} onChange={setCurrent} autoComplete="current-password" />
+            <Field label={tr('Mot de passe')}>
+              <PasswordInput label={tr('Mot de passe pour confirmer')} value={current} onChange={setCurrent} autoComplete="current-password" />
             </Field>
             <button className="btn primary block" disabled={busy === 'email' || !email.includes('@') || !current}>
-              {busy === 'email' ? 'Sécurisation…' : 'Changer l’email'}
+              {busy === 'email' ? tr('Sécurisation…') : tr('Changer l’email')}
             </button>
           </form>
         )}
         {panel === 'password' && (
           <form className="stack card" onSubmit={submitPassword}>
-            <Field label="Mot de passe actuel">
-              <PasswordInput label="Mot de passe actuel" value={current} onChange={setCurrent} autoComplete="current-password" />
+            <Field label={tr('Mot de passe actuel')}>
+              <PasswordInput label={tr('Mot de passe actuel')} value={current} onChange={setCurrent} autoComplete="current-password" />
             </Field>
-            <Field label="Nouveau mot de passe" hint="8 caractères minimum.">
-              <PasswordInput label="Nouveau mot de passe" value={next} onChange={setNext} autoComplete="new-password" />
+            <Field label={tr('Nouveau mot de passe')} hint={tr('8 caractères minimum.')}>
+              <PasswordInput label={tr('Nouveau mot de passe')} value={next} onChange={setNext} autoComplete="new-password" />
             </Field>
             <button className="btn primary block" disabled={busy === 'password'}>
-              {busy === 'password' ? 'Sécurisation…' : 'Enregistrer'}
+              {busy === 'password' ? tr('Sécurisation…') : tr('Enregistrer')}
             </button>
           </form>
         )}
@@ -217,11 +217,11 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
           disabled={busy === 'logout'}
           onClick={() =>
             run('logout', async () => {
-              if (!(await ask('Te déconnecter ? Les données sont effacées de ce téléphone et restent sur ton compte.', 'Me déconnecter'))) return;
+              if (!(await ask(tr('Te déconnecter ? Les données sont effacées de ce téléphone et restent sur ton compte.'), tr('Me déconnecter')))) return;
               try {
                 await logout();
               } catch {
-                if (!(await ask('Sauvegarde impossible (hors ligne ?). Te déconnecter quand même et perdre les changements récents ?', 'Oui, me déconnecter', true)))
+                if (!(await ask(tr('Sauvegarde impossible (hors ligne ?). Te déconnecter quand même et perdre les changements récents ?'), tr('Oui, me déconnecter'), true)))
                   return;
                 await logout({ force: true });
               }
@@ -229,21 +229,21 @@ export function AccountPage({ onClose }: { onClose: () => void }) {
             })
           }
         >
-          Me déconnecter
+          {tr('Me déconnecter')}
         </button>
         <button className="link small" style={{ color: 'var(--red)', alignSelf: 'flex-start' }} onClick={() => setPanel(panel === 'delete' ? null : 'delete')}>
-          Supprimer mon compte
+          {tr('Supprimer mon compte')}
         </button>
         {panel === 'delete' && (
           <form className="stack card" onSubmit={submitDelete}>
             <p className="small muted" style={{ margin: 0 }}>
-              Supprime ton compte, ta sauvegarde, tes rappels et tes données Santé du serveur, puis vide ce téléphone.
+              {tr('Supprime ton compte, ta sauvegarde, tes rappels et tes données Santé du serveur, puis vide ce téléphone.')}
             </p>
-            <Field label="Mot de passe">
-              <PasswordInput label="Mot de passe pour confirmer" value={current} onChange={setCurrent} autoComplete="current-password" />
+            <Field label={tr('Mot de passe')}>
+              <PasswordInput label={tr('Mot de passe pour confirmer')} value={current} onChange={setCurrent} autoComplete="current-password" />
             </Field>
             <button className="btn danger block" disabled={busy === 'delete' || !current}>
-              Supprimer définitivement
+              {tr('Supprimer définitivement')}
             </button>
           </form>
         )}
@@ -263,12 +263,12 @@ function inviteMessage(code: string, expires: string, group = false) {
   const link = `${location.origin}/?invite=${encodeURIComponent(code)}`;
   return [
     group
-      ? 'Salut tout le monde ! Je vous fais tester Shred, mon app de muscu (séances, repas, série du jour, club entre nous).'
-      : 'Salut ! Je te fais tester Shred, mon app de muscu (séances, repas, série du jour).',
-    `${group ? 'Créez votre compte' : 'Crée ton compte'} ici : ${link}`,
-    `Code d’invitation : ${code} (valable jusqu’au ${until(expires)})`,
-    'iPhone : ouvre le lien dans Safari, touche ⋯ (ou Partager), puis Partager, « Sur l’écran d’accueil » et Ajouter. Ouvre Shred depuis l’icône : ton code est déjà rempli.',
-    'Android : ouvre-le dans Chrome et touche « Installer l’app » (ou menu ⋮, « Installer l’application »).',
+      ? tr('Salut tout le monde ! Je vous fais tester Shred, mon app de muscu (séances, repas, série du jour, club entre nous).')
+      : tr('Salut ! Je te fais tester Shred, mon app de muscu (séances, repas, série du jour).'),
+    tr('{v} ici : {link}', { v: group ? tr('Créez votre compte') : tr('Crée ton compte'), link }),
+    tr('Code d’invitation : {code} (valable jusqu’au {until})', { code, until: until(expires) }),
+    tr('iPhone : ouvre le lien dans Safari, touche ⋯ (ou Partager), puis Partager, « Sur l’écran d’accueil » et Ajouter. Ouvre Shred depuis l’icône : ton code est déjà rempli.'),
+    tr('Android : ouvre-le dans Chrome et touche « Installer l’app » (ou menu ⋮, « Installer l’application »).'),
   ].join('\n');
 }
 
@@ -281,7 +281,7 @@ export async function shareText(text: string) {
       if ((e as Error).name === 'AbortError') return;
     }
   }
-  if (await copyText(text)) toast('Message copié : colle-le dans WhatsApp ou SMS');
+  if (await copyText(text)) toast(tr('Message copié : colle-le dans WhatsApp ou SMS'));
 }
 
 export function TestersPage() {
@@ -318,34 +318,33 @@ export function TestersPage() {
   return (
     <div className="stack" style={{ gap: 22 }}>
       <section className="stack">
-        <h2>Inviter</h2>
-        <div className="seg" role="group" aria-label="Type d’invitation">
+        <h2>{tr('Inviter')}</h2>
+        <div className="seg" role="group" aria-label={tr('Type d’invitation')}>
           <button type="button" className={!group ? 'on' : ''} onClick={() => setKind('one')}>
-            Une personne
+            {tr('Une personne')}
           </button>
           <button type="button" className={group ? 'on' : ''} onClick={() => setKind('group')}>
-            Un groupe
+            {tr('Un groupe')}
           </button>
         </div>
         <p className="small muted" style={{ margin: 0 }}>
           {group
-            ? 'Un seul lien pour plusieurs personnes (un groupe WhatsApp, une salle) : chacune crée son propre compte, jusqu’au nombre de places choisi.'
-            : 'Un code pour une seule personne, valable 7 jours.'}{' '}
-          Chacun a son espace à lui, sans accès au tien.
+            ? tr('Un seul lien pour plusieurs personnes (un groupe WhatsApp, une salle) : chacune crée son propre compte, jusqu’au nombre de places choisi.')
+            : tr('Un code pour une seule personne, valable 7 jours.')}{' '}{tr('Chacun a son espace à lui, sans accès au tien.')}
         </p>
         {group && (
           <div className="stack" style={{ gap: 10 }}>
-            <div className="chips" role="group" aria-label="Nombre de places">
+            <div className="chips" role="group" aria-label={tr('Nombre de places')}>
               {[5, 10, 25, 50].map((n) => (
                 <button key={n} type="button" className={`chip ${places === n ? 'on' : ''}`} onClick={() => setPlaces(n)}>
-                  {n} places
+                  {tn(n, '{n} place', '{n} places')}
                 </button>
               ))}
             </div>
-            <div className="chips" role="group" aria-label="Durée">
+            <div className="chips" role="group" aria-label={tr('Durée')}>
               {[7, 30].map((n) => (
                 <button key={n} type="button" className={`chip ${days === n ? 'on' : ''}`} onClick={() => setDays(n)}>
-                  {n} jours
+                  {tn(n, '{n} jour', '{n} jours')}
                 </button>
               ))}
             </div>
@@ -354,8 +353,8 @@ export function TestersPage() {
         <div style={{ display: 'flex', gap: 10 }}>
           <input
             className="input"
-            placeholder={group ? 'Nom du groupe (facultatif)' : 'Pour qui ? (facultatif)'}
-            aria-label={group ? 'Nom du groupe' : 'Pour qui'}
+            placeholder={group ? tr('Nom du groupe (facultatif)') : tr('Pour qui ? (facultatif)')}
+            aria-label={group ? tr('Nom du groupe') : tr('Pour qui')}
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
@@ -373,24 +372,24 @@ export function TestersPage() {
               })
             }
           >
-            Créer
+            {tr('Créer')}
           </button>
         </div>
         {fresh && (
           <div className="card stack" style={{ border: '2px solid var(--blue)' }}>
             <div className="small muted">
-              {fresh.max > 1 ? `Lien de groupe, ${fresh.max} places` : 'Invitation'}
-              {fresh.note ? ` : ${fresh.note}` : ''}, jusqu’au {until(fresh.expires)}
+              {fresh.max > 1 ? tr('Lien de groupe, {max} places', { max: fresh.max }) : tr('Invitation')}
+              {fresh.note ? ` : ${fresh.note}` : ''}{tr(', jusqu’au {until}', { until: until(fresh.expires) })}
             </div>
             <div className="display num" style={{ fontSize: '1.6rem', userSelect: 'all' }}>
               {fresh.code}
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn primary" style={{ flex: 1 }} onClick={() => shareText(inviteMessage(fresh.code, fresh.expires, fresh.max > 1))}>
-                <Icon name="share" size={18} /> Envoyer
+                <Icon name="share" size={18} />{' '}{tr('Envoyer')}
               </button>
-              <button className="btn" onClick={async () => (await copyText(`${location.origin}/?invite=${fresh.code}`)) && toast('Lien copié')}>
-                Lien
+              <button className="btn" onClick={async () => (await copyText(`${location.origin}/?invite=${fresh.code}`)) && toast(tr('Lien copié'))}>
+                {tr('Lien')}
               </button>
             </div>
           </div>
@@ -399,14 +398,14 @@ export function TestersPage() {
 
       {data && data.invites.length > 0 && (
         <section className="stack">
-          <h2>Invitations en cours</h2>
+          <h2>{tr('Invitations en cours')}</h2>
           <div className="group">
             {data.invites.map((i) => (
               <div className="row" key={i.code}>
                 <div className="grow">
                   <div className="title num">{i.code}</div>
                   <div className="small muted">
-                    {(i.max ?? 1) > 1 ? `${i.note || 'Groupe'}, ${i.uses ?? 0} / ${i.max} inscrits` : i.note || 'Sans nom'}, expire le {until(i.expires)}
+                    {(i.max ?? 1) > 1 ? tr('{n}, {n2} / {max} inscrits', { n: i.note || tr('Groupe'), n2: i.uses ?? 0, max: i.max }) : i.note || tr('Sans nom')}{tr(', expire le {until}', { until: until(i.expires) })}
                   </div>
                   {(i.max ?? 1) > 1 && (i.uses ?? 0) > 0 && (
                     <button
@@ -417,12 +416,12 @@ export function TestersPage() {
                         setJoined({ code: i.code, names: r.joined });
                       }}
                     >
-                      {joined?.code === i.code ? joined.names.join(', ') || 'Personne pour l’instant' : 'Voir qui'}
+                      {joined?.code === i.code ? joined.names.join(', ') || tr('Personne pour l’instant') : tr('Voir qui')}
                     </button>
                   )}
                 </div>
                 {(i.max ?? 1) > 1 && (
-                  <button className="btn small" onClick={() => shareText(inviteMessage(i.code, i.expires ?? '', true))} aria-label="Renvoyer le lien">
+                  <button className="btn small" onClick={() => shareText(inviteMessage(i.code, i.expires ?? '', true))} aria-label={tr('Renvoyer le lien')}>
                     <Icon name="share" size={16} />
                   </button>
                 )}
@@ -437,7 +436,7 @@ export function TestersPage() {
                     })
                   }
                 >
-                  Annuler
+                  {tr('Annuler')}
                 </button>
               </div>
             ))}
@@ -446,12 +445,11 @@ export function TestersPage() {
       )}
 
       <p className="small muted" style={{ margin: 0 }}>
-        Les comptes, qui est en ligne, et les actions (mot de passe, retirer) sont dans Réglages, Panneau admin.
+        {tr('Les comptes, qui est en ligne, et les actions (mot de passe, retirer) sont dans Réglages, Panneau admin.')}
       </p>
 
       <p className="small faint" style={{ margin: 0 }}>
-        Le plan gratuit Cloudflare tient une vingtaine de testeurs actifs. L’IA intégrée coûte sur ta clé API : chaque invité a droit à
-        GUEST_AI_LIMIT requêtes par jour (wrangler.jsonc, 0 pour la réserver à toi).
+        {tr('Le plan gratuit Cloudflare tient une vingtaine de testeurs actifs. L’IA intégrée coûte sur ta clé API : chaque invité a droit à GUEST_AI_LIMIT requêtes par jour (wrangler.jsonc, 0 pour la réserver à toi).')}
       </p>
     </div>
   );

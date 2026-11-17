@@ -3,8 +3,9 @@ import { api, DEMO } from './api';
 import { addDays, dayKey } from './date';
 import { signedIn } from './session';
 import { ensureDay, getState, type HealthDay, setState } from './store';
+import { loc, tr } from '../../shared/i18n';
 
-export const SHORTCUT_NAME = 'Shred Santé';
+export const SHORTCUT_NAME = tr('Shred Santé');
 export const STEP_GOAL = 8000;
 
 interface Remote {
@@ -102,7 +103,7 @@ export function runShortcut() {
 }
 
 export const timeOf = (iso?: string) =>
-  iso ? new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+  iso ? new Date(iso).toLocaleTimeString(loc(), { hour: '2-digit', minute: '2-digit' }) : '';
 
 export function gymDuration(h?: HealthDay): string | null {
   if (!h?.gymIn || !h.gymOut) return null;

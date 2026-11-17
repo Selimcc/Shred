@@ -1,13 +1,14 @@
 // Récap du mois, façon « Wrapped » : séances (et leur calendrier), tonnage, plus grosse séance, records, exercice
 // phare, jour et heure préférés, plus longue série, corps, trophées, la comparaison avec le mois d'avant, et un
 // profil du mois qui résume le tout. Tout se calcule sur le téléphone.
-import { catalogEntry } from '../../shared/catalog';
-import { addDays, dayKey, diffDays, parseKey, weekdayOf, WEEKDAY_NAMES } from './date';
+import { catalogEntry, exerciseName } from '../../shared/catalog';
+import { addDays, dayKey, diffDays, parseKey, weekdayOf, WEEKDAY_LOWER } from './date';
 import { dayValidated, mealsCount } from './logic';
 import { type AppState, WEIGHT_GOALS, type WeightGoal } from './state';
 import { e1rm } from './strength';
 import { dayTraining, totalMinutes } from './training';
 import { type Tier, TROPHIES } from './trophyList';
+import { date as fmtDate, lang, loc, lower, pct, tr } from '../../shared/i18n';
 
 export interface MonthRecord {
   key: string;
@@ -79,12 +80,14 @@ export const PROFILE_COLOR: Record<RecapProfile['id'], string> = {
   architect: '#86b9ff',
 };
 
-const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+/** Les mois comme dans une phrase : « octobre », « October », « Oktober ». */
+const MONTHS = Array.from({ length: 12 }, (_, i) => fmtDate(new Date(2024, i, 1, 12), { month: 'long' }));
 
 export const monthOf = (date: string) => date.slice(0, 7);
 export const monthName = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1] ?? month;
-/** « d’octobre », « de novembre » */
-export const ofMonth = (month: string) => (/^[aeiouyéèêàâîïôûh]/i.test(monthName(month)) ? `d’${monthName(month)}` : `de ${monthName(month)}`);
+/** « d’octobre », « de novembre » ; ailleurs « of October », « de octubre »… */
+export const ofMonth = (month: string) =>
+  lang() === 'fr' && /^[aeiouyéèêàâîïôûh]/i.test(monthName(month)) ? `d’${monthName(month)}` : tr('de {month}', { month: monthName(month) });
 
 export function prevMonth(month: string): string {
   const [y, m] = month.split('-').map(Number);
@@ -207,7 +210,7 @@ export function monthRecap(s: AppState, month: string, today = dayKey()): MonthR
         // Chaque record bat le précédent : le dernier du mois est le plus haut.
         records.set(key, {
           key,
-          name: (catalogEntry(key, s.customExercises)?.name ?? key).replace(/ \(.*\)$/, ''),
+          name: exerciseName(key, s.customExercises).replace(/ \(.*\)$/, ''),
           w: top.w,
           r: top.r,
           gain: ((dayBest - base) / base) * 100,
@@ -230,7 +233,7 @@ export function monthRecap(s: AppState, month: string, today = dayKey()): MonthR
     const rows = Math.ceil((out.cal.offset + Number(end.slice(8))) / 7);
     out.top = {
       key,
-      name: catalogEntry(key, s.customExercises)?.name ?? key,
+      name: exerciseName(key, s.customExercises),
       sets: v.sets,
       tonnage: Math.round(v.tonnage),
       weeks: Array.from({ length: rows }, (_, i) => v.weeks[i] ?? 0),
@@ -241,12 +244,12 @@ export function monthRecap(s: AppState, month: string, today = dayKey()): MonthR
   const max = Math.max(...weekdays);
   if (max >= 2 && weekdays.filter((n) => n === max).length === 1) {
     const d = weekdays.indexOf(max);
-    out.weekday = { day: d, name: WEEKDAY_NAMES[d].toLowerCase(), count: max };
+    out.weekday = { day: d, name: WEEKDAY_LOWER[d], count: max };
   }
 
   if (hours.length >= 3) {
     const slot = (h: number) =>
-      h >= 5 && h < 11 ? 'le matin' : h < 14 && h >= 11 ? 'à midi' : h >= 14 && h < 18 ? 'l’après-midi' : h >= 18 && h < 22 ? 'le soir' : 'la nuit';
+      h >= 5 && h < 11 ? tr('le matin') : h < 14 && h >= 11 ? tr('à midi') : h >= 14 && h < 18 ? tr('l’après-midi') : h >= 18 && h < 22 ? tr('le soir') : tr('la nuit');
     const count = new Map<string, number>();
     for (const h of hours) count.set(slot(h), (count.get(slot(h)) ?? 0) + 1);
     const [label, n] = [...count].sort((a, b) => b[1] - a[1])[0];
@@ -309,17 +312,17 @@ export function monthRecap(s: AppState, month: string, today = dayKey()): MonthR
  */
 export function recapProfile(r: Pick<MonthRecap, 'recordCount' | 'run' | 'tonnage' | 'moment' | 'perWeek' | 'cardioKm'>): RecapProfile {
   if (r.recordCount >= 5)
-    return { id: 'records', title: 'La fabrique à records', line: `${r.recordCount} records battus en un mois. Les barres n’ont rien vu venir.`, icon: 'trophy' };
-  if (r.run >= 10) return { id: 'streak', title: 'L’inarrêtable', line: `${r.run} jours validés d’affilée. La pause, tu connais de nom.`, icon: 'flame' };
+    return { id: 'records', title: tr('La fabrique à records'), line: tr('{recordCount} records battus en un mois. Les barres n’ont rien vu venir.', { recordCount: r.recordCount }), icon: 'trophy' };
+  if (r.run >= 10) return { id: 'streak', title: tr('L’inarrêtable'), line: tr('{run} jours validés d’affilée. La pause, tu connais de nom.', { run: r.run }), icon: 'flame' };
   if (r.tonnage >= 60_000)
-    return { id: 'machine', title: 'La machine', line: `${fmtTonnes(r.tonnage)} soulevées. Les disques n’ont pas eu le temps de refroidir.`, icon: 'dumbbell' };
-  if (r.moment === 'le matin') return { id: 'early', title: 'Le lève-tôt', line: 'Tes séances avant 11 h, quand la ville dort encore.', icon: 'sunrise' };
-  if (r.moment === 'le soir' || r.moment === 'la nuit')
-    return { id: 'night', title: 'L’oiseau de nuit', line: 'Tes séances tombent quand les autres décrochent.', icon: 'moon' };
+    return { id: 'machine', title: tr('La machine'), line: tr('{fmtTonnes} soulevées. Les disques n’ont pas eu le temps de refroidir.', { fmtTonnes: fmtTonnes(r.tonnage) }), icon: 'dumbbell' };
+  if (r.moment === tr('le matin')) return { id: 'early', title: tr('Le lève-tôt'), line: tr('Tes séances avant 11 h, quand la ville dort encore.'), icon: 'sunrise' };
+  if (r.moment === tr('le soir') || r.moment === tr('la nuit'))
+    return { id: 'night', title: tr('L’oiseau de nuit'), line: tr('Tes séances tombent quand les autres décrochent.'), icon: 'moon' };
   if (r.perWeek >= 3)
-    return { id: 'metronome', title: 'Le métronome', line: `${r.perWeek.toLocaleString('fr-FR')} séances par semaine, réglé comme une horloge.`, icon: 'clock' };
-  if (r.cardioKm >= 30) return { id: 'engine', title: 'Le moteur', line: `${r.cardioKm.toLocaleString('fr-FR')} km d’endurance. Ton cœur dit merci.`, icon: 'run' };
-  return { id: 'architect', title: 'L’architecte', line: 'Une séance après l’autre : c’est comme ça qu’on bâtit.', icon: 'chart' };
+    return { id: 'metronome', title: tr('Le métronome'), line: tr('{perWeek} séances par semaine, réglé comme une horloge.', { perWeek: r.perWeek.toLocaleString(loc()) }), icon: 'clock' };
+  if (r.cardioKm >= 30) return { id: 'engine', title: tr('Le moteur'), line: tr('{cardioKm} km d’endurance. Ton cœur dit merci.', { cardioKm: r.cardioKm.toLocaleString(loc()) }), icon: 'run' };
+  return { id: 'architect', title: tr('L’architecte'), line: tr('Une séance après l’autre : c’est comme ça qu’on bâtit.'), icon: 'chart' };
 }
 
 /** Le mois à récapituler : le précédent pendant la première semaine, sinon le mois en cours. */
@@ -343,17 +346,17 @@ export function recapReady(s: AppState, today = dayKey()): string | null {
 }
 
 const UNITS = [
-  { below: 6_000, kg: 1_200, one: 'une voiture citadine', many: 'voitures citadines' },
-  { below: 60_000, kg: 6_000, one: 'un éléphant d’Afrique', many: 'éléphants d’Afrique' },
-  { below: 300_000, kg: 40_000, one: 'un semi-remorque chargé', many: 'semi-remorques chargés' },
-  { below: Infinity, kg: 150_000, one: 'une baleine bleue', many: 'baleines bleues' },
+  { below: 6_000, kg: 1_200, one: tr('une voiture citadine'), many: tr('voitures citadines') },
+  { below: 60_000, kg: 6_000, one: tr('un éléphant d’Afrique'), many: tr('éléphants d’Afrique') },
+  { below: 300_000, kg: 40_000, one: tr('un semi-remorque chargé'), many: tr('semi-remorques chargés') },
+  { below: Infinity, kg: 150_000, one: tr('une baleine bleue'), many: tr('baleines bleues') },
 ];
 
 /** « Le poids de 7 éléphants d’Afrique. » À partir d'une tonne. */
 export function tonnageLike(kg: number): string | null {
   const u = tonnageUnit(kg);
   if (!u) return null;
-  return u.n === 1 ? `Le poids d’${u.one}.` : `Le poids de ${u.n} ${u.many}.`;
+  return u.n === 1 ? tr('Le poids d’{one}.', { one: u.one }) : tr('Le poids de {n} {many}.', { n: u.n, many: u.many });
 }
 
 /** L'unité de comparaison et combien il en faut (pour les dessiner) : voiture, éléphant, semi-remorque, baleine. */
@@ -365,14 +368,14 @@ export function tonnageUnit(kg: number): { key: 'car' | 'elephant' | 'truck' | '
 }
 
 export const fmtTonnes = (kg: number) =>
-  kg >= 1000 ? `${(Math.round(kg / 100) / 10).toLocaleString('fr-FR')}\u00a0t` : `${Math.round(kg).toLocaleString('fr-FR')}\u00a0kg`;
+  kg >= 1000 ? `${(Math.round(kg / 100) / 10).toLocaleString(loc())}\u00a0t` : `${Math.round(kg).toLocaleString(loc())}\u00a0kg`;
 export const fmtDuration = (min: number) => (min >= 60 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, '0')}` : ''}` : `${min} min`);
 
 /** Évolution en %, arrondie, avec son signe (« +12 % »), ou null si rien à comparer. */
 export function delta(now: number, before: number | undefined): string | null {
   if (!before) return null;
   const p = Math.round(((now - before) / before) * 100);
-  return `${p > 0 ? '+' : p < 0 ? '−' : '±'}${Math.abs(p)} %`;
+  return `${p > 0 ? '+' : p < 0 ? '−' : '±'}${pct(Math.abs(p))}`;
 }
 
 export const recapDate = (month: string) => parseKey(`${month}-01`);
@@ -382,8 +385,8 @@ export function weightVerdict(w: MonthRecap['weight'], goal: WeightGoal): string
   if (!w || w.days < 7) return null;
   const perWeek = ((w.to - w.from) / w.days) * 7;
   const g = WEIGHT_GOALS[goal];
-  const name = g.label.toLowerCase();
-  if (perWeek >= g.min - 0.1 && perWeek <= g.max + 0.1) return goal === 'maintain' ? 'Poids stable, comme prévu' : `Pile dans le rythme de ta ${name}`;
-  if ((goal === 'cut' && perWeek < 0) || (goal === 'bulk' && perWeek > 0)) return `Dans le bon sens pour ta ${name}`;
+  const name = lower(g.label);
+  if (perWeek >= g.min - 0.1 && perWeek <= g.max + 0.1) return goal === 'maintain' ? tr('Poids stable, comme prévu') : tr('Pile dans le rythme de ta {name}', { name });
+  if ((goal === 'cut' && perWeek < 0) || (goal === 'bulk' && perWeek > 0)) return tr('Dans le bon sens pour ta {name}', { name });
   return null;
 }

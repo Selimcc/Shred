@@ -1,7 +1,7 @@
 // Bilan de la semaine : ce qui a été fait, ce qui a bougé, et ce qu'on ajuste.
 // Tout se calcule sur le téléphone ; seul le mail (si la personne l'active) passe par le serveur.
 import { athleteSummary, sportLabel, WEIGHT_GOALS } from '../../shared/athlete';
-import { catalogEntry, DISCIPLINE_NAMES } from '../../shared/catalog';
+import { DISCIPLINE_NAMES, exerciseName } from '../../shared/catalog';
 import type { Discipline } from '../../shared/types';
 import { findSession, scheduleFor } from '../../shared/program';
 import { usable } from '../../shared/plans';
@@ -10,6 +10,7 @@ import { dayValidated, mealsCount, ruleOf, sessionFor, streakInfo, totals } from
 import type { AppState } from './store';
 import { e1rm, GROUPS, strengthProfile } from './strength';
 import { addTraining, dayTraining, empty, totalMinutes } from './training';
+import { lang, list, loc, lower, tn, tr } from '../../shared/i18n';
 
 export interface Advice {
   id: string;
@@ -83,7 +84,7 @@ const VARIATION: Record<string, string> = {
   'incline-curl': 'hammer-curl', 'hammer-curl': 'cable-curl', 'rope-pushdown': 'overhead-triceps', 'overhead-triceps': 'rope-pushdown',
 };
 
-const nameOf = (s: AppState, key: string) => catalogEntry(key, s.customExercises)?.name ?? key;
+const nameOf = (s: AppState, key: string) => exerciseName(key, s.customExercises);
 
 export function weeklyReport(s: AppState, monday: string, today = dayKey()): WeeklyReport {
   const sunday = addDays(monday, 6);
@@ -130,7 +131,7 @@ export function weeklyReport(s: AppState, monday: string, today = dayKey()): Wee
     const before = bestE1rm(s, key, addDays(monday, -42), addDays(monday, -1));
     if (now === null) continue;
     if (before !== null && now > before * 1.005) {
-      prs.push({ name: nameOf(s, key), text: `1RM estimé ${Math.round(before)} → ${Math.round(now)} kg` });
+      prs.push({ name: nameOf(s, key), text: tr('1RM estimé {n} → {n2} kg', { n: Math.round(before), n2: Math.round(now) }) });
     }
     const weeksDone = [1, 2, 3].filter((i) => bestE1rm(s, key, addDays(monday, -7 * i), addDays(monday, -7 * i + 6)) !== null).length;
     const peak4 = bestE1rm(s, key, addDays(monday, -28), addDays(monday, -1));
@@ -141,11 +142,12 @@ export function weeklyReport(s: AppState, monday: string, today = dayKey()): Wee
   const streak = streakInfo(s, ongoing ? today : addDays(sunday, 1))[ongoing ? 'current' : 'banked'];
 
   let headline: string;
-  if (ongoing && sessions.planned && sessions.done >= sessions.planned) headline = `Semaine en cours : ${sessions.done} séance${sessions.done > 1 ? 's' : ''} sur ${sessions.planned} prévue${sessions.planned > 1 ? 's' : ''} jusqu’ici, tout est fait.`;
-  else if (ongoing) headline = `Semaine en cours : ${sessions.done} séance${sessions.done > 1 ? 's' : ''} sur ${sessions.planned} prévue${sessions.planned > 1 ? 's' : ''} jusqu’ici.`;
-  else if (sessions.planned && sessions.done >= sessions.planned) headline = 'Semaine complète : toutes les séances sont faites.';
-  else if (sessions.done === 0) headline = 'Semaine blanche côté entraînement. On relance cette semaine.';
-  else headline = `${sessions.done} séance${sessions.done > 1 ? 's' : ''} sur ${sessions.planned}, ${validated} journée${validated > 1 ? 's' : ''} validée${validated > 1 ? 's' : ''}.`;
+  const sur = tn(sessions.planned, '{done} sur {n} prévue', '{done} sur {n} prévues', { done: tn(sessions.done, '{n} séance', '{n} séances') });
+  if (ongoing && sessions.planned && sessions.done >= sessions.planned) headline = tr('Semaine en cours : {sur} jusqu’ici, tout est fait.', { sur });
+  else if (ongoing) headline = tr('Semaine en cours : {sur} jusqu’ici.', { sur });
+  else if (sessions.planned && sessions.done >= sessions.planned) headline = tr('Semaine complète : toutes les séances sont faites.');
+  else if (sessions.done === 0) headline = tr('Semaine blanche côté entraînement. On relance cette semaine.');
+  else headline = tr('{done} sur {planned}, {validated}.', { done: tn(sessions.done, '{n} séance', '{n} séances'), planned: sessions.planned, validated: tn(validated, '{n} journée validée', '{n} journées validées') });
 
   return {
     monday,
@@ -186,35 +188,35 @@ function adviceFor(
 
   // Calories : la courbe de poids dit si l'objectif est le bon.
   if (r.change !== null && p.modules.nutrition) {
-    const goalName = r.goal.label.toLowerCase();
+    const goalName = lower(r.goal.label);
     if (r.change > r.goal.max + 0.1) {
       out.push({
         id: 'kcal-down',
-        title: `Poids au-dessus du rythme visé (${r.change > 0 ? '+' : ''}${formatNumber(r.change, 2)} kg)`,
-        text: `Pour ta ${goalName}, vise ${formatNumber(r.goal.min, 1)} à ${formatNumber(r.goal.max, 1)} kg par semaine. Baisse de 150 kcal par jour, sur les glucides du soir.`,
+        title: tr('Poids au-dessus du rythme visé ({v}{n} kg)', { v: r.change > 0 ? '+' : '', n: formatNumber(r.change, 2) }),
+        text: tr('Pour ta {goalName}, vise {n} à {n2} kg par semaine. Baisse de 150 kcal par jour, sur les glucides du soir.', { goalName, n: formatNumber(r.goal.min, 1), n2: formatNumber(r.goal.max, 1) }),
         tone: 'warn',
         action: { kind: 'kcal', delta: -150 },
       });
     } else if (r.change < r.goal.min - 0.15) {
       out.push({
         id: 'kcal-up',
-        title: `Tu descends trop vite (${formatNumber(r.change, 2)} kg)`,
-        text: 'Une perte trop rapide coûte du muscle et de l’énergie à la salle. Ajoute 150 kcal par jour.',
+        title: tr('Tu descends trop vite ({n} kg)', { n: formatNumber(r.change, 2) }),
+        text: tr('Une perte trop rapide coûte du muscle et de l’énergie à la salle. Ajoute 150 kcal par jour.'),
         tone: 'warn',
         action: { kind: 'kcal', delta: 150 },
       });
     } else {
-      out.push({ id: 'kcal-ok', title: 'Rythme de poids dans la cible', text: `${r.change > 0 ? '+' : ''}${formatNumber(r.change, 2)} kg sur la semaine : on garde les calories.`, tone: 'good' });
+      out.push({ id: 'kcal-ok', title: tr('Rythme de poids dans la cible'), text: tr('{v}{n} kg sur la semaine : on garde les calories.', { v: r.change > 0 ? '+' : '', n: formatNumber(r.change, 2) }), tone: 'good' });
     }
   } else if (p.modules.weight) {
-    out.push({ id: 'weigh', title: 'Pèse-toi 3 fois par semaine', text: 'Le matin, à jeun : sans deux semaines de pesées, impossible d’ajuster les calories correctement.', tone: 'info' });
+    out.push({ id: 'weigh', title: tr('Pèse-toi 3 fois par semaine'), text: tr('Le matin, à jeun : sans deux semaines de pesées, impossible d’ajuster les calories correctement.'), tone: 'info' });
   }
 
   if (r.protein !== null && r.protein < p.targets.protein * 0.9) {
     out.push({
       id: 'protein',
-      title: `Protéines en dessous de l’objectif (${Math.round(r.protein)} g sur ${p.targets.protein} g)`,
-      text: 'Ajoute une collation protéinée (skyr, fromage blanc, thon, shake) : c’est ce qui protège ton muscle.',
+      title: tr('Protéines en dessous de l’objectif ({n} g sur {protein} g)', { n: Math.round(r.protein), protein: p.targets.protein }),
+      text: tr('Ajoute une collation protéinée (skyr, fromage blanc, thon, shake) : c’est ce qui protège ton muscle.'),
       tone: 'warn',
     });
   }
@@ -222,11 +224,11 @@ function adviceFor(
   if (r.sessions.planned > 0 && r.sessions.done < r.sessions.planned - 1) {
     out.push({
       id: 'sessions',
-      title: `${r.sessions.planned - r.sessions.done} séances manquées`,
+      title: tr('{n} séances manquées', { n: r.sessions.planned - r.sessions.done }),
       text:
         r.sessions.planned > p.athlete.days
-          ? `Ton programme demande ${r.sessions.planned} séances alors que tu as dit en avoir ${p.athlete.days} par semaine. Choisis un programme plus court dans Séance, Modifier le programme.`
-          : 'Bloque tes créneaux dans ton agenda dès le dimanche soir, comme un rendez-vous.',
+          ? tr('Ton programme demande {planned} séances alors que tu as dit en avoir {days} par semaine. Choisis un programme plus court dans Séance, Modifier le programme.', { planned: r.sessions.planned, days: p.athlete.days })
+          : tr('Bloque tes créneaux dans ton agenda dès le dimanche soir, comme un rendez-vous.'),
       tone: 'warn',
     });
   }
@@ -237,8 +239,8 @@ function adviceFor(
     if (to && usable(to, gym)) {
       out.push({
         id: `swap-${st.key}`,
-        title: `${st.name} stagne depuis 4 semaines`,
-        text: `Passe 4 à 6 semaines sur ${nameOf(s, to).toLowerCase()} : nouvel angle, nouveau stimulus, puis reviens-y.`,
+        title: tr('{name} stagne depuis 4 semaines', { name: st.name }),
+        text: tr('Passe 4 à 6 semaines sur {nameOf} : nouvel angle, nouveau stimulus, puis reviens-y.', { nameOf: lower(nameOf(s, to)) }),
         tone: 'info',
         action: { kind: 'swap', from: st.key, to },
       });
@@ -258,8 +260,8 @@ function adviceFor(
       if (pick && target) {
         out.push({
           id: `boost-${weak.id}`,
-          title: `Point faible : ${weak.name.toLowerCase()} (${weak.grade})`,
-          text: `Ajoute ${nameOf(s, pick).toLowerCase()} à ta séance ${target.name}, 3 séries.`,
+          title: tr('Point faible : {name} ({grade})', { name: lower(weak.name), grade: weak.grade }),
+          text: tr('Ajoute {nameOf} à ta séance {name}, 3 séries.', { nameOf: lower(nameOf(s, pick)), name: target.name }),
           tone: 'info',
           action: { kind: 'add-exercise', key: pick, session: target.id },
         });
@@ -271,21 +273,21 @@ function adviceFor(
   if (bmi !== null && bmi >= 30 && p.athlete.sport !== 'running') {
     out.push({
       id: 'impact',
-      title: 'Cardio sans impact',
-      text: 'Privilégie vélo, rameur et marche inclinée au footing : même dépense, articulations épargnées. Passe à la course quand tu seras sous 30 d’IMC.',
+      title: tr('Cardio sans impact'),
+      text: tr('Privilégie vélo, rameur et marche inclinée au footing : même dépense, articulations épargnées. Passe à la course quand tu seras sous 30 d’IMC.'),
       tone: 'info',
     });
   } else if (bmi !== null && bmi < 20 && p.weightGoal === 'bulk') {
     out.push({
       id: 'compounds',
-      title: 'Mise sur les gros mouvements',
-      text: 'Squat, développé, tractions, rowing : 3 à 4 séries lourdes. Limite le cardio à 2 séances courtes pour garder tes calories pour la prise.',
+      title: tr('Mise sur les gros mouvements'),
+      text: tr('Squat, développé, tractions, rowing : 3 à 4 séries lourdes. Limite le cardio à 2 séances courtes pour garder tes calories pour la prise.'),
       tone: 'info',
     });
   }
 
   if (r.steps !== null && r.steps < 6000) {
-    out.push({ id: 'steps', title: `${formatNumber(r.steps)} pas par jour en moyenne`, text: 'Vise 8 000 : 20 minutes de marche après le déjeuner suffisent.', tone: 'info' });
+    out.push({ id: 'steps', title: tr('{n} pas par jour en moyenne', { n: formatNumber(r.steps) }), text: tr('Vise 8 000 : 20 minutes de marche après le déjeuner suffisent.'), tone: 'info' });
   }
 
   return out;
@@ -305,20 +307,22 @@ export function reportPending(s: AppState, today: string): boolean {
 
 export function reportText(s: AppState, r: WeeklyReport): string {
   const lines = [
-    `Bilan Shred, semaine du ${formatShort(r.monday)} au ${formatShort(r.sunday)}`,
+    tr('Bilan Shred, semaine du {date} au {date2}', { date: formatShort(r.monday), date2: formatShort(r.sunday) }),
     r.headline,
-    `Séances : ${r.sessions.done}/${r.sessions.planned}. Journées validées : ${r.validated}/${r.days}. Série : ${r.streak} jours.`,
+    tr('Séances : {done}/{planned}. Journées validées : {validated}/{days}. Série : {streak} jours.', { done: r.sessions.done, planned: r.sessions.planned, validated: r.validated, days: r.days, streak: r.streak }),
   ];
-  if (r.training.minutes > 0)
-    lines.push(
-      `Entraînement : ${Math.floor(r.training.minutes / 60)} h ${String(r.training.minutes % 60).padStart(2, '0')}${r.training.km.length ? `, dont ${r.training.km.map((x) => `${x.name.toLowerCase()} ${formatNumber(x.km, 1)} km`).join(', ')}` : ''}.`,
-    );
-  if (r.nutrition.kcal !== null) lines.push(`Nutrition : ${r.nutrition.kcal} kcal et ${r.nutrition.protein} g de protéines par jour en moyenne (objectif ${r.nutrition.target.kcal} kcal, ${r.nutrition.target.protein} g).`);
-  if (r.weight.avg !== null) lines.push(`Poids moyen : ${formatNumber(r.weight.avg, 1)} kg${r.weight.change !== null ? ` (${r.weight.change > 0 ? '+' : ''}${formatNumber(r.weight.change, 2)} kg)` : ''}.`);
-  if (r.steps !== null) lines.push(`Pas : ${formatNumber(r.steps)} par jour.`);
-  if (r.prs.length) lines.push(`Records : ${r.prs.map((x) => `${x.name} (${x.text})`).join(', ')}.`);
-  if (r.advice.length) lines.push('', 'Pour la semaine qui vient :', ...r.advice.map((a) => `- ${a.title}. ${a.text}`));
-  lines.push('', `Profil : ${sportLabel(s.settings.athlete)}, objectif ${r.weight.goal.label.toLowerCase()}. ${athleteSummary(s.settings.athlete, s.settings.gym)}`);
+  if (r.training.minutes > 0) {
+    const h = Math.floor(r.training.minutes / 60);
+    const min = String(r.training.minutes % 60).padStart(2, '0');
+    const km = r.training.km.map((x) => `${lower(x.name)} ${formatNumber(x.km, 1)} km`);
+    lines.push(km.length ? tr('Entraînement : {h} h {min}, dont {km}.', { h, min, km: list(km) }) : tr('Entraînement : {h} h {min}.', { h, min }));
+  }
+  if (r.nutrition.kcal !== null) lines.push(tr('Nutrition : {kcal} kcal et {protein} g de protéines par jour en moyenne (objectif {kcal2} kcal, {protein2} g).', { kcal: r.nutrition.kcal, protein: r.nutrition.protein, kcal2: r.nutrition.target.kcal, protein2: r.nutrition.target.protein }));
+  if (r.weight.avg !== null) lines.push(tr('Poids moyen : {n} kg{v}.', { n: formatNumber(r.weight.avg, 1), v: r.weight.change !== null ? ` (${r.weight.change > 0 ? '+' : ''}${formatNumber(r.weight.change, 2)} kg)` : '' }));
+  if (r.steps !== null) lines.push(tr('Pas : {n} par jour.', { n: formatNumber(r.steps) }));
+  if (r.prs.length) lines.push(tr('Records : {join}.', { join: r.prs.map((x) => `${x.name} (${x.text})`).join(', ') }));
+  if (r.advice.length) lines.push('', tr('Pour la semaine qui vient :'), ...r.advice.map((a) => `- ${a.title}. ${a.text}`));
+  lines.push('', tr('Profil : {sportLabel}, objectif {label}. {athleteSummary}', { sportLabel: sportLabel(s.settings.athlete), label: lower(r.weight.goal.label), athleteSummary: athleteSummary(s.settings.athlete, s.settings.gym) }));
   return lines.join('\n');
 }
 
@@ -329,27 +333,33 @@ export function reportHtml(s: AppState, r: WeeklyReport, appUrl: string): string
   const stat = (v: string, label: string) =>
     `<td style="padding:12px 8px;text-align:center;background:#f2f4fa;border-radius:12px"><div style="font-size:22px;font-weight:800;color:#0f1630">${esc(v)}</div><div style="font-size:12px;color:#4d5874">${esc(label)}</div></td>`;
   const rows = [
-    stat(`${r.sessions.done}/${r.sessions.planned}`, 'séances'),
-    stat(`${r.validated}/${r.days}`, 'jours validés'),
-    stat(String(r.streak), 'jours de série'),
+    stat(`${r.sessions.done}/${r.sessions.planned}`, tr('séances')),
+    stat(`${r.validated}/${r.days}`, tr('jours validés')),
+    stat(String(r.streak), tr('jours de série')),
   ].join('<td style="width:8px"></td>');
   const details: string[] = [];
-  if (r.nutrition.kcal !== null) details.push(`<b>Nutrition</b> : ${r.nutrition.kcal} kcal et ${r.nutrition.protein} g de protéines par jour (objectif ${r.nutrition.target.kcal} kcal, ${r.nutrition.target.protein} g).`);
-  if (r.weight.avg !== null) details.push(`<b>Poids</b> : ${formatNumber(r.weight.avg, 1)} kg${r.weight.change !== null ? `, ${r.weight.change > 0 ? '+' : ''}${formatNumber(r.weight.change, 2)} kg sur la semaine` : ''}.`);
-  if (r.steps !== null) details.push(`<b>Pas</b> : ${formatNumber(r.steps)} par jour.`);
-  if (r.prs.length) details.push(`<b>Records</b> : ${r.prs.map((x) => `${esc(x.name)} (${esc(x.text)})`).join(', ')}.`);
+  if (r.nutrition.kcal !== null) details.push(tr('<b>Nutrition</b> : {kcal} kcal et {protein} g de protéines par jour (objectif {kcal2} kcal, {protein2} g).', { kcal: r.nutrition.kcal, protein: r.nutrition.protein, kcal2: r.nutrition.target.kcal, protein2: r.nutrition.target.protein }));
+  if (r.weight.avg !== null)
+    details.push(
+      r.weight.change !== null
+        ? tr('<b>Poids</b> : {n} kg, {change} kg sur la semaine.', { n: formatNumber(r.weight.avg, 1), change: `${r.weight.change > 0 ? '+' : ''}${formatNumber(r.weight.change, 2)}` })
+        : tr('<b>Poids</b> : {n} kg.', { n: formatNumber(r.weight.avg, 1) }),
+    );
+  if (r.steps !== null) details.push(tr('<b>Pas</b> : {n} par jour.', { n: formatNumber(r.steps) }));
+  if (r.prs.length) details.push(tr('<b>Records</b> : {list}.', { list: r.prs.map((x) => `${esc(x.name)} (${esc(x.text)})`).join(', ') }));
   const advice = r.advice
     .map((a) => `<li style="margin:0 0 10px"><b>${esc(a.title)}</b><br><span style="color:#4d5874">${esc(a.text)}</span></li>`)
     .join('');
-  return `<!doctype html><html lang="fr"><body style="margin:0;background:#ffffff;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f1630">
+  // Le gabarit reste hors des traductions : seuls les textes passent par tr().
+  return `<!doctype html><html lang="${lang()}"><body style="margin:0;background:#ffffff;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f1630">
 <div style="max-width:520px;margin:0 auto;padding:24px 18px">
-<div style="font-size:13px;color:#3563f0;font-weight:700;letter-spacing:.04em">SHRED · BILAN DE LA SEMAINE</div>
-<h1 style="font-size:22px;margin:6px 0 4px">Salut ${esc(s.settings.name || '')}</h1>
-<p style="margin:0 0 18px;color:#4d5874">Du ${esc(formatShort(r.monday))} au ${esc(formatShort(r.sunday))}. ${esc(r.headline)}</p>
+<div style="font-size:13px;color:#3563f0;font-weight:700;letter-spacing:.04em">SHRED · ${esc(tr('Bilan de la semaine').toLocaleUpperCase(loc()))}</div>
+<h1 style="font-size:22px;margin:6px 0 4px">${esc(tr('Salut {name}', { name: s.settings.name || '' }).trim())}</h1>
+<p style="margin:0 0 18px;color:#4d5874">${esc(tr('Du {from} au {to}.', { from: formatShort(r.monday), to: formatShort(r.sunday) }))} ${esc(r.headline)}</p>
 <table role="presentation" style="width:100%;border-collapse:separate"><tr>${rows}</tr></table>
 <div style="margin:18px 0;line-height:1.55">${details.map((x) => `<p style="margin:0 0 8px">${x}</p>`).join('')}</div>
-${advice ? `<h2 style="font-size:17px;margin:20px 0 10px">Pour la semaine qui vient</h2><ul style="padding-left:18px;margin:0;line-height:1.5">${advice}</ul>` : ''}
-<p style="margin:24px 0 0"><a href="${esc(appUrl)}" style="display:inline-block;background:#3563f0;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:12px">Ouvrir Shred</a></p>
-<p style="margin:24px 0 0;font-size:12px;color:#8a93ab">Tu reçois ce mail parce que tu l’as activé dans Réglages, Bilan de la semaine.</p>
+${advice ? `<h2 style="font-size:17px;margin:20px 0 10px">${esc(tr('Pour la semaine qui vient'))}</h2><ul style="padding-left:18px;margin:0;line-height:1.5">${advice}</ul>` : ''}
+<p style="margin:24px 0 0"><a href="${esc(appUrl)}" style="display:inline-block;background:#3563f0;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:12px">${esc(tr('Ouvrir Shred'))}</a></p>
+<p style="margin:24px 0 0;font-size:12px;color:#8a93ab">${esc(tr('Tu reçois ce mail parce que tu l’as activé dans Réglages, Bilan de la semaine.'))}</p>
 </div></body></html>`;
 }

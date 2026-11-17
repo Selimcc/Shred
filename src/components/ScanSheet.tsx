@@ -5,8 +5,10 @@ import { addMeal } from '../lib/actions';
 import { codeVariants, confirmer, offImage, offText, scanRegion, sharpenBars, validBarcode } from '../lib/barcode';
 import { formatNumber } from '../lib/date';
 import type { MealSlot } from '../../shared/types';
+import { ADD_TO_SLOT } from '../../shared/program';
 import { Icon } from './Icon';
 import { Sheet, toast } from './ui';
+import { tr } from '../../shared/i18n';
 
 export interface Product {
   ean: string;
@@ -58,7 +60,7 @@ async function fetchProduct(ean: string): Promise<Product | null> {
   const fields = 'product_name,product_name_fr,brands,nutriments,serving_quantity,image_front_small_url';
   const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(ean)}.json?fields=${fields}`);
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Open Food Facts ${res.status}`);
+  if (!res.ok) throw new Error(tr('Open Food Facts {status}', { status: res.status }));
   const data = (await res.json()) as { status?: number; product?: Record<string, unknown> };
   const p = data.product;
   if (!p || data.status === 0) return null;
@@ -66,7 +68,7 @@ async function fetchProduct(ean: string): Promise<Product | null> {
   const kcal = num(n['energy-kcal_100g']) || Math.round(num(n['energy_100g']) / 4.184);
   const product: Product = {
     ean,
-    name: offText(p.product_name_fr || p.product_name, 80) || 'Produit sans nom',
+    name: offText(p.product_name_fr || p.product_name, 80) || tr('Produit sans nom'),
     brand: p.brands ? offText(String(p.brands).split(',')[0], 40) || undefined : undefined,
     image: offImage(p.image_front_small_url),
     per100: {
@@ -91,7 +93,7 @@ export function macrosFor(p: Product, grams: number) {
   };
 }
 
-const SLOT_NAMES: Record<MealSlot, string> = { breakfast: 'Petit-déj', lunch: 'Déjeuner', snack: 'Collation', dinner: 'Dîner', extra: 'Extra' };
+const SLOT_NAMES: Record<MealSlot, string> = { breakfast: tr('Petit-déj'), lunch: tr('Déjeuner'), snack: tr('Collation'), dinner: tr('Dîner'), extra: tr('Extra') };
 
 type Detector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
 type Track = MediaStreamTrack;
@@ -254,7 +256,7 @@ function ScanCamera({ onCode, onFail }: { onCode: (code: string) => void; onFail
         <video ref={video} playsInline muted style={hw.current ? undefined : { transform: `scale(${zoom})` }} />
         <span className="scan-frame" aria-hidden="true" />
         <div className="scan-tools">
-          <div className="scan-zoom" role="group" aria-label="Zoom">
+          <div className="scan-zoom" role="group" aria-label={tr('Zoom')}>
             {ZOOMS.map((z) => (
               <button key={z} type="button" className={Math.abs(zoom - z) < 0.25 ? 'on' : ''} onClick={() => setZoom(z)} aria-pressed={Math.abs(zoom - z) < 0.25}>
                 {z === 1 ? '1' : `${z}×`}
@@ -262,7 +264,7 @@ function ScanCamera({ onCode, onFail }: { onCode: (code: string) => void; onFail
             ))}
           </div>
           {torch !== null && (
-            <button type="button" className={`scan-torch ${torch ? 'on' : ''}`} onClick={toggleTorch} aria-pressed={torch} aria-label="Lampe">
+            <button type="button" className={`scan-torch ${torch ? 'on' : ''}`} onClick={toggleTorch} aria-pressed={torch} aria-label={tr('Lampe')}>
               <Icon name="bolt" size={18} />
             </button>
           )}
@@ -270,8 +272,8 @@ function ScanCamera({ onCode, onFail }: { onCode: (code: string) => void; onFail
       </div>
       <p className="small muted" style={{ margin: 0, textAlign: 'center' }}>
         {slow
-          ? 'Toujours rien ? Recule un peu, passe en 2× ou 3×, et garde le code bien droit dans le cadre.'
-          : 'Tiens le téléphone à une vingtaine de centimètres et zoome : de trop près, l’image est floue.'}
+          ? tr('Toujours rien ? Recule un peu, passe en 2× ou 3×, et garde le code bien droit dans le cadre.')
+          : tr('Tiens le téléphone à une vingtaine de centimètres et zoome : de trop près, l’image est floue.')}
       </p>
     </div>
   );
@@ -303,7 +305,7 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
       setGrams(String(p.serving ?? 100));
       setStatus('found');
     } catch {
-      toast('Pas de réseau pour chercher le produit. Réessaie, ou note-le à la main.', true);
+      toast(tr('Pas de réseau pour chercher le produit. Réessaie, ou note-le à la main.'), true);
       setStatus('missing');
       setManual(ean);
     }
@@ -321,17 +323,17 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
       source: 'scan',
       items: [{ name: product.name, grams: g, ...m }],
     });
-    toast(`${product.name} ajouté`);
+    toast(tr('{name} ajouté', { name: product.name }));
     onClose();
   };
 
   return (
-    <Sheet title="Scanner un produit" onClose={onClose}>
+    <Sheet title={tr('Scanner un produit')} onClose={onClose}>
       {status === 'camera' && (
         <>
           <ScanCamera onCode={(c) => void found(c)} onFail={() => setStatus('nocam')} />
           <button className="link small" style={{ display: 'block', margin: '12px auto 0' }} onClick={() => setStatus('manual')}>
-            Taper le code à la main
+            {tr('Taper le code à la main')}
           </button>
         </>
       )}
@@ -339,7 +341,7 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
       {status === 'looking' && (
         <div className="empty">
           <div className="spinner" style={{ margin: '0 auto 12px' }} />
-          Recherche du produit…
+          {tr('Recherche du produit…')}
         </div>
       )}
 
@@ -347,10 +349,10 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
         <div className="stack" style={{ gap: 12 }}>
           <p className="muted" style={{ margin: 0 }}>
             {status === 'nocam'
-              ? 'La caméra n’est pas disponible. Autorise-la dans les réglages du navigateur, ou tape le code sous le code-barres.'
+              ? tr('La caméra n’est pas disponible. Autorise-la dans les réglages du navigateur, ou tape le code sous le code-barres.')
               : status === 'manual'
-                ? 'Tape les chiffres écrits sous le code-barres (8, 12 ou 13).'
-                : `Le code ${manual} est bien lu, mais ce produit n’est pas dans Open Food Facts. Note le repas à la main, ou ajoute le produit sur openfoodfacts.org.`}
+                ? tr('Tape les chiffres écrits sous le code-barres (8, 12 ou 13).')
+                : tr('Le code {manual} est bien lu, mais ce produit n’est pas dans Open Food Facts. Note le repas à la main, ou ajoute le produit sur openfoodfacts.org.', { manual })}
           </p>
           <form
             style={{ display: 'flex', gap: 8 }}
@@ -359,19 +361,19 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
               if (validBarcode(manual)) void found(manual.trim());
             }}
           >
-            <input className="input num" inputMode="numeric" placeholder="3017620422003" value={manual} onChange={(e) => setManual(e.target.value.replace(/\D/g, '').slice(0, 13))} aria-label="Code-barres" />
+            <input className="input num" inputMode="numeric" placeholder="3017620422003" value={manual} onChange={(e) => setManual(e.target.value.replace(/\D/g, '').slice(0, 13))} aria-label={tr('Code-barres')} />
             <button className="btn primary" disabled={!validBarcode(manual)}>
-              Chercher
+              {tr('Chercher')}
             </button>
           </form>
           {[8, 12, 13].includes(manual.length) && !validBarcode(manual) && (
             <p className="small" style={{ margin: 0, color: 'var(--red)' }}>
-              Ce code ne passe pas la vérification : un chiffre est sans doute mal tapé.
+              {tr('Ce code ne passe pas la vérification : un chiffre est sans doute mal tapé.')}
             </p>
           )}
           {status !== 'nocam' && (
             <button className="btn" onClick={() => setStatus('camera')}>
-              <Icon name="camera" size={18} /> Scanner à nouveau
+              <Icon name="camera" size={18} />{' '}{tr('Scanner à nouveau')}
             </button>
           )}
         </div>
@@ -385,21 +387,21 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
               <div style={{ fontWeight: 650, lineHeight: 1.25 }}>{product.name}</div>
               <div className="small muted">
                 {product.brand ? `${product.brand}, ` : ''}
-                {product.per100.kcal} kcal pour 100 g
+                {tr('{kcal} kcal pour 100 g', { kcal: product.per100.kcal })}
               </div>
-              <div className="small faint num">Code {product.ean}</div>
+              <div className="small faint num">{tr('Code {ean}', { ean: product.ean })}</div>
             </div>
           </div>
 
           <div className="builder-row">
-            <span className="small muted">Quantité (g)</span>
+            <span className="small muted">{tr('Quantité (g)')}</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input className="input num center" style={{ width: 96 }} inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} aria-label="Quantité en grammes" />
+              <input className="input num center" style={{ width: 96 }} inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} aria-label={tr('Quantité en grammes')} />
               <div className="chips">
                 {[...new Set([product.serving, 50, 100, 150, 200].filter((x): x is number => Boolean(x)))].slice(0, 4).map((x) => (
                   <button key={x} type="button" className={`chip ${g === x ? 'on' : ''}`} onClick={() => setGrams(String(x))}>
                     {x}
-                    {x === product.serving ? ' (portion)' : ''}
+                    {x === product.serving ? ` (${tr('portion')})` : ''}
                   </button>
                 ))}
               </div>
@@ -410,9 +412,9 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
             <div className="macro">
               <b>
                 {formatNumber(m.kcal)}
-                <small>kcal</small>
+                <small>{tr('kcal')}</small>
               </b>
-              <span>pour {formatNumber(g)} g</span>
+              <span>{tr('pour {n} g', { n: formatNumber(g) })}</span>
             </div>
             <div className="macro">
               <b>
@@ -420,12 +422,12 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
                 <small>g</small>
               </b>
               <span>
-                protéines, {formatNumber(m.carbs, 0)} g glucides, {formatNumber(m.fat, 0)} g lipides
+                {tr('protéines, {n} g glucides, {n2} g lipides', { n: formatNumber(m.carbs, 0), n2: formatNumber(m.fat, 0) })}
               </span>
             </div>
           </div>
 
-          <div className="chips" role="group" aria-label="Repas">
+          <div className="chips" role="group" aria-label={tr('Repas')}>
             {(Object.keys(SLOT_NAMES) as MealSlot[]).map((x) => (
               <button key={x} type="button" className={`chip ${slot === x ? 'on' : ''}`} onClick={() => setSlot(x)}>
                 {SLOT_NAMES[x]}
@@ -434,17 +436,17 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
           </div>
 
           <button className="btn primary block" onClick={add} disabled={g <= 0}>
-            Ajouter au {SLOT_NAMES[slot].toLowerCase()}
+            {ADD_TO_SLOT[slot]}
           </button>
           <button className="link small" style={{ alignSelf: 'center' }} onClick={() => setStatus('camera')}>
-            Scanner un autre produit
+            {tr('Scanner un autre produit')}
           </button>
         </div>
       )}
 
       {(status === 'camera' || status === 'nocam' || status === 'manual') && recent.length > 0 && (
         <section className="stack" style={{ gap: 10, marginTop: 20 }}>
-          <h2 style={{ fontSize: '1rem' }}>Déjà scannés</h2>
+          <h2 style={{ fontSize: '1rem' }}>{tr('Déjà scannés')}</h2>
           <div className="group">
             {recent.map((p) => (
               <button
@@ -461,7 +463,7 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
                   <div className="title">{p.name}</div>
                   <div className="small muted">
                     {p.brand ? `${p.brand}, ` : ''}
-                    {p.per100.kcal} kcal et {formatNumber(p.per100.protein, 1)} g de protéines pour 100 g
+                    {tr('{kcal} kcal et {n} g de protéines pour 100 g', { kcal: p.per100.kcal, n: formatNumber(p.per100.protein, 1) })}
                   </div>
                 </div>
                 <Icon name="chevron" />

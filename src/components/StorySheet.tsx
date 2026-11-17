@@ -8,6 +8,7 @@ import { useApp } from '../lib/store';
 import { drawStory, shareStory, storyBlob } from '../lib/storyCard';
 import { Icon } from './Icon';
 import { errorText, Sheet, toast } from './ui';
+import { loc, tr } from '../../shared/i18n';
 
 export function StorySheet({ date, onClose }: { date: string; onClose: () => void }) {
   const s = useApp();
@@ -19,7 +20,7 @@ export function StorySheet({ date, onClose }: { date: string; onClose: () => voi
     if (!sum) return;
     let url = '';
     let live = true;
-    const dateLabel = parseKey(date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const dateLabel = parseKey(date).toLocaleDateString(loc(), { weekday: 'long', day: 'numeric', month: 'long' });
     drawStory(sum, { name: s.settings.name, streak: streakInfo(s, date).current, dateLabel: dateLabel[0].toUpperCase() + dateLabel.slice(1) })
       .then(storyBlob)
       .then((blob) => {
@@ -37,12 +38,12 @@ export function StorySheet({ date, onClose }: { date: string; onClose: () => voi
   }, [date]);
 
   return (
-    <Sheet title="Partager ta séance" onClose={onClose}>
+    <Sheet title={tr('Partager ta séance')} onClose={onClose}>
       {!sum ? (
-        <p className="muted">Termine au moins une série pour créer ta carte.</p>
+        <p className="muted">{tr('Termine au moins une série pour créer ta carte.')}</p>
       ) : (
         <div className="stack" style={{ gap: 16 }}>
-          <div className="story-preview">{img ? <img src={img.url} alt={`Carte de la séance ${sum.title}`} /> : <span className="sk-block" />}</div>
+          <div className="story-preview">{img ? <img src={img.url} alt={tr('Carte de la séance {title}', { title: sum.title })} /> : <span className="sk-block" />}</div>
           <button
             className="btn primary block"
             disabled={!img || busy}
@@ -51,10 +52,10 @@ export function StorySheet({ date, onClose }: { date: string; onClose: () => voi
               setBusy(true);
               const r = await shareStory(img.blob, sum.title).catch(() => 'cancelled' as const);
               setBusy(false);
-              if (r === 'saved') toast('Image enregistrée');
+              if (r === 'saved') toast(tr('Image enregistrée'));
             }}
           >
-            <Icon name="share" size={18} /> Partager en story
+            <Icon name="share" size={18} />{' '}{tr('Partager en story')}
           </button>
           {!DEMO && (
             <button
@@ -64,11 +65,11 @@ export function StorySheet({ date, onClose }: { date: string; onClose: () => voi
                 window.dispatchEvent(new CustomEvent('shred:share', { detail: { date } }));
               }}
             >
-              <Icon name="users" size={18} /> Publier au club
+              <Icon name="users" size={18} />{' '}{tr('Publier au club')}
             </button>
           )}
           <p className="small faint" style={{ margin: 0, textAlign: 'center' }}>
-            L’image est créée sur ton téléphone. Dans le menu de partage, choisis Instagram puis « Story ».
+            {tr('L’image est créée sur ton téléphone. Dans le menu de partage, choisis Instagram puis « Story ».')}
           </p>
         </div>
       )}

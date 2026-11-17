@@ -3,6 +3,7 @@ import { DEFAULT_MEAL_PLAN as PLANNED_MEALS, findSession, resolveSession } from 
 import { DEFAULT_PROGRAM } from '../../shared/templates';
 import { addDays, dayKey, weekdayOf } from './date';
 import type { AppState, DayLog } from './store';
+import { tr } from '../../shared/i18n';
 
 export function demoState(base: AppState): AppState {
   const today = dayKey();
@@ -66,7 +67,7 @@ export function demoState(base: AppState): AppState {
       ...base.settings,
       onboarded: true,
       ai: 'api',
-      coachNotes: 'Objectif : sèche en gardant mes charges. Meal prep le dimanche, budget serré.',
+      coachNotes: tr('Objectif : sèche en gardant mes charges. Meal prep le dimanche, budget serré.'),
       athlete: { ...base.settings.athlete, physique: 'aesthetic', priorities: ['delts', 'back'], days: 5, minutes: 75 },
     },
     days,

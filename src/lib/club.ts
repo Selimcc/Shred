@@ -1,7 +1,7 @@
 // Le club côté app : fil, publication d'une séance (photos, @mentions, visibilité), étincelles, commentaires,
 // membres et notifications. En mode démo, tout tourne en mémoire avec des membres fictifs.
 import type { Track } from './music';
-import { catalogEntry, DISCIPLINE_NAMES } from '../../shared/catalog';
+import { DISCIPLINE_NAMES, exerciseName } from '../../shared/catalog';
 import { disciplinesOf, fmtClock, repSeconds, sessionBlocks } from '../../shared/effort';
 import { api, DEMO } from './api';
 import { addDays, dayKey, formatNumber } from './date';
@@ -11,6 +11,7 @@ import { authHeaders } from './api';
 import type { AppState } from './store';
 import { addPlates, claimPlates, GRACE_MS, NULOS_HOURS, OPEN_MAX, PLATES, stakeOf, type Wallet } from '../../shared/plates';
 import { dayTraining, liftSeries, totalMinutes } from './training';
+import { tr } from '../../shared/i18n';
 
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';
 
@@ -145,15 +146,15 @@ export const canRematch = (c: Challenge, me: string | null, now = Date.now()) =>
 export const CHALLENGE_DELAYS: { hours: number; label: string }[] = [
   { hours: 24, label: '24 h' },
   { hours: 48, label: '48 h' },
-  { hours: 168, label: '7 jours' },
+  { hours: 168, label: tr('7 jours') },
 ];
 
 /** « il reste 5 h », « il reste 2 j » : ce qu'il reste avant l'échéance. */
 export function timeLeft(due: number, now = Date.now()): string {
   const h = Math.max(0, (due - now) / 3600_000);
-  if (h < 1) return `il reste ${Math.max(1, Math.round(h * 60))} min`;
-  if (h < 36) return `il reste ${Math.round(h)} h`;
-  return `il reste ${Math.round(h / 24)} j`;
+  if (h < 1) return tr('il reste {max} min', { max: Math.max(1, Math.round(h * 60)) });
+  if (h < 36) return tr('il reste {n} h', { n: Math.round(h) });
+  return tr('il reste {n} j', { n: Math.round(h / 24) });
 }
 
 export interface Notice {
@@ -242,7 +243,7 @@ export function sessionSummary(s: AppState, date: string): SessionSummary | null
     const records = session.exercises
       .map((ex) => {
         const p = liftSeries(s, ex.key, date, 0).find((x) => x.date === date && x.pr);
-        return p ? `${catalogEntry(ex.key, s.customExercises)?.name.replace(/ \(.*\)$/, '') ?? ex.name} ${fmtKg(p.w)} × ${p.r}` : null;
+        return p ? `${exerciseName(ex.key, s.customExercises).replace(/ \(.*\)$/, '')} ${fmtKg(p.w)} × ${p.r}` : null;
       })
       .filter((x): x is string => Boolean(x))
       .slice(0, 3);
@@ -251,10 +252,10 @@ export function sessionSummary(s: AppState, date: string): SessionSummary | null
       kind: 'lifting',
       // Une séance validée sans séries notées : juste son nom, pas de « 0 série ».
       stats: [
-        ...(sets > 0 ? [{ label: 'Séries', value: String(sets) }] : []),
-        ...(volume > 0 ? [{ label: 'Volume', value: fmtVolume(volume) }] : []),
-        ...(exercises > 0 ? [{ label: 'Exercices', value: String(exercises) }] : []),
-        ...(minutes >= 5 ? [{ label: 'Durée', value: fmtClock(minutes * 60) }] : []),
+        ...(sets > 0 ? [{ label: tr('Séries'), value: String(sets) }] : []),
+        ...(volume > 0 ? [{ label: tr('Volume'), value: fmtVolume(volume) }] : []),
+        ...(exercises > 0 ? [{ label: tr('Exercices'), value: String(exercises) }] : []),
+        ...(minutes >= 5 ? [{ label: tr('Durée'), value: fmtClock(minutes * 60) }] : []),
       ],
       ...(records.length ? { records } : {}),
       date,
@@ -284,10 +285,10 @@ export function sessionSummary(s: AppState, date: string): SessionSummary | null
     kind: session.type === 'rest' ? 'rest' : 'cardio',
     ...(sports.length ? { sports } : {}),
     stats: [
-      ...(sec >= 60 ? [{ label: 'Durée', value: fmtClock(sec) }] : []),
-      ...(km > 0 ? [{ label: 'Distance', value: swimOnly ? `${formatNumber(Math.round(km * 1000))} m` : `${formatNumber(km, 1)} km` }] : []),
-      ...(hard >= 60 ? [{ label: 'Intense', value: fmtClock(hard) }] : []),
-      ...(sports.length > 1 ? [{ label: 'Sports', value: sports.map((d) => DISCIPLINE_NAMES[d]).join(' + ') }] : []),
+      ...(sec >= 60 ? [{ label: tr('Durée'), value: fmtClock(sec) }] : []),
+      ...(km > 0 ? [{ label: tr('Distance'), value: swimOnly ? `${formatNumber(Math.round(km * 1000))} m` : `${formatNumber(km, 1)} km` }] : []),
+      ...(hard >= 60 ? [{ label: tr('Intense'), value: fmtClock(hard) }] : []),
+      ...(sports.length > 1 ? [{ label: tr('Sports'), value: sports.map((d) => DISCIPLINE_NAMES[d]).join(' + ') }] : []),
     ],
     ...(blocks.length ? { profile: compactProfile(blocks) } : {}),
     date,
@@ -352,7 +353,7 @@ export function videoUrl(id: string): Promise<string> {
 async function uploadVideo(blob: Blob, type: string): Promise<{ id: string }> {
   const r = await fetch(`${BASE}/api/club/videos`, { method: 'POST', headers: { ...authHeaders(authToken(), false), 'content-type': type }, body: blob });
   const data = (await r.json().catch(() => ({}))) as { id?: string; error?: string };
-  if (!r.ok || !data.id) throw new Error(data.error ?? 'La vidéo n’a pas pu être envoyée');
+  if (!r.ok || !data.id) throw new Error(data.error ?? tr('La vidéo n’a pas pu être envoyée'));
   return { id: data.id };
 }
 export const avatarPath = (m: Pick<Member, 'id' | 'avatar'>) => (m.avatar ? `/api/club/avatar/${m.id}?v=${m.avatar}` : null);
@@ -364,7 +365,7 @@ export const club = {
     DEMO ? demo.feed(filter) : api<{ posts: ClubPost[]; next: string | null }>(`/api/club/feed?filter=${encodeURIComponent(filter)}${before ? `&before=${encodeURIComponent(before)}` : ''}`),
   post: (id: string) => (DEMO ? demo.post(id) : api<{ post: ClubPost; comments: ClubComment[] }>(`/api/club/posts/${id}`)),
   create: (p: NewPost) => (DEMO ? demo.create(p) : api<{ post: ClubPost }>('/api/club/posts', { body: p })),
-  uploadVideo: (blob: Blob, type: string) => (DEMO ? Promise.reject(new Error('Pas de vidéo dans la démo')) : uploadVideo(blob, type)),
+  uploadVideo: (blob: Blob, type: string) => (DEMO ? Promise.reject(new Error(tr('Pas de vidéo dans la démo'))) : uploadVideo(blob, type)),
   remove: (id: string) => (DEMO ? demo.remove(id) : api(`/api/club/posts/${id}`, { method: 'DELETE' })),
   edit: (id: string, text: string, mentions: Mention[]) =>
     DEMO ? demo.edit(id, text, mentions) : api<{ post: ClubPost }>(`/api/club/posts/${id}`, { method: 'PUT', body: { text, mentions } }),
@@ -474,11 +475,11 @@ const demo = (() => {
   const now = Date.now();
   const me = 'demo';
   const members: Member[] = [
-    { id: me, name: 'Toi', handle: 'toi', me: true, following: false, followers: 3, posts: 0, sparks: 0, avatar: null },
-    { id: 'm-camille', name: 'Camille', handle: 'camille.run', nick: 'La fusée', bio: 'Semi en 1 h 38 visé en mars. Fractionné le mardi, sortie longue le dimanche.', me: false, following: true, followers: 4, posts: 12, sparks: 61, avatar: null, profile: { streak: 41, best: 41, tier: 3, level: 9, program: 'Semi-marathon du 22 mars' } },
-    { id: 'm-yanis', name: 'Yanis', handle: 'yanis_ppl', bio: 'PPL 6 jours. Objectif 140 kg au squat avant l’été.', me: false, following: true, followers: 3, posts: 9, sparks: 44, avatar: null, profile: { streak: 17, best: 29, tier: 2, level: 7, program: 'PPL + Upper/Lower' } },
-    { id: 'm-ines', name: 'Inès', handle: 'ines.swim', nick: 'Nemo', me: false, following: false, followers: 2, posts: 6, sparks: 23, avatar: null, profile: { streak: 8, best: 22, tier: 1, level: 5, program: 'Bloc natation' } },
-    { id: 'm-leo', name: 'Léo', handle: 'leo.velo', me: false, following: false, followers: 2, posts: 7, sparks: 19, avatar: null, profile: { streak: 3, best: 14, tier: 1, level: 4, program: 'Cyclosportive 160 km' } },
+    { id: me, name: tr('Toi'), handle: 'toi', me: true, following: false, followers: 3, posts: 0, sparks: 0, avatar: null },
+    { id: 'm-camille', name: tr('Camille'), handle: 'camille.run', nick: tr('La fusée'), bio: tr('Semi en 1 h 38 visé en mars. Fractionné le mardi, sortie longue le dimanche.'), me: false, following: true, followers: 4, posts: 12, sparks: 61, avatar: null, profile: { streak: 41, best: 41, tier: 3, level: 9, program: tr('Semi-marathon du 22 mars') } },
+    { id: 'm-yanis', name: tr('Yanis'), handle: 'yanis_ppl', bio: tr('PPL 6 jours. Objectif 140 kg au squat avant l’été.'), me: false, following: true, followers: 3, posts: 9, sparks: 44, avatar: null, profile: { streak: 17, best: 29, tier: 2, level: 7, program: tr('PPL + Upper/Lower') } },
+    { id: 'm-ines', name: tr('Inès'), handle: 'ines.swim', nick: tr('Nemo'), me: false, following: false, followers: 2, posts: 6, sparks: 23, avatar: null, profile: { streak: 8, best: 22, tier: 1, level: 5, program: tr('Bloc natation') } },
+    { id: 'm-leo', name: tr('Léo'), handle: 'leo.velo', me: false, following: false, followers: 2, posts: 7, sparks: 19, avatar: null, profile: { streak: 3, best: 14, tier: 1, level: 4, program: tr('Cyclosportive 160 km') } },
   ];
   const intervals: [number, number][] = [[1, 900], [2, 300], ...Array.from({ length: 6 }, (_, i) => (i < 5 ? [[5, 230], [1, 90]] : [[5, 230]])).flat() as [number, number][], [1, 600]];
   const swimSet: [number, number][] = [[1, 420], [2, 280], ...Array.from({ length: 10 }, () => [[4, 108], [1, 15]]).flat() as [number, number][], [1, 280]];
@@ -486,48 +487,48 @@ const demo = (() => {
   type Stored = Omit<ClubPost, 'sparks' | 'sparked' | 'mine'> & { sparksBy: string[] };
   const posts: Stored[] = [
     {
-      id: 'p-camille', author: 'm-camille', authorName: 'Camille', at: now - 2 * H, visibility: 'all', photos: [], comments: 2,
-      text: '6 × 800 sous la pluie, toutes au même chrono. La prépa semi avance.',
+      id: 'p-camille', author: 'm-camille', authorName: tr('Camille'), at: now - 2 * H, visibility: 'all', photos: [], comments: 2,
+      text: tr('6 × 800 sous la pluie, toutes au même chrono. La prépa semi avance.'),
       mentions: [],
-      session: { title: 'Fractionné', kind: 'cardio', sports: ['run'], date: dayKey(), stats: [{ label: 'Durée', value: '52 min' }, { label: 'Distance', value: '9,4 km' }, { label: 'Intense', value: '23 min' }], profile: intervals },
+      session: { title: tr('Fractionné'), kind: 'cardio', sports: ['run'], date: dayKey(), stats: [{ label: tr('Durée'), value: '52 min' }, { label: tr('Distance'), value: '9,4 km' }, { label: tr('Intense'), value: '23 min' }], profile: intervals },
       sparksBy: ['m-yanis', 'm-ines', 'm-leo'],
     },
     {
-      id: 'p-yanis', author: 'm-yanis', authorName: 'Yanis', at: now - 5 * H, visibility: 'all', photos: [], comments: 0,
-      text: 'Record au développé couché ! Merci @Toi pour la parade.',
-      mentions: [{ id: me, name: 'Toi' }],
-      session: { title: 'Push', kind: 'lifting', date: dayKey(), stats: [{ label: 'Séries', value: '18' }, { label: 'Volume', value: '7,4 t' }, { label: 'Exercices', value: '6' }, { label: 'Durée', value: '1 h 05' }], records: ['Développé couché 92,5 kg × 5'] },
+      id: 'p-yanis', author: 'm-yanis', authorName: tr('Yanis'), at: now - 5 * H, visibility: 'all', photos: [], comments: 0,
+      text: tr('Record au développé couché ! Merci @Toi pour la parade.'),
+      mentions: [{ id: me, name: tr('Toi') }],
+      session: { title: tr('Push'), kind: 'lifting', date: dayKey(), stats: [{ label: tr('Séries'), value: '18' }, { label: tr('Volume'), value: '7,4 t' }, { label: tr('Exercices'), value: '6' }, { label: tr('Durée'), value: '1 h 05' }], records: [tr('Développé couché 92,5 kg × 5')] },
       sparksBy: ['m-camille', 'm-ines', 'm-leo', 'm-x1', 'm-x2'],
     },
     {
-      id: 'p-ines', author: 'm-ines', authorName: 'Inès', at: now - 26 * H, visibility: 'all', photos: [], comments: 1,
-      text: 'Premier 10 × 100 sous 1:50. Les éducatifs paient.',
+      id: 'p-ines', author: 'm-ines', authorName: tr('Inès'), at: now - 26 * H, visibility: 'all', photos: [], comments: 1,
+      text: tr('Premier 10 × 100 sous 1:50. Les éducatifs paient.'),
       mentions: [],
-      session: { title: 'Natation seuil', kind: 'cardio', sports: ['swim'], date: addDays(dayKey(), -1), stats: [{ label: 'Durée', value: '48 min' }, { label: 'Distance', value: '2 400 m' }, { label: 'Intense', value: '18 min' }], profile: swimSet },
+      session: { title: tr('Natation seuil'), kind: 'cardio', sports: ['swim'], date: addDays(dayKey(), -1), stats: [{ label: tr('Durée'), value: '48 min' }, { label: tr('Distance'), value: '2 400 m' }, { label: tr('Intense'), value: '18 min' }], profile: swimSet },
       sparksBy: ['m-camille', 'm-yanis'],
     },
     {
-      id: 'p-leo', author: 'm-leo', authorName: 'Léo', at: now - 50 * H, visibility: 'all', photos: [], comments: 0,
-      text: 'Sortie longue, quatre côtes et le vent de face au retour.',
+      id: 'p-leo', author: 'm-leo', authorName: tr('Léo'), at: now - 50 * H, visibility: 'all', photos: [], comments: 0,
+      text: tr('Sortie longue, quatre côtes et le vent de face au retour.'),
       mentions: [],
-      session: { title: 'Sortie longue vélo', kind: 'cardio', sports: ['bike'], date: addDays(dayKey(), -2), stats: [{ label: 'Durée', value: '2 h 40' }, { label: 'Distance', value: '78,3 km' }], profile: ride },
+      session: { title: tr('Sortie longue vélo'), kind: 'cardio', sports: ['bike'], date: addDays(dayKey(), -2), stats: [{ label: tr('Durée'), value: '2 h 40' }, { label: tr('Distance'), value: '78,3 km' }], profile: ride },
       sparksBy: ['m-camille'],
     },
   ];
   const comments: ClubComment[] = [
-    { id: 'c1', post: 'p-camille', author: 'm-yanis', authorName: 'Yanis', at: now - 1.6 * H, text: 'Régulière comme une horloge.', mentions: [], mine: false },
-    { id: 'c2', post: 'p-camille', author: 'm-ines', authorName: 'Inès', at: now - 1.2 * H, text: 'Le semi en moins de 1 h 45, ça se rapproche !', mentions: [], mine: false },
-    { id: 'c3', post: 'p-ines', author: 'm-camille', authorName: 'Camille', at: now - 20 * H, text: 'Énorme progrès en un mois.', mentions: [], mine: false },
+    { id: 'c1', post: 'p-camille', author: 'm-yanis', authorName: tr('Yanis'), at: now - 1.6 * H, text: tr('Régulière comme une horloge.'), mentions: [], mine: false },
+    { id: 'c2', post: 'p-camille', author: 'm-ines', authorName: tr('Inès'), at: now - 1.2 * H, text: tr('Le semi en moins de 1 h 45, ça se rapproche !'), mentions: [], mine: false },
+    { id: 'c3', post: 'p-ines', author: 'm-camille', authorName: tr('Camille'), at: now - 20 * H, text: tr('Énorme progrès en un mois.'), mentions: [], mine: false },
   ];
   const notices: Notice[] = [
-    { id: 'n1', type: 'mention', actor: 'm-yanis', actorName: 'Yanis', post: 'p-yanis', text: 'Record au développé couché ! Merci @Toi pour la parade.', at: now - 5 * H },
-    { id: 'n2', type: 'follow', actor: 'm-camille', actorName: 'Camille', at: now - 30 * H },
+    { id: 'n1', type: 'mention', actor: 'm-yanis', actorName: tr('Yanis'), post: 'p-yanis', text: tr('Record au développé couché ! Merci @Toi pour la parade.'), at: now - 5 * H },
+    { id: 'n2', type: 'follow', actor: 'm-camille', actorName: tr('Camille'), at: now - 30 * H },
   ];
   let readAt = now - 40 * H;
   const challenges: Challenge[] = [
-    { id: 'c-camille', from: 'm-camille', fromName: 'Camille', to: me, toName: 'Toi', at: now - 3 * H, due: now + 21 * H, text: 'Une séance jambes avant demain soir ?', stake: 3, gage: '50 burpees filmés', status: 'open' },
-    { id: 'c-leo', from: 'm-leo', fromName: 'Léo', to: me, toName: 'Toi', at: now - 27 * H, due: now - 3 * H, stake: 3, gage: 'Payer le café', status: 'failed', failedAt: now - 3 * H },
-    { id: 'c-yanis', from: me, fromName: 'Toi', to: 'm-yanis', toName: 'Yanis', at: now - 30 * H, due: now - 6 * H, stake: 1, status: 'failed', failedAt: now - 6 * H },
+    { id: 'c-camille', from: 'm-camille', fromName: tr('Camille'), to: me, toName: tr('Toi'), at: now - 3 * H, due: now + 21 * H, text: tr('Une séance jambes avant demain soir ?'), stake: 3, gage: tr('50 burpees filmés'), status: 'open' },
+    { id: 'c-leo', from: 'm-leo', fromName: tr('Léo'), to: me, toName: tr('Toi'), at: now - 27 * H, due: now - 3 * H, stake: 3, gage: tr('Payer le café'), status: 'failed', failedAt: now - 3 * H },
+    { id: 'c-yanis', from: me, fromName: tr('Toi'), to: 'm-yanis', toName: tr('Yanis'), at: now - 30 * H, due: now - 6 * H, stake: 1, status: 'failed', failedAt: now - 6 * H },
   ];
   // Yanis a raté son défi il y a 6 h : il porte le bonnet de Nulos jusqu'à demain.
   members.find((m) => m.id === 'm-yanis')!.nulos = now + 18 * H;
@@ -547,7 +548,7 @@ const demo = (() => {
   };
   const find = (id: string) => {
     const p = posts.find((x) => x.id === id);
-    if (!p) throw new Error('Publication introuvable');
+    if (!p) throw new Error(tr('Publication introuvable'));
     return p;
   };
   const wait = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 220));
@@ -576,7 +577,7 @@ const demo = (() => {
       setTimeout(() => {
         p.sparksBy.push('m-camille', 'm-yanis');
         members[0].sparks += 2;
-        notices.unshift({ id: `n-${Date.now()}`, type: 'spark', actor: 'm-camille', actorName: 'Camille', post: p.id, text: n.session?.title ?? n.text.slice(0, 80), at: Date.now() });
+        notices.unshift({ id: `n-${Date.now()}`, type: 'spark', actor: 'm-camille', actorName: tr('Camille'), post: p.id, text: n.session?.title ?? n.text.slice(0, 80), at: Date.now() });
       }, 4000);
       return wait({ post: view(p) });
     },
@@ -617,16 +618,16 @@ const demo = (() => {
       wait({
         week,
         rows: [
-          { id: 'm-yanis', name: 'Yanis', handle: 'yanis_ppl', avatar: null, me: false, week: 5, volume: 38_400, streak: 31, days: 0b0011111, nulos: members.find((m) => m.id === 'm-yanis')?.nulos },
-          { id: me, name: 'Toi', handle: 'toi', avatar: null, me: true, week: 4, volume: 29_800, streak: 23, days: 0b0011011, nulos: members[0].nulos },
-          { id: 'm-camille', name: 'Camille', handle: 'camille.run', avatar: null, me: false, week: 4, volume: 6_200, streak: 12, days: 0b0010111 },
-          { id: 'm-ines', name: 'Inès', handle: 'ines.swim', avatar: null, me: false, week: 2, volume: 0, streak: 5, days: 0b0000101 },
+          { id: 'm-yanis', name: tr('Yanis'), handle: 'yanis_ppl', avatar: null, me: false, week: 5, volume: 38_400, streak: 31, days: 0b0011111, nulos: members.find((m) => m.id === 'm-yanis')?.nulos },
+          { id: me, name: tr('Toi'), handle: 'toi', avatar: null, me: true, week: 4, volume: 29_800, streak: 23, days: 0b0011011, nulos: members[0].nulos },
+          { id: 'm-camille', name: tr('Camille'), handle: 'camille.run', avatar: null, me: false, week: 4, volume: 6_200, streak: 12, days: 0b0010111 },
+          { id: 'm-ines', name: tr('Inès'), handle: 'ines.swim', avatar: null, me: false, week: 2, volume: 0, streak: 5, days: 0b0000101 },
         ] as BoardRow[],
       }),
     search: (q: string) => wait({ members: members.filter((m) => m.handle?.startsWith(q.replace(/^@/, '').toLowerCase())).map((m) => ({ ...m })) }),
     member: (key: string) => {
       const m = members.find((x) => x.handle === key || x.id === key);
-      return m ? wait({ member: { ...m } }) : Promise.reject(new Error('Membre introuvable'));
+      return m ? wait({ member: { ...m } }) : Promise.reject(new Error(tr('Membre introuvable')));
     },
     follow: (id: string) => {
       const m = members.find((x) => x.id === id)!;
@@ -646,15 +647,15 @@ const demo = (() => {
       return wait({ avatar: v });
     },
     rename: (name: string) => {
-      members[0].name = name || 'Toi';
+      members[0].name = name || tr('Toi');
     },
     challenge: (to: string, hours: number, text: string, opts: { gage?: string; rematch?: string } = {}) => {
       const m = members.find((x) => x.id === to)!;
       const open = challenges.filter((x) => x.from === me && x.status === 'open');
-      if (open.some((x) => x.to === to)) return Promise.reject(new Error('Un défi est déjà en cours avec cette personne : attends qu’il se termine'));
-      if (open.length >= OPEN_MAX) return Promise.reject(new Error(`Déjà ${OPEN_MAX} défis lancés en cours : attends qu’ils se terminent`));
+      if (open.some((x) => x.to === to)) return Promise.reject(new Error(tr('Un défi est déjà en cours avec cette personne : attends qu’il se termine')));
+      if (open.length >= OPEN_MAX) return Promise.reject(new Error(tr('Déjà {OPEN_MAX} défis lancés en cours : attends qu’ils se terminent', { OPEN_MAX })));
       const stake = stakeOf(Boolean(opts.gage), Boolean(opts.rematch));
-      if (wallet.bal < stake) return Promise.reject(new Error('Pas assez de disques : valide tes journées pour en gagner'));
+      if (wallet.bal < stake) return Promise.reject(new Error(tr('Pas assez de disques : valide tes journées pour en gagner')));
       wallet = addPlates(wallet, -stake);
       const c: Challenge = { id: `c-${Date.now()}`, from: me, fromName: members[0].name, to, toName: m.name, at: Date.now(), due: Date.now() + hours * H, status: 'open', stake, ...(text ? { text } : {}), ...(opts.gage && !opts.rematch ? { gage: opts.gage } : {}), ...(opts.rematch ? { rematch: opts.rematch } : {}) };
       if (opts.rematch) {

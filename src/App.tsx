@@ -22,19 +22,20 @@ import { Settings, type SettingsPage } from './screens/Settings';
 import { Today } from './screens/Today';
 import { Welcome } from './screens/Welcome';
 import { Workout } from './screens/Workout';
+import { tr } from '../shared/i18n';
 
 export type Tab = 'today' | 'workout' | 'food' | 'club' | 'coach' | 'progress';
 
 /** Onglets disponibles ; chacun peut dépendre d'un module ou du mode IA. */
 const TABS: { id: Tab; label: string; icon: string; enabled?: (s: AppState) => boolean; hidden?: boolean }[] = [
-  { id: 'today', label: 'Aujourd’hui', icon: 'home' },
-  { id: 'workout', label: 'Séance', icon: 'dumbbell' },
-  { id: 'food', label: 'Repas', icon: 'utensils', enabled: (s) => s.settings.modules.nutrition },
+  { id: 'today', label: tr('Aujourd’hui'), icon: 'home' },
+  { id: 'workout', label: tr('Séance'), icon: 'dumbbell' },
+  { id: 'food', label: tr('Repas'), icon: 'utensils', enabled: (s) => s.settings.modules.nutrition },
   // Pas de club dans la démo publique : profils, photos et publications sont réservés à la vraie app.
-  { id: 'club', label: 'Club', icon: 'users', enabled: () => !DEMO },
-  { id: 'progress', label: 'Progrès', icon: 'chart' },
+  { id: 'club', label: tr('Club'), icon: 'users', enabled: () => !DEMO },
+  { id: 'progress', label: tr('Progrès'), icon: 'chart' },
   // Le coach s'ouvre en touchant Pulse : pas d'onglet en plus.
-  { id: 'coach', label: 'Pulse', icon: 'chat', enabled: (s) => s.settings.ai !== 'off', hidden: true },
+  { id: 'coach', label: tr('Pulse'), icon: 'chat', enabled: (s) => s.settings.ai !== 'off', hidden: true },
 ];
 
 function initialTab(): Tab {
@@ -111,7 +112,7 @@ export function App() {
   }, [season]);
 
   // Pas de compte : écran d'accueil. Premier lancement : quelques questions.
-  const connectNotice = connect ? 'Claude demande l’accès à tes données Shred. Connecte-toi pour continuer.' : undefined;
+  const connectNotice = connect ? tr('Claude demande l’accès à tes données Shred. Connecte-toi pour continuer.') : undefined;
   const gate = DEMO ? null : !session.account && !session.local ? (
     <Welcome notice={connectNotice} />
   ) : session.account?.expired ? (
@@ -165,7 +166,7 @@ export function App() {
     navigator.serviceWorker?.addEventListener('message', onMsg);
     // « Partager au club » depuis la séance : on ouvre le club avec la publication prête.
     const onShare = (e: Event) => {
-      if (DEMO) return demoInvite('Le club n’est pas disponible dans la démo.');
+      if (DEMO) return demoInvite(tr('Le club n’est pas disponible dans la démo.'));
       setCompose((e as CustomEvent<{ date: string }>).detail.date);
       go('club');
     };
@@ -190,9 +191,9 @@ export function App() {
     <>
       {DEMO && (
         <div className="small demo-banner">
-          Démo avec données d’exemple, rien n’est enregistré.{' '}
+          {tr('Démo avec données d’exemple, rien n’est enregistré.')}{' '}
           <button className="demo-banner-link" onClick={() => demoInvite()}>
-            Utiliser la vraie app
+            {tr('Utiliser la vraie app')}
           </button>
         </div>
       )}
@@ -209,7 +210,7 @@ export function App() {
       </main>
 
       <div className="tabbar">
-        <nav ref={nav} aria-label="Navigation" style={{ gridTemplateColumns: `repeat(${tabs.filter((t) => !t.hidden).length}, 1fr)` }}>
+        <nav ref={nav} aria-label={tr('Navigation')} style={{ gridTemplateColumns: `repeat(${tabs.filter((t) => !t.hidden).length}, 1fr)` }}>
           <span ref={glow} className="tab-glow" aria-hidden="true" />
           {tabs.filter((t) => !t.hidden).map((t) => (
             <button

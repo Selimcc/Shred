@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { formatNumber, formatShort } from '../lib/date';
+import { tr } from '../../shared/i18n';
 
 interface Point {
   date: string;
@@ -34,7 +35,7 @@ export function WeightChart({ data }: { data: Point[] }) {
   }, [values.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!scale) {
-    return <div className="empty small">Tes pesées apparaîtront ici. Pèse-toi chaque matin à jeun.</div>;
+    return <div className="empty small">{tr('Tes pesées apparaîtront ici. Pèse-toi chaque matin à jeun.')}</div>;
   }
 
   const x = (i: number) => pad.l + (i / Math.max(1, data.length - 1)) * (W - pad.l - pad.r);
@@ -70,13 +71,13 @@ export function WeightChart({ data }: { data: Point[] }) {
           <svg width="16" height="8" aria-hidden>
             <line x1="1" y1="4" x2="15" y2="4" stroke="var(--blue)" strokeWidth="2" strokeLinecap="round" />
           </svg>
-          Moyenne 7 jours
+          {tr('Moyenne 7 jours')}
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <svg width="10" height="10" aria-hidden>
             <circle cx="5" cy="5" r="4" fill="var(--ink-3)" />
           </svg>
-          Pesée du jour
+          {tr('Pesée du jour')}
         </span>
       </div>
       <svg
@@ -84,7 +85,7 @@ export function WeightChart({ data }: { data: Point[] }) {
         viewBox={`0 0 ${W} ${H}`}
         width="100%"
         role="img"
-        aria-label="Évolution du poids sur 8 semaines"
+        aria-label={tr('Évolution du poids sur 8 semaines')}
         style={{ touchAction: 'pan-y', display: 'block' }}
         onPointerMove={onMove}
         onPointerDown={onMove}
@@ -122,7 +123,7 @@ export function WeightChart({ data }: { data: Point[] }) {
             fontWeight="700"
             fill="var(--ink)"
           >
-            {formatNumber(data[lastAvgIndex].avg!, 1)} kg
+            {tr('{n} kg', { n: formatNumber(data[lastAvgIndex].avg!, 1) })}
           </text>
         )}
         {h && hover !== null && (
@@ -149,8 +150,8 @@ export function WeightChart({ data }: { data: Point[] }) {
           }}
         >
           <strong>{formatShort(h.date)}</strong>
-          <div className="num">Pesée : {h.kg !== undefined ? `${formatNumber(h.kg, 1)} kg` : 'aucune'}</div>
-          {h.avg !== undefined && <div className="num">Moyenne : {formatNumber(h.avg, 1)} kg</div>}
+          <div className="num">{tr('Pesée :')}{' '}{h.kg !== undefined ? `${formatNumber(h.kg, 1)} kg` : tr('aucune')}</div>
+          {h.avg !== undefined && <div className="num">{tr('Moyenne : {n} kg', { n: formatNumber(h.avg, 1) })}</div>}
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ import { disablePush } from './push';
 import { type Account, COOKIE, getSession, type Role, setSession, storedToken } from './session';
 import { isNative } from './native';
 import { getState, resetAll, setState } from './store';
+import { tr } from '../../shared/i18n';
 
 interface AuthResult {
   token: string;
@@ -19,7 +20,7 @@ interface AuthResult {
 export const MIN_PASSWORD = 8;
 
 function checkPassword(password: string) {
-  if (password.length < MIN_PASSWORD) throw new Error(`Mot de passe trop court : ${MIN_PASSWORD} caractères minimum.`);
+  if (password.length < MIN_PASSWORD) throw new Error(tr('Mot de passe trop court : {MIN_PASSWORD} caractères minimum.', { MIN_PASSWORD }));
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -87,7 +88,7 @@ export async function resetPassword(email: string, code: string, password: strin
 export async function changePassword(current: string, next: string) {
   checkPassword(next);
   const acc = getSession().account;
-  if (!acc) throw new Error('Pas de compte connecté');
+  if (!acc) throw new Error(tr('Pas de compte connecté'));
   const [cur, nxt] = await Promise.all([deriveKeys(acc.email, current), deriveKeys(acc.email, next)]);
   const res = await api<AuthResult>('/api/account/password', { body: { current: cur.auth, next: nxt.auth } });
   setSession((s) => ({ ...s, account: { ...acc, token: storedToken(res.token, isNative()), dataKey: nxt.data, expired: false } }));
@@ -101,9 +102,9 @@ export async function changePassword(current: string, next: string) {
  */
 export async function changeEmail(email: string, password: string) {
   const acc = getSession().account;
-  if (!acc) throw new Error('Pas de compte connecté');
+  if (!acc) throw new Error(tr('Pas de compte connecté'));
   const next = normEmail(email);
-  if (next === normEmail(acc.email)) throw new Error('C’est déjà ton email');
+  if (next === normEmail(acc.email)) throw new Error(tr('C’est déjà ton email'));
   const [cur, nxt] = await Promise.all([deriveKeys(acc.email, password), deriveKeys(next, password)]);
   const res = await api<AuthResult>('/api/account/email', { body: { email: next, current: cur.auth, next: nxt.auth } });
   setSession((s) => ({ ...s, account: { ...acc, email: res.user.email, token: storedToken(res.token, isNative()), dataKey: nxt.data, expired: false } }));
@@ -131,7 +132,7 @@ export async function logout({ force = false } = {}) {
 
 export async function deleteAccount(password: string) {
   const acc = getSession().account;
-  if (!acc) throw new Error('Pas de compte connecté');
+  if (!acc) throw new Error(tr('Pas de compte connecté'));
   const keys = await deriveKeys(acc.email, password);
   if (getState().settings.pushEnabled) await Promise.race([disablePush().catch(() => undefined), wait(3000)]);
   await api('/api/account', { method: 'DELETE', body: { key: keys.auth } });

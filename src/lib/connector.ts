@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, DEMO } from './api';
 import { uploadBackup } from './backup';
 import { getSession, signedIn } from './session';
+import { tr } from '../../shared/i18n';
 
 export interface ConnectedClient {
   id: string;
@@ -74,7 +75,7 @@ export const consentInfo = (handle: string) => api<ConsentInfo>(`/api/oauth/cons
 export async function decideConsent(handle: string, approve: boolean): Promise<string> {
   const account = getSession().account;
   if (approve) {
-    if (!account) throw new Error('Connecte-toi à ton compte Shred pour autoriser l’accès.');
+    if (!account) throw new Error(tr('Connecte-toi à ton compte Shred pour autoriser l’accès.'));
     // Sans écraser une autre version en attente de décision (uploadBackup s'abstient alors).
     await uploadBackup().catch(() => undefined);
   }

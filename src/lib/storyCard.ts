@@ -1,6 +1,7 @@
 // Carte « story » de fin de séance, comme Strava ou Hevy : une image 1080 × 1920 dessinée sur le téléphone
 // (rien ne part au serveur), prête pour une story Instagram ou un message.
 import type { SessionSummary } from './club';
+import { tr } from '../../shared/i18n';
 
 export interface StoryExtras {
   name: string;
@@ -200,7 +201,7 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
   // Le mois.
   ctx.fillStyle = '#a0a5ad';
   setFont(ctx, 600, 46);
-  ctx.fillText('Mon mois', PAD, 236);
+  ctx.fillText(tr('Mon mois'), PAD, 236);
   const title = m.month.toUpperCase();
   const size = fit(ctx, title, 820, 250, W - PAD * 2, 'condensed');
   const tg = ctx.createLinearGradient(0, 420 - size, 0, 420);
@@ -223,7 +224,7 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
   ctx.stroke();
   ctx.fillStyle = pc;
   setFont(ctx, 700, 38);
-  ctx.fillText('Mon profil du mois', PAD + 52, cy + 84);
+  ctx.fillText(tr('Mon profil du mois'), PAD + 52, cy + 84);
   ctx.fillStyle = '#ffffff';
   const ps = fit(ctx, m.profile.title, 820, 104, W - PAD * 2 - 104, 'condensed');
   setFont(ctx, 820, ps, 'condensed');
@@ -293,7 +294,7 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
   if (m.top) {
     ctx.fillStyle = '#a0a5ad';
     setFont(ctx, 500, 36);
-    ctx.fillText('Exercice du mois', PAD, by);
+    ctx.fillText(tr('Exercice du mois'), PAD, by);
     by += 62;
     ctx.fillStyle = '#f2f3f5';
     const ts = fit(ctx, m.top, 720, 54, W - PAD * 2, 'normal');
@@ -319,7 +320,7 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
   }
 
   if (m.run > 1) {
-    const label = `${m.run} jours validés d’affilée`;
+    const label = tr('{run} jours validés d’affilée', { run: m.run });
     setFont(ctx, 760, 44);
     const tw = ctx.measureText(label).width;
     roundRect(ctx, PAD, fy - 68, tw + 150, 100, 50);
@@ -334,7 +335,7 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
   }
   ctx.fillStyle = '#6c717a';
   setFont(ctx, 500, 36);
-  ctx.fillText(`${m.name ? `${m.name}, ` : ''}suivi avec Shred`, PAD, H - PAD);
+  ctx.fillText(tr('{v}suivi avec Shred', { v: m.name ? `${m.name}, ` : '' }), PAD, H - PAD);
   return canvas;
 }
 
@@ -355,7 +356,7 @@ export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promis
   y += 70;
   ctx.fillStyle = '#a0a5ad';
   setFont(ctx, 500, 42);
-  ctx.fillText(sum.kind === 'cardio' ? 'Séance d’endurance terminée' : sum.kind === 'rest' ? 'Récupération active' : 'Séance de musculation terminée', PAD, y);
+  ctx.fillText(sum.kind === 'cardio' ? tr('Séance d’endurance terminée') : sum.kind === 'rest' ? tr('Récupération active') : tr('Séance de musculation terminée'), PAD, y);
 
   // Chiffres : grille de 2 × 2 cartes.
   const stats = sum.stats.slice(0, 4);
@@ -370,7 +371,7 @@ export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promis
   if (records.length) {
     ctx.fillStyle = '#ffb547';
     setFont(ctx, 760, 40);
-    ctx.fillText(records.length > 1 ? `${records.length} records battus` : 'Record battu', PAD, ry);
+    ctx.fillText(records.length > 1 ? tr('{length} records battus', { length: records.length }) : tr('Record battu'), PAD, ry);
     ry += 30;
     for (const r of records) {
       ry += 74;
@@ -392,7 +393,7 @@ export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promis
   // Bas : la série de jours, et la signature.
   const by = H - PAD - 150;
   if (extra.streak > 1) {
-    const label = `${extra.streak} jours de série`;
+    const label = tr('{streak} jours de série', { streak: extra.streak });
     setFont(ctx, 760, 48);
     const tw = ctx.measureText(label).width;
     roundRect(ctx, PAD, by - 70, tw + 150, 104, 52);
@@ -407,16 +408,16 @@ export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promis
   }
   ctx.fillStyle = '#6c717a';
   setFont(ctx, 500, 36);
-  ctx.fillText(`${extra.name ? `${extra.name}, ` : ''}suivi avec Shred`, PAD, H - PAD);
+  ctx.fillText(tr('{v}suivi avec Shred', { v: extra.name ? `${extra.name}, ` : '' }), PAD, H - PAD);
   return canvas;
 }
 
 export function storyBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Image impossible à créer'))), 'image/png'));
+  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(tr('Image impossible à créer')))), 'image/png'));
 }
 
 /** Partager l'image (feuille de partage du téléphone, Instagram compris), sinon la télécharger. */
-export async function shareStory(blob: Blob, title: string, shareTitle = `Séance ${title}`): Promise<'shared' | 'saved' | 'cancelled'> {
+export async function shareStory(blob: Blob, title: string, shareTitle = tr('Séance {title}', { title })): Promise<'shared' | 'saved' | 'cancelled'> {
   const slug = title
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')

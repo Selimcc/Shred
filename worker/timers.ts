@@ -5,6 +5,7 @@ import { vapidFromEnv } from './reminders';
 import { loadJson, type User, userStore } from './users';
 import { type PushSubscriptionData, sendPush } from './webpush';
 import { capDaily } from './usage';
+import { requestLang, tx } from './i18n';
 
 interface Job {
   userId: string;
@@ -67,13 +68,14 @@ export async function restRoute(req: Request, env: Env, user: User): Promise<Res
   await capDaily(env, user.id, 'rest');
   const body = await readJson<{ seconds?: number; next?: string }>(req, 2_000);
   const seconds = Math.round(Number(body.seconds));
-  if (!Number.isFinite(seconds) || seconds < REST_MIN || seconds > REST_MAX) throw new HttpError(400, `Repos entre ${REST_MIN} s et ${REST_MAX / 60} min`);
+  if (!Number.isFinite(seconds) || seconds < REST_MIN || seconds > REST_MAX) throw new HttpError(400, 'Repos entre {min} s et {max} min', { min: REST_MIN, max: REST_MAX / 60 });
   const next = typeof body.next === 'string' ? body.next.slice(0, 80) : '';
   const job: Job = {
     userId: user.id,
     at: Date.now() + seconds * 1000,
-    title: 'Repos terminé',
-    body: next ? `À toi : ${next}` : 'Série suivante, c’est parti.',
+    // Dans la langue de l'app qui lance le repos.
+    title: tx(requestLang(req), 'Repos terminé'),
+    body: next ? tx(requestLang(req), 'À toi : {next}', { next }) : tx(requestLang(req), 'Série suivante, c’est parti.'),
   };
   await stub.fetch('https://timer/start', { method: 'POST', body: JSON.stringify(job) });
   return json({ ok: true, at: job.at });

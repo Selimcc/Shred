@@ -9,6 +9,7 @@ import { type Env, HttpError, json, readJson } from './env';
 import { vapidFromEnv } from './reminders';
 import { getAccount, type IndexEntry, listAccounts, loadJson, type User, userStore } from './users';
 import { fold } from '../shared/handle';
+import { langOf, say, tx, type Vars } from './i18n';
 import { addPlates, claimPlates, GAGE_MAX, GRACE_MS, NULOS_HOURS, OPEN_MAX, PLATES, stakeOf, type Wallet } from '../shared/plates';
 import type { StoredProfile } from './profiles';
 import { type PushSubscriptionData, sendPush } from './webpush';
@@ -125,11 +126,16 @@ export interface Notice {
   at: number;
 }
 
-/** Ce que le Durable Object renvoie au Worker pour prévenir les gens sur leur téléphone. */
+/**
+ * Ce que le Durable Object renvoie au Worker pour prévenir les gens sur leur téléphone. Titre et corps sont des
+ * textes à traduire (say) dans la langue de la personne prévenue ; `text` est un contenu écrit par un membre.
+ */
 interface Push {
   user: string;
   title: string;
-  body: string;
+  body?: string;
+  text?: string;
+  vars?: Vars;
   url: string;
 }
 
@@ -307,14 +313,16 @@ export class Club {
     if (until > now)
       pushes.push({
         user: c.to,
-        title: 'Défi raté : bonnet de Nulos',
-        body: c.gage ? `Ton gage : ${c.gage}` : `Pour 24 h. Prends ta revanche contre ${c.fromName} !`,
+        title: say('Défi raté : bonnet de Nulos'),
+        body: c.gage ? say('Ton gage : {gage}') : say('Pour 24 h. Prends ta revanche contre {name} !'),
+        vars: { gage: c.gage ?? '', name: c.fromName },
         url: '/?tab=club',
       });
     pushes.push({
       user: c.from,
-      title: `${c.toName} n’a pas relevé ton défi`,
-      body: c.stake ? `Ta mise de ${c.stake} disque${c.stake > 1 ? 's' : ''} te revient.` : 'Pas de séance dans les temps.',
+      title: say('{name} n’a pas relevé ton défi'),
+      body: !c.stake ? say('Pas de séance dans les temps.') : c.stake > 1 ? say('Ta mise de {n} disques te revient.') : say('Ta mise de {n} disque te revient.'),
+      vars: { name: c.toName, n: c.stake ?? 0 },
       url: '/?tab=club',
     });
     return true;
@@ -377,7 +385,7 @@ export class Club {
         await this.db.put(`count:${viewer}`, n + 1);
         for (const m of p.mentions) {
           await this.notify(m.id, { type: 'mention', actor: viewer, actorName: b.viewerName, post: p.id, text: p.session?.title ?? p.text.slice(0, 80) });
-          pushes.push({ user: m.id, title: `${b.viewerName} t’a identifié`, body: p.session?.title ?? p.text.slice(0, 100), url: `/?tab=club&post=${p.id}` });
+          pushes.push({ user: m.id, title: say('{name} t’a identifié'), vars: { name: b.viewerName }, text: p.session?.title ?? p.text.slice(0, 100), url: `/?tab=club&post=${p.id}` });
         }
         return out({ post: p });
       }
@@ -439,7 +447,7 @@ export class Club {
         // Seules les personnes ajoutées par la modification sont prévenues.
         for (const m of mentions.filter((x) => !before.has(x.id))) {
           await this.notify(m.id, { type: 'mention', actor: viewer, actorName: b.viewerName, post: p.id, text: p.session?.title ?? p.text.slice(0, 80) });
-          pushes.push({ user: m.id, title: `${b.viewerName} t’a identifié`, body: p.session?.title ?? p.text.slice(0, 100), url: `/?tab=club&post=${p.id}` });
+          pushes.push({ user: m.id, title: say('{name} t’a identifié'), vars: { name: b.viewerName }, text: p.session?.title ?? p.text.slice(0, 100), url: `/?tab=club&post=${p.id}` });
         }
         return out({ post: p });
       }
@@ -470,13 +478,13 @@ export class Club {
         if (!told.has(found.post.author)) {
           told.add(found.post.author);
           await this.notify(found.post.author, { type: 'comment', actor: viewer, actorName: b.viewerName, post: found.post.id, text: c.text.slice(0, 100) });
-          pushes.push({ user: found.post.author, title: `${b.viewerName} a commenté ta séance`, body: c.text.slice(0, 120), url: `/?tab=club&post=${found.post.id}` });
+          pushes.push({ user: found.post.author, title: say('{name} a commenté ta séance'), vars: { name: b.viewerName }, text: c.text.slice(0, 120), url: `/?tab=club&post=${found.post.id}` });
         }
         for (const m of c.mentions) {
           if (told.has(m.id)) continue;
           told.add(m.id);
           await this.notify(m.id, { type: 'mention', actor: viewer, actorName: b.viewerName, post: found.post.id, text: c.text.slice(0, 100) });
-          pushes.push({ user: m.id, title: `${b.viewerName} t’a mentionné`, body: c.text.slice(0, 120), url: `/?tab=club&post=${found.post.id}` });
+          pushes.push({ user: m.id, title: say('{name} t’a mentionné'), vars: { name: b.viewerName }, text: c.text.slice(0, 120), url: `/?tab=club&post=${found.post.id}` });
         }
         return out({ comment: c, post: found.post });
       }
@@ -512,12 +520,12 @@ export class Club {
           await this.db.put(`rq:${target}`, [...new Set([...rq, viewer])]);
           await this.db.put(`rqo:${viewer}`, [...new Set([...rqo, target])]);
           await this.notify(target, { type: 'request', actor: viewer, actorName: b.viewerName });
-          pushes.push({ user: target, title: 'Demande d’abonnement', body: `${b.viewerName} veut suivre tes séances`, url: '/?tab=club&requests=1' });
+          pushes.push({ user: target, title: say('Demande d’abonnement'), body: say('{name} veut suivre tes séances'), vars: { name: b.viewerName }, url: '/?tab=club&requests=1' });
           return out({ following: false, requested: true });
         }
         await this.link(viewer, target);
         await this.notify(target, { type: 'follow', actor: viewer, actorName: b.viewerName });
-        pushes.push({ user: target, title: 'Nouvel abonné', body: `${b.viewerName} suit tes séances`, url: '/?tab=club' });
+        pushes.push({ user: target, title: say('Nouvel abonné'), body: say('{name} suit tes séances'), vars: { name: b.viewerName }, url: '/?tab=club' });
         return out({ following: true, requested: false });
       }
 
@@ -533,7 +541,7 @@ export class Club {
         if (b.accept) {
           await this.link(from, viewer);
           await this.notify(from, { type: 'accepted', actor: viewer, actorName: b.viewerName });
-          pushes.push({ user: from, title: 'Demande acceptée', body: `${b.viewerName} a accepté ta demande : tu vois ses séances`, url: '/?tab=club' });
+          pushes.push({ user: from, title: say('Demande acceptée'), body: say('{name} a accepté ta demande : tu vois ses séances'), vars: { name: b.viewerName }, url: '/?tab=club' });
         }
         return out({ ok: true, accepted: Boolean(b.accept) });
       }
@@ -629,8 +637,9 @@ export class Club {
         await this.notify(c.to, { type: c.rematch ? 'rematch' : 'challenge', actor: viewer, actorName: b.viewerName, text: c.gage ? `${c.text ? `${c.text} ` : ''}Gage : ${c.gage}` : c.text });
         pushes.push({
           user: c.to,
-          title: c.rematch ? `${b.viewerName} prend sa revanche` : `${b.viewerName} te lance un défi`,
-          body: c.gage ? `Gage si tu rates : ${c.gage}` : c.text || 'Une séance avant la fin du délai. Tu relèves ?',
+          title: c.rematch ? say('{name} prend sa revanche') : say('{name} te lance un défi'),
+          ...(c.gage ? { body: say('Gage si tu rates : {gage}') } : c.text ? { text: c.text } : { body: say('Une séance avant la fin du délai. Tu relèves ?') }),
+          vars: { name: b.viewerName, gage: c.gage ?? '' },
           url: '/?tab=club',
         });
         return out({ challenge: c, wallet: await this.wallet(viewer) });
@@ -662,8 +671,13 @@ export class Club {
         await this.notify(c.from, { type: 'challengeDone', actor: viewer, actorName: b.viewerName, text: c.text });
         pushes.push({
           user: c.from,
-          title: `${b.viewerName} a relevé ton défi`,
-          body: c.stake ? `Séance validée dans les temps : ta mise de ${c.stake} disque${c.stake > 1 ? 's' : ''} est pour ${b.viewerName}.` : 'Séance validée dans les temps.',
+          title: say('{name} a relevé ton défi'),
+          body: !c.stake
+            ? say('Séance validée dans les temps.')
+            : c.stake > 1
+              ? say('Séance validée dans les temps : ta mise de {n} disques est pour {name}.')
+              : say('Séance validée dans les temps : ta mise de {n} disque est pour {name}.'),
+          vars: { name: b.viewerName, n: c.stake ?? 0 },
           url: '/?tab=club',
         });
         return out({ challenge: c, wallet: await this.wallet(viewer) });
@@ -677,7 +691,7 @@ export class Club {
         await this.db.put(`ch:${c.id}`, c);
         await this.refreshNulos(viewer);
         await this.notify(c.from, { type: 'gageDone', actor: viewer, actorName: b.viewerName, text: c.gage });
-        pushes.push({ user: c.from, title: `${b.viewerName} a fait son gage`, body: c.gage, url: '/?tab=club' });
+        pushes.push({ user: c.from, title: say('{name} a fait son gage'), vars: { name: b.viewerName }, text: c.gage, url: '/?tab=club' });
         return out({ challenge: c, nulos: await this.nulos(viewer) });
       }
 
@@ -758,7 +772,7 @@ async function callClub<T>(env: Env, user: User, path: string, body: Record<stri
   if (data.error === 'challenge-self') throw new HttpError(400, 'Pas de défi à soi-même');
   if (data.error === 'challenge-private') throw new HttpError(403, 'Compte privé : abonne-toi d’abord pour lancer un défi');
   if (data.error === 'no-request') throw new HttpError(404, 'Demande introuvable ou déjà traitée');
-  if (data.error === 'challenge-many') throw new HttpError(429, `Déjà ${OPEN_MAX} défis lancés en cours : attends qu’ils se terminent`);
+  if (data.error === 'challenge-many') throw new HttpError(429, 'Déjà {n} défis lancés en cours : attends qu’ils se terminent', { n: OPEN_MAX });
   if (data.error === 'challenge-pair') throw new HttpError(409, 'Un défi est déjà en cours avec cette personne : attends qu’il se termine');
   if (data.error === 'challenge-poor') throw new HttpError(402, 'Pas assez de disques : valide tes journées pour en gagner');
   if (data.error === 'rematch-closed') throw new HttpError(410, 'La revanche n’est plus possible');
@@ -843,7 +857,9 @@ async function sendPushes(env: Env, pushes: Push[]) {
       const store = userStore(env.KV, p.user);
       const sub = await loadJson<PushSubscriptionData>(store, 'sub');
       if (!sub) return;
-      const res = await sendPush(sub, { title: p.title, body: p.body, tag: 'club', url: p.url }, vapid, { urgency: 'normal' }).catch(() => null);
+      const lang = await langOf(p.user, store);
+      const body = p.text ?? (p.body ? tx(lang, p.body, p.vars) : '');
+      const res = await sendPush(sub, { title: tx(lang, p.title, p.vars), body, tag: 'club', url: p.url }, vapid, { urgency: 'normal' }).catch(() => null);
       if (res?.gone) await store.delete('sub');
     }),
   );

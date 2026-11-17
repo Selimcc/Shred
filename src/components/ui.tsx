@@ -4,6 +4,7 @@ import { leave, leaveInPlace } from '../lib/leave';
 import { holdOverlay } from '../lib/motion';
 import { loadPhoto } from '../lib/photos';
 import { Icon } from './Icon';
+import { tr } from '../../shared/i18n';
 
 /**
  * Clavier ouvert sur iPhone : la partie visible de l'écran rétrécit, mais les éléments « fixed » restent
@@ -167,7 +168,7 @@ export function Sheet({ title, onClose, children, footer }: { title: string; onC
         <div className="grip" />
         <div className="sheet-head">
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Fermer">
+          <button className="icon-btn" onClick={onClose} aria-label={tr('Fermer')}>
             <Icon name="x" />
           </button>
         </div>
@@ -284,7 +285,7 @@ export function ToastHost() {
 }
 
 export function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : 'Une erreur est survenue';
+  return e instanceof Error ? e.message : tr('Une erreur est survenue');
 }
 
 /* ---------- Confirmation dans la page (pas de window.confirm) ---------- */
@@ -294,12 +295,12 @@ type Ask = { title: string; message: string; choices: Choice[]; resolve: (i: num
 let pushAsk: (a: Ask) => void = (a) => a.resolve(null);
 
 /** Question à plusieurs réponses ; null si la feuille est fermée sans choisir. */
-export function choose(message: string, choices: Choice[], title = 'Confirmer'): Promise<number | null> {
+export function choose(message: string, choices: Choice[], title = tr('Confirmer')): Promise<number | null> {
   return new Promise((resolve) => pushAsk({ title, message, choices, resolve }));
 }
 
 export async function ask(message: string, confirm: string, danger = false): Promise<boolean> {
-  return (await choose(message, [{ label: 'Annuler' }, { label: confirm, tone: danger ? 'danger' : 'primary' }])) === 1;
+  return (await choose(message, [{ label: tr('Annuler') }, { label: confirm, tone: danger ? 'danger' : 'primary' }])) === 1;
 }
 
 export function AskHost() {

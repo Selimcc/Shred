@@ -6,6 +6,7 @@ import { levelFor, totalXp } from './logic';
 import { signedIn } from './session';
 import { type AppState, getState, subscribe } from './store';
 import { strengthProfile } from './strength';
+import { tr } from '../../shared/i18n';
 
 export interface RadarPoint {
   id: string;
@@ -140,16 +141,16 @@ export async function fetchProfiles(): Promise<PublicProfile[]> {
 function demoProfiles(): PublicProfile[] {
   const radar = (grades: (string | null)[]): RadarPoint[] =>
     [
-      ['chest', 'Pecs', 'Pecs'],
-      ['shoulders', 'Épaules', 'Épaules'],
-      ['arms', 'Bras', 'Bras'],
-      ['hamstrings', 'Ischios', 'Ischios'],
-      ['quads', 'Quadriceps', 'Quadri'],
-      ['back', 'Dos', 'Dos'],
+      ['chest', tr('Pecs'), tr('Pecs')],
+      ['shoulders', tr('Épaules'), tr('Épaules')],
+      ['arms', tr('Bras'), tr('Bras')],
+      ['hamstrings', tr('Ischios'), tr('Ischios')],
+      ['quads', tr('Quadriceps'), tr('Quadri')],
+      ['back', tr('Dos'), tr('Dos')],
     ].map(([id, name, short], i) => ({ id, name, short, grade: grades[i], score: grades[i] ? 5 - 'ABCDE'.indexOf(grades[i]!) - 0.5 : null }));
   return [
-    { id: 'demo-ines', name: 'Inès', me: false, updatedAt: null, streak: 23, best: 31, flames: 4, tier: 4, level: 9, program: 'Upper / Lower', radar: radar(['C', 'B', 'C', 'B', 'A', 'B']) },
-    { id: 'demo-yanis', name: 'Yanis', me: false, updatedAt: null, streak: 9, best: 15, flames: 2, tier: 2, level: 6, program: 'PPL', radar: radar(['B', 'C', 'B', 'D', 'C', 'B']) },
-    { id: 'demo-lucas', name: 'Lucas', me: false, updatedAt: null, streak: 2, best: 8, flames: 1, tier: 1, level: 3, program: 'Full body' },
+    { id: 'demo-ines', name: tr('Inès'), me: false, updatedAt: null, streak: 23, best: 31, flames: 4, tier: 4, level: 9, program: tr('Upper / Lower'), radar: radar(['C', 'B', 'C', 'B', 'A', 'B']) },
+    { id: 'demo-yanis', name: tr('Yanis'), me: false, updatedAt: null, streak: 9, best: 15, flames: 2, tier: 2, level: 6, program: 'PPL', radar: radar(['B', 'C', 'B', 'D', 'C', 'B']) },
+    { id: 'demo-lucas', name: tr('Lucas'), me: false, updatedAt: null, streak: 2, best: 8, flames: 1, tier: 1, level: 3, program: tr('Full body') },
   ];
 }

@@ -2,6 +2,7 @@
 // le programme, les calories, les repas et le bilan. Calculs purs, testables.
 import type { Physique, Region } from './generator';
 import type { Macros } from './types';
+import { tr } from './i18n';
 
 export type Sex = 'male' | 'female';
 export type Activity = 'sedentary' | 'light' | 'moderate' | 'active';
@@ -65,12 +66,12 @@ export const DEFAULT_ATHLETE: Athlete = {
 };
 
 const PHYSIQUE_LABELS: Record<Physique, string> = {
-  aesthetic: 'esthétique et sec',
-  'v-taper': 'dos en V, épaules larges',
-  mass: 'masse',
-  strength: 'force',
-  athletic: 'athlète hybride',
-  lower: 'bas du corps et fessiers',
+  aesthetic: tr('esthétique et sec'),
+  'v-taper': tr('dos en V, épaules larges'),
+  mass: tr('masse'),
+  strength: tr('force'),
+  athletic: tr('athlète hybride'),
+  lower: tr('bas du corps et fessiers'),
 };
 
 /* ---------- Salle et matériel ---------- */
@@ -93,19 +94,19 @@ export type Equipment =
   | 'sandbag';
 
 export const EQUIPMENT: { id: Equipment; name: string }[] = [
-  { id: 'barbell', name: 'Barres et racks' },
-  { id: 'dumbbells', name: 'Haltères' },
-  { id: 'machines', name: 'Machines guidées' },
-  { id: 'cables', name: 'Poulies' },
-  { id: 'pullup', name: 'Barre de traction' },
-  { id: 'treadmill', name: 'Tapis de course' },
-  { id: 'bike', name: 'Vélo' },
-  { id: 'rower', name: 'Rameur' },
+  { id: 'barbell', name: tr('Barres et racks') },
+  { id: 'dumbbells', name: tr('Haltères') },
+  { id: 'machines', name: tr('Machines guidées') },
+  { id: 'cables', name: tr('Poulies') },
+  { id: 'pullup', name: tr('Barre de traction') },
+  { id: 'treadmill', name: tr('Tapis de course') },
+  { id: 'bike', name: tr('Vélo') },
+  { id: 'rower', name: tr('Rameur') },
   { id: 'skierg', name: 'SkiErg' },
-  { id: 'sled', name: 'Traîneau (sled)' },
-  { id: 'wallball', name: 'Médecine-ball (wall ball)' },
-  { id: 'kettlebell', name: 'Kettlebells' },
-  { id: 'sandbag', name: 'Sandbag' },
+  { id: 'sled', name: tr('Traîneau (sled)') },
+  { id: 'wallball', name: tr('Médecine-ball (wall ball)') },
+  { id: 'kettlebell', name: tr('Kettlebells') },
+  { id: 'sandbag', name: tr('Sandbag') },
 ];
 
 const BIG_GYM: Equipment[] = ['barbell', 'dumbbells', 'machines', 'cables', 'pullup', 'treadmill', 'bike', 'rower', 'kettlebell'];
@@ -115,12 +116,12 @@ const BIG_GYM: Equipment[] = ['barbell', 'dumbbells', 'machines', 'cables', 'pul
  * ils restent décochés, chacun coche ce que sa salle a vraiment.
  */
 export const GYMS: { id: GymChain; name: string; equipment: Equipment[] }[] = [
-  { id: 'fitness-park', name: 'Fitness Park', equipment: BIG_GYM },
+  { id: 'fitness-park', name: tr('Fitness Park'), equipment: BIG_GYM },
   { id: 'basic-fit', name: 'Basic-Fit', equipment: BIG_GYM },
-  { id: 'on-air', name: 'On Air', equipment: BIG_GYM },
-  { id: 'other', name: 'Grande salle', equipment: BIG_GYM },
-  { id: 'small', name: 'Petite salle', equipment: ['barbell', 'dumbbells', 'pullup', 'machines'] },
-  { id: 'home', name: 'Maison ou extérieur', equipment: ['dumbbells', 'pullup'] },
+  { id: 'on-air', name: tr('On Air'), equipment: BIG_GYM },
+  { id: 'other', name: tr('Grande salle'), equipment: BIG_GYM },
+  { id: 'small', name: tr('Petite salle'), equipment: ['barbell', 'dumbbells', 'pullup', 'machines'] },
+  { id: 'home', name: tr('Maison ou extérieur'), equipment: ['dumbbells', 'pullup'] },
 ];
 
 /** Type de salle proposé sur l'écran (les chaînes françaises sont reconnues à leur nom sur la carte). */
@@ -168,17 +169,17 @@ export type WeightGoal = 'cut' | 'recomp' | 'maintain' | 'bulk';
 
 /** Variation de poids visée par semaine (moyenne sur 7 jours), en kg. */
 export const WEIGHT_GOALS: Record<WeightGoal, { label: string; min: number; max: number; text: string }> = {
-  cut: { label: 'Sèche', min: -0.7, max: -0.4, text: 'Perdre du gras en gardant ton muscle et tes charges.' },
-  recomp: { label: 'Recompo', min: -0.2, max: 0.1, text: 'Perdre du gras et prendre du muscle en même temps, poids presque stable.' },
-  maintain: { label: 'Maintien', min: -0.2, max: 0.2, text: 'Garder ton poids et progresser en force ou en endurance.' },
-  bulk: { label: 'Prise de masse', min: 0.1, max: 0.35, text: 'Prendre du muscle avec le moins de gras possible.' },
+  cut: { label: tr('Sèche'), min: -0.7, max: -0.4, text: tr('Perdre du gras en gardant ton muscle et tes charges.') },
+  recomp: { label: tr('Recompo'), min: -0.2, max: 0.1, text: tr('Perdre du gras et prendre du muscle en même temps, poids presque stable.') },
+  maintain: { label: tr('Maintien'), min: -0.2, max: 0.2, text: tr('Garder ton poids et progresser en force ou en endurance.') },
+  bulk: { label: tr('Prise de masse'), min: 0.1, max: 0.35, text: tr('Prendre du muscle avec le moins de gras possible.') },
 };
 
 const ACTIVITY: Record<Activity, { factor: number; label: string; text: string }> = {
-  sedentary: { factor: 1.3, label: 'Assis', text: 'Bureau, moins de 5 000 pas' },
-  light: { factor: 1.45, label: 'Un peu actif', text: '5 000 à 8 000 pas' },
-  moderate: { factor: 1.6, label: 'Actif', text: '8 000 à 12 000 pas ou métier debout' },
-  active: { factor: 1.75, label: 'Très actif', text: 'Métier physique, plus de 12 000 pas' },
+  sedentary: { factor: 1.3, label: tr('Assis'), text: tr('Bureau, moins de 5 000 pas') },
+  light: { factor: 1.45, label: tr('Un peu actif'), text: tr('5 000 à 8 000 pas') },
+  moderate: { factor: 1.6, label: tr('Actif'), text: tr('8 000 à 12 000 pas ou métier debout') },
+  active: { factor: 1.75, label: tr('Très actif'), text: tr('Métier physique, plus de 12 000 pas') },
 };
 export const ACTIVITIES = ACTIVITY;
 
@@ -243,59 +244,59 @@ export function nutritionPlan(p: { weight: number; height: number; age: number; 
 /** Fourchettes indicatives de masse grasse, pour aider à s'estimer sans balance à impédance. */
 export const BODY_FAT_HINTS: Record<Sex, { bf: number; text: string }[]> = {
   male: [
-    { bf: 10, text: 'Abdos bien visibles' },
-    { bf: 13, text: 'Abdos visibles en lumière directe' },
-    { bf: 17, text: 'Contours des abdos, un peu de ventre' },
-    { bf: 22, text: 'Pas d’abdos visibles, ventre doux' },
-    { bf: 28, text: 'Ventre marqué' },
+    { bf: 10, text: tr('Abdos bien visibles') },
+    { bf: 13, text: tr('Abdos visibles en lumière directe') },
+    { bf: 17, text: tr('Contours des abdos, un peu de ventre') },
+    { bf: 22, text: tr('Pas d’abdos visibles, ventre doux') },
+    { bf: 28, text: tr('Ventre marqué') },
   ],
   female: [
-    { bf: 18, text: 'Abdos visibles' },
-    { bf: 22, text: 'Silhouette athlétique' },
-    { bf: 26, text: 'Silhouette tonique, un peu de ventre' },
-    { bf: 31, text: 'Formes douces' },
-    { bf: 36, text: 'Ventre et hanches marqués' },
+    { bf: 18, text: tr('Abdos visibles') },
+    { bf: 22, text: tr('Silhouette athlétique') },
+    { bf: 26, text: tr('Silhouette tonique, un peu de ventre') },
+    { bf: 31, text: tr('Formes douces') },
+    { bf: 36, text: tr('Ventre et hanches marqués') },
   ],
 };
 
 export const EVENT_NAMES: Record<EventDistance, string> = {
-  '5k': '5 km',
-  '10k': '10 km',
-  half: 'Semi-marathon',
-  marathon: 'Marathon',
-  hyrox: 'Hyrox',
-  'tri-sprint': 'Triathlon S',
-  'tri-olympic': 'Triathlon M (olympique)',
-  'tri-half': 'Half Ironman (70.3)',
-  'tri-full': 'Ironman',
-  'swim-1500': '1 500 m nage',
-  'swim-5k': '5 km en eau libre',
-  'bike-100': 'Cyclosportive 100 km',
-  'bike-160': 'Cyclosportive 160 km',
+  '5k': tr('5 km'),
+  '10k': tr('10 km'),
+  half: tr('Semi-marathon'),
+  marathon: tr('Marathon'),
+  hyrox: tr('Hyrox'),
+  'tri-sprint': tr('Triathlon S'),
+  'tri-olympic': tr('Triathlon M (olympique)'),
+  'tri-half': tr('Half Ironman (70.3)'),
+  'tri-full': tr('Ironman'),
+  'swim-1500': tr('1 500 m nage'),
+  'swim-5k': tr('5 km en eau libre'),
+  'bike-100': tr('Cyclosportive 100 km'),
+  'bike-160': tr('Cyclosportive 160 km'),
 };
 
 export function sportLabel(a: Athlete): string {
   const dated = a.race?.date ? EVENT_NAMES[a.race.distance] : null;
-  if (a.sport === 'running') return a.race?.date ? (dated ?? 'Course à pied') : 'Course à pied';
-  if (a.sport === 'swimming') return a.race?.date && a.race.distance.startsWith('swim') ? dated! : 'Natation';
-  if (a.sport === 'cycling') return a.race?.date && a.race.distance.startsWith('bike') ? dated! : 'Vélo';
-  if (a.sport === 'triathlon') return a.race?.date && a.race.distance.startsWith('tri') ? dated! : 'Triathlon';
-  if (a.sport === 'hyrox') return 'Hyrox';
-  if (a.sport === 'mixed') return 'Muscu et cardio';
-  if (a.sport === 'combat') return 'Sport de combat';
-  return 'Musculation';
+  if (a.sport === 'running') return a.race?.date ? (dated ?? tr('Course à pied')) : tr('Course à pied');
+  if (a.sport === 'swimming') return a.race?.date && a.race.distance.startsWith('swim') ? dated! : tr('Natation');
+  if (a.sport === 'cycling') return a.race?.date && a.race.distance.startsWith('bike') ? dated! : tr('Vélo');
+  if (a.sport === 'triathlon') return a.race?.date && a.race.distance.startsWith('tri') ? dated! : tr('Triathlon');
+  if (a.sport === 'hyrox') return tr('Hyrox');
+  if (a.sport === 'mixed') return tr('Muscu et cardio');
+  if (a.sport === 'combat') return tr('Sport de combat');
+  return tr('Musculation');
 }
 
 /** Résumé texte du profil, pour le coach et le bilan. */
 export function athleteSummary(a: Athlete, gym: Gym): string {
   const parts = [
-    `Sport : ${sportLabel(a)}${a.race?.date ? `, objectif le ${a.race.date}` : ''}`,
-    `${a.days} séances par semaine de ${a.minutes} min, niveau ${a.experience === 'beginner' ? 'débutant' : a.experience === 'advanced' ? 'avancé' : 'intermédiaire'}`,
-    a.bodyFat ? `Masse grasse estimée ${a.bodyFat} %${a.targetBodyFat ? `, visée ${a.targetBodyFat} %` : ''}` : '',
-    a.physique ? `Physique visé : ${PHYSIQUE_LABELS[a.physique]}${a.priorities?.length ? `, priorités : ${a.priorities.join(', ')}` : ''}` : '',
-    `Salle : ${GYMS.find((g) => g.id === gym.chain)?.name ?? 'autre'}${gym.club ? ` (${gym.club})` : ''}, matériel : ${EQUIPMENT.filter((e) => gym.equipment[e.id]).map((e) => e.name.toLowerCase()).join(', ')}`,
-    [a.diet.vegetarian && 'végétarien', a.diet.noPork && 'sans porc', a.diet.lactoseFree && 'sans lactose'].filter(Boolean).join(', '),
-    a.diet.dislikes.trim() ? `N’aime pas : ${a.diet.dislikes.trim()}` : '',
+    tr('Sport : {sportLabel}{v}', { sportLabel: sportLabel(a), v: a.race?.date ? tr(', objectif le {date}', { date: a.race.date }) : '' }),
+    tr('{days} séances par semaine de {minutes} min, niveau {v}', { days: a.days, minutes: a.minutes, v: a.experience === 'beginner' ? tr('débutant') : a.experience === 'advanced' ? tr('avancé') : tr('intermédiaire') }),
+    a.bodyFat ? tr('Masse grasse estimée {bodyFat} %{v}', { bodyFat: a.bodyFat, v: a.targetBodyFat ? tr(', visée {n} %', { n: a.targetBodyFat }) : '' }) : '',
+    a.physique ? tr('Physique visé : {PHYSIQUE_LABELS}{v}', { PHYSIQUE_LABELS: PHYSIQUE_LABELS[a.physique], v: a.priorities?.length ? tr(', priorités : {list}', { list: a.priorities.join(', ') }) : '' }) : '',
+    tr('Salle : {n}{v}, matériel : {join}', { n: GYMS.find((g) => g.id === gym.chain)?.name ?? tr('autre'), v: gym.club ? ` (${gym.club})` : '', join: EQUIPMENT.filter((e) => gym.equipment[e.id]).map((e) => e.name.toLowerCase()).join(', ') }),
+    [a.diet.vegetarian && tr('végétarien'), a.diet.noPork && tr('sans porc'), a.diet.lactoseFree && tr('sans lactose')].filter(Boolean).join(', '),
+    a.diet.dislikes.trim() ? tr('N’aime pas : {dislikes}', { dislikes: a.diet.dislikes.trim() }) : '',
   ];
   return parts.filter(Boolean).join('. ') + '.';
 }

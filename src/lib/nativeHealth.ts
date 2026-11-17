@@ -8,6 +8,7 @@ import { applyHealthDays } from './health';
 import { isNative } from './native';
 import { signedIn } from './session';
 import type { Activity, HealthDay } from './store';
+import { tr } from '../../shared/i18n';
 
 const READ: HealthDataType[] = ['steps', 'distance', 'calories', 'basalCalories', 'exerciseTime', 'sleep', 'restingHeartRate', 'heartRateVariability', 'workouts'];
 
@@ -23,7 +24,7 @@ const SPORT: Partial<Record<WorkoutType, Activity['sport']>> = {
   boxing: 'combat', kickboxing: 'combat', martialArts: 'combat', wrestling: 'combat',
 };
 
-const NAMES: Record<Activity['sport'], string> = { run: 'Course', bike: 'Vélo', swim: 'Natation', walk: 'Marche', row: 'Rameur', ski: 'Ski', combat: 'Combat', lift: 'Musculation', other: 'Séance' };
+const NAMES: Record<Activity['sport'], string> = { run: tr('Course'), bike: tr('Vélo'), swim: tr('Natation'), walk: tr('Marche'), row: tr('Rameur'), ski: tr('Ski'), combat: tr('Combat'), lift: tr('Musculation'), other: tr('Séance') };
 
 /** Date locale AAAA-MM-JJ d'un horodatage ISO. */
 const localDay = (iso: string) => dayKey(new Date(iso));

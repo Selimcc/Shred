@@ -9,6 +9,7 @@ import type { Program } from '../../shared/types';
 import { dayKey } from './date';
 import type { Advice } from './report';
 import { type AppState, getState, setState } from './store';
+import { lower, tr } from '../../shared/i18n';
 
 const nameOf = (key: string) => catalogEntry(key, getState().customExercises)?.name ?? key;
 
@@ -77,11 +78,11 @@ export function programFor(
 /** Ce que le plan d'endurance a pris en compte, en clair. */
 function enduranceNotes(a: Athlete, p: Program): string[] {
   const out: string[] = [];
-  if (p.event) out.push(`${p.weeks?.length ?? 0} semaines jusqu’au ${p.event.name.toLowerCase()} : fondamental, développement, spécifique puis affûtage. Une semaine sur quatre est allégée.`);
-  else out.push(`Un bloc de ${p.weeks?.length ?? 8} semaines : la charge monte par paliers, les semaines 4 et 8 sont allégées. À la fin, Pulse te propose le bloc suivant, un cran plus fort.`);
-  if ((a.sport === 'swimming' || a.sport === 'triathlon') && !a.swimPace) out.push('Natation : sans chrono, les allures partent d’une estimation selon ton niveau. Note ton temps sur 400 m dans ton profil pour les affiner.');
-  if ((a.sport === 'cycling' || a.sport === 'triathlon') && !a.ftp) out.push('Vélo : sans FTP, les intensités sont données en sensations et en % de FTP. Ajoute ta FTP pour avoir des watts.');
-  if ((a.sport === 'running' || a.sport === 'triathlon') && !a.race?.refSec) out.push('Course : sans chrono récent, les allures partent d’une estimation selon ton niveau.');
+  if (p.event) out.push(tr('{n} semaines jusqu’au {name} : fondamental, développement, spécifique puis affûtage. Une semaine sur quatre est allégée.', { n: p.weeks?.length ?? 0, name: lower(p.event.name) }));
+  else out.push(tr('Un bloc de {n} semaines : la charge monte par paliers, les semaines 4 et 8 sont allégées. À la fin, Pulse te propose le bloc suivant, un cran plus fort.', { n: p.weeks?.length ?? 8 }));
+  if ((a.sport === 'swimming' || a.sport === 'triathlon') && !a.swimPace) out.push(tr('Natation : sans chrono, les allures partent d’une estimation selon ton niveau. Note ton temps sur 400 m dans ton profil pour les affiner.'));
+  if ((a.sport === 'cycling' || a.sport === 'triathlon') && !a.ftp) out.push(tr('Vélo : sans FTP, les intensités sont données en sensations et en % de FTP. Ajoute ta FTP pour avoir des watts.'));
+  if ((a.sport === 'running' || a.sport === 'triathlon') && !a.race?.refSec) out.push(tr('Course : sans chrono récent, les allures partent d’une estimation selon ton niveau.'));
   return out;
 }
 
@@ -133,20 +134,20 @@ export function applyAdvice(a: Advice): string | null {
       t.kcal = Math.max(1300, t.kcal + action.delta);
       t.carbs = Math.max(0, t.carbs + Math.round(action.delta / 4));
     });
-    return `Objectif ajusté : ${getState().settings.targets.kcal} kcal par jour`;
+    return tr('Objectif ajusté : {kcal} kcal par jour', { kcal: getState().settings.targets.kcal });
   }
   if (action.kind === 'add-exercise') {
     setState((d) => {
       const def = d.program.sessions.find((x) => x.id === action.session);
       if (def && !def.exercises.some((e) => e.key === action.key)) def.exercises.push({ key: action.key, sets: 3 });
     });
-    return `${nameOf(action.key)} ajouté au programme`;
+    return tr('{nameOf} ajouté au programme', { nameOf: nameOf(action.key) });
   }
   if (action.kind === 'swap') {
     setState((d) => {
       for (const def of d.program.sessions) for (const e of def.exercises) if (e.key === action.from) e.key = action.to;
     });
-    return `${nameOf(action.from)} remplacé par ${nameOf(action.to)}`;
+    return tr('{nameOf} remplacé par {nameOf2}', { nameOf: nameOf(action.from), nameOf2: nameOf(action.to) });
   }
   return null;
 }

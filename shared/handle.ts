@@ -1,3 +1,4 @@
+import { tr } from './i18n';
 // Règles du @pseudo, partagées par l'app (vérification instantanée) et le serveur (qui décide).
 export const HANDLE_MIN = 3;
 export const HANDLE_MAX = 20;
@@ -56,14 +57,14 @@ export const normHandle = (raw: unknown) =>
 
 /** Pourquoi ce pseudo n'est pas valable, ou null s'il l'est (sans regarder s'il est pris). */
 export function handleProblem(h: string): string | null {
-  if (h.length < HANDLE_MIN) return `Au moins ${HANDLE_MIN} caractères`;
-  if (h.length > HANDLE_MAX) return `${HANDLE_MAX} caractères maximum`;
-  if (!/^[a-z0-9._]+$/.test(h)) return 'Lettres sans accent, chiffres, point et tiret bas seulement';
-  if (!/^[a-z]/.test(h)) return 'Commence par une lettre';
-  if (/[._]$/.test(h)) return 'Ne termine pas par un point ou un tiret bas';
-  if (/[._]{2}/.test(h)) return 'Pas deux points ou tirets bas à la suite';
+  if (h.length < HANDLE_MIN) return tr('Au moins {HANDLE_MIN} caractères', { HANDLE_MIN });
+  if (h.length > HANDLE_MAX) return tr('{HANDLE_MAX} caractères maximum', { HANDLE_MAX });
+  if (!/^[a-z0-9._]+$/.test(h)) return tr('Lettres sans accent, chiffres, point et tiret bas seulement');
+  if (!/^[a-z]/.test(h)) return tr('Commence par une lettre');
+  if (/[._]$/.test(h)) return tr('Ne termine pas par un point ou un tiret bas');
+  if (/[._]{2}/.test(h)) return tr('Pas deux points ou tirets bas à la suite');
   const sk = skeleton(h);
-  if (RESERVED_SK().some((r) => sk === r || (r.length >= 5 && sk.startsWith(r)))) return 'Ce pseudo est réservé';
+  if (RESERVED_SK().some((r) => sk === r || (r.length >= 5 && sk.startsWith(r)))) return tr('Ce pseudo est réservé');
   return null;
 }
 

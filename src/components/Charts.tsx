@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { formatNumber, formatShort } from '../lib/date';
 import { type Bucket, BUCKET_NAMES, BUCKETS, totalMinutes, type WeekTraining, type LiftPoint } from '../lib/training';
+import { tn, tr } from '../../shared/i18n';
 
 /* ---------- Petits outils ---------- */
 
@@ -122,7 +123,7 @@ export function WeekLoadChart({ weeks }: { weeks: WeekTraining[] }) {
         </div>
       )}
       <div className="chart-plot" style={{ height: H + 22 }} onPointerLeave={() => setHover(null)}>
-        <svg width={width} height={H + 22} role="img" aria-label="Minutes d’entraînement par semaine">
+        <svg width={width} height={H + 22} role="img" aria-label={tr('Minutes d’entraînement par semaine')}>
           {ticks.map((t) => (
             <g key={t}>
               <line x1={axisW} x2={width} y1={H - h(t) + 0.5} y2={H - h(t) + 0.5} className="grid" />
@@ -154,7 +155,7 @@ export function WeekLoadChart({ weeks }: { weeks: WeekTraining[] }) {
                 )}
                 {(weeks.length - 1 - i) % 2 === 0 && (
                   <text x={cx} y={H + 16} textAnchor="middle" className={`tick ${current ? 'strong' : ''}`}>
-                    {current ? 'Cette sem.' : shortDate(w.monday)}
+                    {current ? tr('Cette sem.') : shortDate(w.monday)}
                   </text>
                 )}
                 <rect x={cx - band / 2} y={0} width={band} height={H + 22} fill="transparent" onPointerEnter={() => setHover(i)} onPointerDown={() => setHover(i)} />
@@ -164,10 +165,10 @@ export function WeekLoadChart({ weeks }: { weeks: WeekTraining[] }) {
         </svg>
         {hover !== null && (
           <Tooltip x={axisW + band * hover + band / 2} width={width}>
-            <b>{hover === weeks.length - 1 ? 'Cette semaine' : `Semaine du ${formatShort(weeks[hover].monday)}`}</b>
+            <b>{hover === weeks.length - 1 ? tr('Cette semaine') : tr('Semaine du {date}', { date: formatShort(weeks[hover].monday) })}</b>
             <div className="num">
-              {fmtHours(totals[hover])}, {weeks[hover].sessions} séance{weeks[hover].sessions > 1 ? 's' : ''}
-              {weeks[hover].planned ? ` sur ${weeks[hover].planned}` : ''}
+              {tn(weeks[hover].sessions, '{fmtHours}, {n} séance', '{fmtHours}, {n} séances', { fmtHours: fmtHours(totals[hover]) })}
+              {weeks[hover].planned ? tr(' sur {planned}', { planned: weeks[hover].planned }) : ''}
             </div>
             {STACK.filter((b) => weeks[hover].min[b] >= 1).map((b) => (
               <div key={b} className="tip-row">
@@ -237,7 +238,7 @@ export function LiftChart({ points, color = 'var(--d-lift)' }: { points: LiftPoi
         onPointerDown={(e) => setHover(near(e.clientX - (e.currentTarget as HTMLElement).getBoundingClientRect().left))}
         onPointerLeave={() => setHover(null)}
       >
-        <svg width={width} height={H + 22} role="img" aria-label={`1RM estimé : de ${formatNumber(points[0].e1rm, 1)} à ${formatNumber(last.e1rm, 1)} kg`}>
+        <svg width={width} height={H + 22} role="img" aria-label={tr('1RM estimé : de {n} à {n2} kg', { n: formatNumber(points[0].e1rm, 1), n2: formatNumber(last.e1rm, 1) })}>
           {ticks.map((t) => (
             <g key={t}>
               <line x1={axisW} x2={width - right + 8} y1={y(t) + 0.5} y2={y(t) + 0.5} className="grid" />
@@ -252,7 +253,7 @@ export function LiftChart({ points, color = 'var(--d-lift)' }: { points: LiftPoi
             p.pr || i === points.length - 1 ? <circle key={p.date} cx={x(p.date)} cy={y(p.e1rm)} r={4} fill={color} stroke="var(--surface)" strokeWidth={2} /> : null,
           )}
           <text x={x(last.date) + 8} y={y(last.e1rm) + 4} className="value">
-            {formatNumber(last.e1rm, 0)} kg
+            {tr('{n} kg', { n: formatNumber(last.e1rm, 0) })}
           </text>
           <text x={axisW} y={H + 16} className="tick">
             {formatShort(points[0].date)}
@@ -271,10 +272,10 @@ export function LiftChart({ points, color = 'var(--d-lift)' }: { points: LiftPoi
           <Tooltip x={x(points[hover].date)} width={width}>
             <b>{formatShort(points[hover].date)}</b>
             <div className="num">
-              {formatNumber(points[hover].w, 1)} kg × {points[hover].r}
+              {tr('{n} kg × {r}', { n: formatNumber(points[hover].w, 1), r: points[hover].r })}
             </div>
-            <div className="muted num">1RM estimé {formatNumber(points[hover].e1rm, 1)} kg</div>
-            {points[hover].pr && <div className="tip-pr">Record</div>}
+            <div className="muted num">{tr('1RM estimé {n} kg', { n: formatNumber(points[hover].e1rm, 1) })}</div>
+            {points[hover].pr && <div className="tip-pr">{tr('Record')}</div>}
           </Tooltip>
         )}
       </div>

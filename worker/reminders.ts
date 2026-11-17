@@ -3,6 +3,8 @@ import { type Env, localTime } from './env';
 import { allUsers, loadJson, type Store } from './users';
 import type { GymDay, HealthDay } from './health';
 import { type PushSubscriptionData, sendPush, type VapidKeys } from './webpush';
+import { type Lang, say, tx, txn } from './i18n';
+import { isLang, LANGS } from '../shared/i18n';
 
 export type ReminderType = 'morning' | 'lunch' | 'training' | 'evening';
 
@@ -20,6 +22,10 @@ export interface UserCfg {
   lifting: boolean[];
   /** Repas à noter pour valider la journée (0 = module nutrition coupé). */
   meals: number;
+  /** Jours de repos du planning (index 0 = dimanche). Absent pour une app d'avant la 0.31. */
+  rest?: boolean[];
+  /** Langue de l'app, pour écrire les rappels dans la même. */
+  lang?: Lang;
 }
 
 /** Résumé envoyé par l'app à chaque changement. */
@@ -35,6 +41,8 @@ export interface DayState {
   banked: number;
   /** La séance du jour est de la muscu (peut différer du planning si elle a été changée). */
   lifting?: boolean;
+  /** La séance du jour est un repos (actif). */
+  rest?: boolean;
 }
 
 export const DEFAULT_CFG: UserCfg = {
@@ -86,32 +94,33 @@ export function buildReminder(
   minutes: number,
   extra: { health?: HealthDay | null; gym?: GymDay | null } = {},
 ): Notification | null {
+  const lang: Lang = isLang(cfg.lang) ? cfg.lang : 'fr';
+  const locale = LANGS.find((l) => l.id === lang)!.locale;
+  const T = (fr: string, vars?: Record<string, string | number>) => tx(lang, fr, vars);
   const s = state?.date === today ? state : null;
   const steps = extra.health?.steps;
   const stepsLeft = steps !== undefined && steps < 8000 ? 8000 - steps : 0;
-  const fmt = (n: number) => n.toLocaleString('fr-FR').replace(/\u202f|\u00a0/g, ' ');
+  const fmt = (n: number) => n.toLocaleString(locale).replace(/\u202f|\u00a0/g, ' ');
   const atGym = !!extra.gym?.in && !extra.gym?.out;
-  const label = s?.label || cfg.plan[weekday] || 'Séance';
+  const label = s?.label || cfg.plan[weekday] || T('Séance');
   const lifting = s?.lifting ?? cfg.lifting[weekday] ?? true;
+  // Repos actif : dit par l'app ; les apps d'avant la 0.31 n'envoient que le nom.
+  const rest = s?.rest ?? cfg.rest?.[weekday] ?? label === 'Repos actif';
   const risk = streakAtRisk(state, today);
-  const jours = (n: number) => `${n} jour${n > 1 ? 's' : ''}`;
+  const jours = (n: number) => txn(lang, n, '{n} jour', '{n} jours');
 
   if (s?.validated) return null;
 
   switch (type) {
     case 'morning': {
       const body = lifting
-        ? pick([
-            'Prépare ton sac maintenant, tu te remercieras ce soir.',
-            'Une séance de plus vers les épaules que tu veux.',
-            'Le programme est prêt. Il ne manque que toi.',
-          ])
-        : label === 'Repos actif'
-          ? '8 000 pas et tes repas. Récupérer fait partie du plan.'
-          : 'Corde, shadow ou intervalles : 35 minutes et c’est réglé.';
+        ? T(pick([say('Prépare ton sac maintenant, tu te remercieras ce soir.'), say('Une séance de plus vers les épaules que tu veux.'), say('Le programme est prêt. Il ne manque que toi.')]))
+        : rest
+          ? T('8 000 pas et tes repas. Récupérer fait partie du plan.')
+          : T('Corde, shadow ou intervalles : 35 minutes et c’est réglé.');
       return {
-        title: `Aujourd’hui : ${label}`,
-        body: risk > 0 ? `Série en cours : ${jours(risk)}. ${body}` : body,
+        title: T('Aujourd’hui : {label}', { label }),
+        body: risk > 0 ? T('Série en cours : {days}. {body}', { days: jours(risk), body }) : body,
         tag: 'morning',
         url: '/?tab=today',
       };
@@ -119,35 +128,32 @@ export function buildReminder(
     case 'lunch': {
       if (cfg.meals === 0 || (s?.meals ?? 0) >= 2) return null;
       return {
-        title: 'Ton déjeuner est noté ?',
-        body: pick([
-          'Une photo suffit, le calcul des calories est automatique.',
-          'Coche ta box ou prends ton plat en photo, 10 secondes.',
-        ]),
+        title: T('Ton déjeuner est noté ?'),
+        body: T(pick([say('Une photo suffit, le calcul des calories est automatique.'), say('Coche ta box ou prends ton plat en photo, 10 secondes.')])),
         tag: 'lunch',
         url: '/?tab=food',
       };
     }
     case 'training': {
       if (s?.mainDone || atGym) return null;
-      if (!lifting && label === 'Repos actif' && stepsLeft > 0) {
+      if (!lifting && rest && stepsLeft > 0) {
         return {
-          title: 'Repos actif : encore un effort',
-          body: `Il te manque ${fmt(stepsLeft)} pas pour tes 8 000. Une marche de 20 minutes suffit.`,
+          title: T('Repos actif : encore un effort'),
+          body: T('Il te manque {steps} pas pour tes 8 000. Une marche de 20 minutes suffit.', { steps: fmt(stepsLeft) }),
           tag: 'training',
           url: '/?tab=today',
         };
       }
       return {
-        title: lifting ? `${label} t’attend` : `${label} : pas encore fait`,
+        title: lifting ? T('{label} t’attend', { label }) : T('{label} : pas encore fait', { label }),
         body: lifting
           ? pick([
-              'La salle ne va pas venir à toi.',
-              risk > 0 ? `${jours(risk)} de série. Ce n’est pas ce soir que ça s’arrête.` : 'Une séance aujourd’hui, une série qui démarre.',
-              'Le fer ne se soulève pas tout seul.',
-              'Même une séance moyenne bat une séance sautée.',
+              T('La salle ne va pas venir à toi.'),
+              risk > 0 ? T('{days} de série. Ce n’est pas ce soir que ça s’arrête.', { days: jours(risk) }) : T('Une séance aujourd’hui, une série qui démarre.'),
+              T('Le fer ne se soulève pas tout seul.'),
+              T('Même une séance moyenne bat une séance sautée.'),
             ])
-          : 'Valide ton activité du jour pour garder ta série.',
+          : T('Valide ton activité du jour pour garder ta série.'),
         tag: 'training',
         url: '/?tab=workout',
       };
@@ -155,11 +161,12 @@ export function buildReminder(
     case 'evening': {
       const hoursLeft = Math.max(1, Math.round((24 * 60 - minutes) / 60));
       const todo: string[] = [];
-      if (!s?.mainDone) todo.push(lifting ? `ta séance ${label}` : label.toLowerCase());
-      if (cfg.meals > 0 && (s?.meals ?? 0) < cfg.meals) todo.push('tes repas');
+      if (!s?.mainDone) todo.push(lifting ? T('ta séance {label}', { label }) : lang === 'fr' ? label.toLowerCase() : label);
+      if (cfg.meals > 0 && (s?.meals ?? 0) < cfg.meals) todo.push(T('tes repas'));
+      const what = todo.length ? new Intl.ListFormat(locale, { type: 'conjunction' }).format(todo) : T('ta journée');
       return {
-        title: risk > 0 ? `Ta série de ${jours(risk)} est en danger` : 'Lance ta série ce soir',
-        body: `Il te reste ${hoursLeft} h pour valider ${todo.length ? todo.join(' et ') : 'ta journée'}.${stepsLeft > 0 ? ` Et ${fmt(stepsLeft)} pas pour tes 8 000.` : ''}`,
+        title: risk > 0 ? T('Ta série de {days} est en danger', { days: jours(risk) }) : T('Lance ta série ce soir'),
+        body: T('Il te reste {hours} h pour valider {what}.', { hours: hoursLeft, what }) + (stepsLeft > 0 ? T(' Et {steps} pas pour tes 8 000.', { steps: fmt(stepsLeft) }) : ''),
         tag: 'evening',
         url: '/?tab=today',
       };

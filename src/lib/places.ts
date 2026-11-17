@@ -1,6 +1,7 @@
 // Salles autour de soi (OpenStreetMap, partout dans le monde) et proposition de séance en arrivant.
 import type { GymPlace } from '../../shared/athlete';
 import { api, DEMO } from './api';
+import { loc, tr } from '../../shared/i18n';
 
 export interface Place extends GymPlace {
   brand?: string;
@@ -8,9 +9,9 @@ export interface Place extends GymPlace {
 }
 
 const DEMO_PLACES: Place[] = [
-  { id: 'osm:n1', name: 'Fitness Park Sartrouville', lat: 48.94, lon: 2.16, address: 'Avenue Jean Jaurès, Sartrouville', distance: 650 },
-  { id: 'osm:n2', name: 'Basic-Fit Maisons-Laffitte', lat: 48.95, lon: 2.15, address: 'Rue de Paris, Maisons-Laffitte', distance: 1200 },
-  { id: 'osm:n3', name: 'Iron Club', lat: 48.93, lon: 2.17, distance: 2100 },
+  { id: 'osm:n1', name: tr('Fitness Park Sartrouville'), lat: 48.94, lon: 2.16, address: tr('Avenue Jean Jaurès, Sartrouville'), distance: 650 },
+  { id: 'osm:n2', name: tr('Basic-Fit Maisons-Laffitte'), lat: 48.95, lon: 2.15, address: tr('Rue de Paris, Maisons-Laffitte'), distance: 1200 },
+  { id: 'osm:n3', name: tr('Iron Club'), lat: 48.93, lon: 2.17, distance: 2100 },
 ];
 
 export function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
@@ -20,20 +21,20 @@ export function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon
   return Math.round(2 * R * Math.asin(Math.sqrt(h)));
 }
 
-export const fmtDistance = (m: number) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km`);
+export const fmtDistance = (m: number) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toLocaleString(loc(), { maximumFractionDigits: 1 })} km`);
 
 /** Position du téléphone (la permission est demandée la première fois). */
 export function locate(timeout = 12_000): Promise<{ lat: number; lon: number }> {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error('Ce téléphone ne donne pas sa position. Cherche ta ville à la place.'));
+    if (!navigator.geolocation) return reject(new Error(tr('Ce téléphone ne donne pas sa position. Cherche ta ville à la place.')));
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
       (e) =>
         reject(
           new Error(
             e.code === e.PERMISSION_DENIED
-              ? 'Localisation refusée. Autorise-la dans les réglages du téléphone, ou cherche ta ville.'
-              : 'Position introuvable pour l’instant. Réessaie, ou cherche ta ville.',
+              ? tr('Localisation refusée. Autorise-la dans les réglages du téléphone, ou cherche ta ville.')
+              : tr('Position introuvable pour l’instant. Réessaie, ou cherche ta ville.'),
           ),
         ),
       { enableHighAccuracy: false, timeout, maximumAge: 5 * 60_000 },

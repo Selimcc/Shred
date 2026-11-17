@@ -3,6 +3,8 @@ import { type Env, HttpError, localTime } from './env';
 import { DEFAULT_CFG, type DayState, type UserCfg, vapidFromEnv } from './reminders';
 import { loadJson, type Store } from './users';
 import { type PushSubscriptionData, sendPush } from './webpush';
+import { type Lang, tx } from './i18n';
+import { isLang } from '../shared/i18n';
 
 export interface HealthDay {
   steps?: number;
@@ -141,15 +143,15 @@ export function cleanBody(raw: Record<string, unknown>): Record<string, unknown>
   return out;
 }
 
-function received(body: Record<string, unknown>): string {
-  const parts = Object.entries(body).filter(([k]) => k === k.toLowerCase()).map(([k, v]) => `${k} = ${v === undefined || v === '' ? 'vide' : JSON.stringify(v).slice(0, 30)}`);
-  return parts.length ? ` Reçu : ${parts.join(', ')}.` : ' Le corps de la requête est vide : vérifie « Corps de la requête : JSON ».';
+function received(body: Record<string, unknown>, lang: Lang): string {
+  const parts = Object.entries(body).filter(([k]) => k === k.toLowerCase()).map(([k, v]) => `${k} = ${v === undefined || v === '' ? tx(lang, 'vide') : JSON.stringify(v).slice(0, 30)}`);
+  return parts.length ? tx(lang, ' Reçu : {list}.', { list: parts.join(', ') }) : tx(lang, ' Le corps de la requête est vide : vérifie « Corps de la requête : JSON ».');
 }
 
 /** Écart minimal entre deux enregistrements de petits changements, selon le mode du serveur (minutes). */
 export const HEALTH_GAP: Record<'normal' | 'economy' | 'critical', number> = { normal: 15, economy: 60, critical: 180 };
 
-export async function ingestHealth(store: Store, rawBody: Record<string, unknown>, now = new Date(), mode: 'normal' | 'economy' | 'critical' = 'normal') {
+export async function ingestHealth(store: Store, rawBody: Record<string, unknown>, now = new Date(), mode: 'normal' | 'economy' | 'critical' = 'normal', lang: Lang = 'fr') {
   const body = cleanBody(rawBody);
   const cfg = await userCfg(store);
   const today = localTime(now, cfg.timezone).date;
@@ -167,10 +169,9 @@ export async function ingestHealth(store: Store, rawBody: Record<string, unknown
     distanceKm: toDecimal(body.distance_km ?? body.distanceKm, 300),
   };
   if (Object.values(incoming).every((v) => v === undefined)) {
-    throw new HttpError(
-      400,
-      `Aucune valeur lisible : envoie steps, active_kcal, resting_kcal, sleep_min, resting_hr, hrv, exercise_min ou distance_km.${received(body)}`,
-    );
+    throw new HttpError(400, 'Aucune valeur lisible : envoie steps, active_kcal, resting_kcal, sleep_min, resting_hr, hrv, exercise_min ou distance_km.{received}', {
+      received: received(body, lang),
+    });
   }
   const key = `health:${date}`;
   const prev = await loadJson<HealthDay>(store, key);
@@ -234,11 +235,13 @@ export async function gymEvent(env: Env, store: Store, kind: 'in' | 'out', now =
     const done = state?.date === date && state.mainDone;
     const vapid = vapidFromEnv(env);
     if (!done && sub && vapid) {
-      const label = (state?.date === date && state.label) || cfg.plan[weekday] || 'Ta séance';
+      // Le raccourci de l'iPhone n'a pas de langue : on prend celle de l'app.
+      const lang = isLang(cfg.lang) ? cfg.lang : 'fr';
+      const label = (state?.date === date && state.label) || cfg.plan[weekday] || tx(lang, 'Ta séance');
       try {
         const res = await sendPush(
           sub,
-          { title: 'Te voilà à la salle', body: `${label} t’attend. Touche pour ouvrir ta séance.`, tag: 'gym', url: '/?tab=workout' },
+          { title: tx(lang, 'Te voilà à la salle'), body: tx(lang, '{label} t’attend. Touche pour ouvrir ta séance.', { label }), tag: 'gym', url: '/?tab=workout' },
           vapid,
           { urgency: 'high' },
         );

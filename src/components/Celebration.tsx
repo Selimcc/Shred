@@ -4,6 +4,7 @@ import { celebrationFor, flameInfo, ladder, TIERS } from '../lib/flames';
 import { SEASON_PALETTE, useSeason } from '../lib/season';
 import { setState, useApp } from '../lib/store';
 import { Bubble, Pulse } from './Pulse';
+import { tn, tr } from '../../shared/i18n';
 
 /** Pseudo-hasard stable : la même fête se rejoue à l'identique. */
 const rand = (i: number, salt: number) => {
@@ -63,7 +64,7 @@ function Confetti() {
 /** Le chiffre de la série passe de l'ancienne valeur à la nouvelle. */
 function CountFlip({ from, to, delay }: { from: number; to: number; delay: number }) {
   return (
-    <div className="count-flip display num" style={{ '--flip-delay': `${delay}s` } as CSSProperties} aria-label={`${to} jours`}>
+    <div className="count-flip display num" style={{ '--flip-delay': `${delay}s` } as CSSProperties} aria-label={tn(to, '{n} jour', '{n} jours')}>
       <span className="old">{from}</span>
       <span className="new">{to}</span>
     </div>
@@ -97,19 +98,19 @@ export function Celebration({ today }: { today: string }) {
   let text: string;
   let bubble = '';
   if (c.kind === 'first') {
-    title = 'Ta première flamme';
-    text = `Journée validée : ta série démarre. Tiens ${f.goal} jours pour gagner ta première vraie flamme.`;
-    bubble = 'Salut, moi c’est Pulse ! Je brille avec ta série : plus tu tiens, plus je change de couleur.';
+    title = tr('Ta première flamme');
+    text = tr('Journée validée : ta série démarre. Tiens {goal} jours pour gagner ta première vraie flamme.', { goal: f.goal });
+    bubble = tr('Salut, moi c’est Pulse ! Je brille avec ta série : plus tu tiens, plus je change de couleur.');
   } else if (c.kind === 'milestone') {
-    title = `${c.days} jours : ${t.name}`;
-    text = `Tu as tenu ${c.days} jours d’affilée. Prochaine flamme à ${next} jours.`;
-    bubble = `${c.days} jours, respect ! Regarde, j’ai changé de couleur.`;
+    title = tr('{days} jours : {name}', { days: c.days, name: t.name });
+    text = tr('Tu as tenu {days} jours d’affilée. Prochaine flamme à {next} jours.', { days: c.days, next });
+    bubble = tr('{days} jours, respect ! Regarde, j’ai changé de couleur.', { days: c.days });
   } else {
-    title = f.current === 1 ? 'Série relancée' : 'jours de série';
+    title = tn(f.current, 'Série relancée', 'jours de série');
     text =
       f.current >= 7 && f.current % 7 === 0
-        ? 'Une semaine de plus : tu gagnes un gel pour protéger ta série.'
-        : `+50 XP. Plus que ${Math.max(0, next - f.current)} jour${next - f.current > 1 ? 's' : ''} avant ta prochaine flamme.`;
+        ? tr('Une semaine de plus : tu gagnes un gel pour protéger ta série.')
+        : tn(next - f.current, '+50 XP. Plus que {max} jour avant ta prochaine flamme.', '+50 XP. Plus que {max} jours avant ta prochaine flamme.', { max: Math.max(0, next - f.current) });
   }
 
   const delay = 0.15;
@@ -149,11 +150,11 @@ export function Celebration({ today }: { today: string }) {
             <i style={{ width: `${pct}%` }} />
           </div>
           <div className="small muted num">
-            Prochaine flamme : {next} jours ({f.current}/{next})
+            {tr('Prochaine flamme : {next} jours ({current}/{next})', { next, current: f.current })}
           </div>
         </div>
         <button className="btn fire celebrate-btn" style={{ minWidth: 220 }} onClick={close}>
-          Continuer
+          {tr('Continuer')}
         </button>
       </div>
 

@@ -4,6 +4,7 @@ import { dayKey } from './date';
 import { moment } from './moments';
 import { getState, setState, subscribe } from './store';
 import { type Tier, trophyStats, unlockedOf } from './trophyList';
+import { tn, tr } from '../../shared/i18n';
 
 export * from './trophyList';
 
@@ -28,7 +29,7 @@ export function startTrophies() {
     const top = [...won].sort((a, b) => order(b.tier) - order(a.tier))[0];
     if (top)
       setTimeout(
-        () => moment('trophy', `Trophée : ${top.title}`, won.length > 1 ? `${top.text} Et ${won.length - 1} autre${won.length > 2 ? 's' : ''}.` : top.text),
+        () => moment('trophy', tr('Trophée : {title}', { title: top.title }), won.length > 1 ? tn(won.length - 1, '{text} Et {n} autre.', '{text} Et {n} autres.', { text: top.text }) : top.text),
         2600,
       );
   };

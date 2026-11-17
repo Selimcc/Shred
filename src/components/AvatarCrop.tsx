@@ -2,6 +2,7 @@
 // montre ce qui sera gardé. Sortie : un carré de 400 px en JPEG.
 import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import { Sheet } from './ui';
+import { tr } from '../../shared/i18n';
 
 const VIEW = 280;
 const OUT = 400;
@@ -82,7 +83,7 @@ export function AvatarCrop({ file, onCancel, onDone }: { file: File; onCancel: (
   };
 
   return (
-    <Sheet title="Recadrer ta photo" onClose={onCancel}>
+    <Sheet title={tr('Recadrer ta photo')} onClose={onCancel}>
       <div className="stack" style={{ gap: 16, alignItems: 'center' }}>
         <div className="crop-view" style={{ width: VIEW, height: VIEW }} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
           {img ? (
@@ -93,14 +94,14 @@ export function AvatarCrop({ file, onCancel, onDone }: { file: File; onCancel: (
           <span className="crop-mask" aria-hidden="true" />
         </div>
         <label className="crop-zoom">
-          <span className="small muted">Zoom</span>
-          <input type="range" min={1} max={4} step={0.01} value={zoom} onChange={(e) => setZoomClamped(Number(e.target.value))} aria-label="Zoom" />
+          <span className="small muted">{tr('Zoom')}</span>
+          <input type="range" min={1} max={4} step={0.01} value={zoom} onChange={(e) => setZoomClamped(Number(e.target.value))} aria-label={tr('Zoom')} />
         </label>
         <p className="small muted" style={{ margin: 0, textAlign: 'center' }}>
-          Fais glisser la photo, pince pour zoomer.
+          {tr('Fais glisser la photo, pince pour zoomer.')}
         </p>
         <button className="btn primary block" disabled={!img || busy} onClick={save}>
-          {busy ? 'Envoi…' : 'Utiliser cette photo'}
+          {busy ? tr('Envoi…') : tr('Utiliser cette photo')}
         </button>
       </div>
     </Sheet>

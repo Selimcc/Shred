@@ -260,7 +260,7 @@ export async function placeRoutes(req: Request, env: Env, pathname: string, user
           .then(async (res) => (res.ok ? fromDeezer(((await res.json()) as { data?: DeezerTrack[] }).data ?? []) : (failed.push(`Deezer ${res.status}`), [])))
           .catch(() => (failed.push('Deezer réseau'), [] as Track[])),
       ]);
-      if (failed.length === 2) throw new HttpError(502, `Recherche de musique indisponible (${failed.join(', ')})`);
+      if (failed.length === 2) throw new HttpError(502, 'Recherche de musique indisponible ({services})', { services: failed.join(', ') });
       return { tracks: mergeTracks([apple, deezer]) };
     });
     return json(result);

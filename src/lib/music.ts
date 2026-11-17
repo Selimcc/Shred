@@ -2,6 +2,7 @@
 // pour toute l'app, comme sur Instagram : lancer un extrait arrête le précédent.
 import { useEffect, useState } from 'react';
 import { api, DEMO } from './api';
+import { tr } from '../../shared/i18n';
 
 export type MusicSource = 'apple' | 'deezer' | 'soundcloud';
 
@@ -17,10 +18,10 @@ export interface Track {
 }
 
 const DEMO_TRACKS: Track[] = [
-  { id: '1', title: 'Lose Yourself', artist: 'Eminem', artwork: '', link: 'https://music.apple.com/' },
-  { id: '2', title: 'Till I Collapse', artist: 'Eminem, Nate Dogg', artwork: '', link: 'https://music.apple.com/' },
-  { id: '3', title: 'Eye of the Tiger', artist: 'Survivor', artwork: '', link: 'https://music.apple.com/' },
-  { id: '4', title: 'Stronger', artist: 'Kanye West', artwork: '', link: 'https://music.apple.com/' },
+  { id: '1', title: tr('Lose Yourself'), artist: tr('Eminem'), artwork: '', link: 'https://music.apple.com/' },
+  { id: '2', title: tr('Till I Collapse'), artist: tr('Eminem, Nate Dogg'), artwork: '', link: 'https://music.apple.com/' },
+  { id: '3', title: tr('Eye of the Tiger'), artist: tr('Survivor'), artwork: '', link: 'https://music.apple.com/' },
+  { id: '4', title: tr('Stronger'), artist: tr('Kanye West'), artwork: '', link: 'https://music.apple.com/' },
 ];
 
 /** Pays du magasin Apple Music, d'après la langue du téléphone (FR par défaut). */
@@ -29,13 +30,13 @@ function country(): string {
   return r && /^[A-Z]{2}$/.test(r) ? r : 'FR';
 }
 
-export const SOURCE_NAME: Record<MusicSource, string> = { apple: 'Apple Music', deezer: 'Deezer', soundcloud: 'SoundCloud' };
+export const SOURCE_NAME: Record<MusicSource, string> = { apple: tr('Apple Music'), deezer: tr('Deezer'), soundcloud: 'SoundCloud' };
 
 export const isSoundCloud = (q: string) => /^https?:\/\/(www\.|m\.|on\.)?soundcloud\.com\//i.test(q.trim());
 
 /** Lien SoundCloud collé : le morceau, avec titre, artiste et pochette. */
 export async function soundcloudTrack(link: string): Promise<Track> {
-  if (DEMO) return { source: 'soundcloud', id: link, title: 'Morceau SoundCloud', artist: 'Artiste', artwork: '', link };
+  if (DEMO) return { source: 'soundcloud', id: link, title: tr('Morceau SoundCloud'), artist: tr('Artiste'), artwork: '', link };
   return (await api<{ track: Track }>(`/api/music/soundcloud?url=${encodeURIComponent(link.trim())}`)).track;
 }
 

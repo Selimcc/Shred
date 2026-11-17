@@ -1,4 +1,5 @@
 import { GRADES, type GroupScore } from '../lib/strength';
+import { tr } from '../../shared/i18n';
 
 /** Fiche de force : un axe par groupe musculaire, anneaux E (centre) à A (bord). */
 export function Radar({ groups, weakestId }: { groups: GroupScore[]; weakestId?: string }) {
@@ -20,8 +21,8 @@ export function Radar({ groups, weakestId }: { groups: GroupScore[]; weakestId?:
   const anyData = groups.some((g) => g.score !== null);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: 380, display: 'block', margin: '0 auto' }} role="img" aria-label="Fiche de force par groupe musculaire">
-      <title>Fiche de force par groupe musculaire</title>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: 380, display: 'block', margin: '0 auto' }} role="img" aria-label={tr('Fiche de force par groupe musculaire')}>
+      <title>{tr('Fiche de force par groupe musculaire')}</title>
       {[1, 2, 3, 4, 5].map((k) => (
         <path key={k} d={hex((k / 5) * R)} fill={k === 5 ? 'var(--surface-2)' : 'none'} fillOpacity={k === 5 ? 0.5 : 0} stroke="var(--line)" strokeWidth="1" />
       ))}
@@ -65,7 +66,7 @@ export function Radar({ groups, weakestId }: { groups: GroupScore[]; weakestId?:
             >
               {g.short}
             </text>
-            <title>{`${g.name} : ${g.grade ?? 'pas encore de données'}`}</title>
+            <title>{tr('{name} : {detail}', { name: g.name, detail: g.grade ?? tr('pas encore de données') })}</title>
           </g>
         );
       })}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, DEMO } from '../lib/api';
 import { formatNumber } from '../lib/date';
+import { loc, lower, pct, tr } from '../../shared/i18n';
 
 type Mode = 'normal' | 'economy' | 'critical';
 interface Row {
@@ -30,24 +31,24 @@ interface Report {
 }
 
 const MODES: Record<Mode, { label: string; text: string }> = {
-  normal: { label: 'Normal', text: 'Tout s’enregistre au rythme habituel.' },
+  normal: { label: tr('Normal'), text: tr('Tout s’enregistre au rythme habituel.') },
   economy: {
-    label: 'Économie',
-    text: 'Plus de 60 % des écritures du jour : la santé s’enregistre toutes les heures, une sauvegarde par personne toutes les 30 min.',
+    label: tr('Économie'),
+    text: tr('Plus de 60 % des écritures du jour : la santé s’enregistre toutes les heures, une sauvegarde par personne toutes les 30 min.'),
   },
   critical: {
-    label: 'Critique',
-    text: 'Plus de 90 % des écritures du jour : santé toutes les 3 h, sauvegarde toutes les 2 h. Tout reste sur les téléphones en attendant.',
+    label: tr('Critique'),
+    text: tr('Plus de 90 % des écritures du jour : santé toutes les 3 h, sauvegarde toutes les 2 h. Tout reste sur les téléphones en attendant.'),
   },
 };
 
 const ROWS: { id: keyof Pick<Day, 'kvWrite' | 'kvRead' | 'requests' | 'doRequests' | 'kvDelete' | 'kvList'>; label: string }[] = [
-  { id: 'kvWrite', label: 'Écritures' },
-  { id: 'kvRead', label: 'Lectures' },
-  { id: 'requests', label: 'Requêtes' },
-  { id: 'doRequests', label: 'Appels aux objets' },
-  { id: 'kvDelete', label: 'Suppressions' },
-  { id: 'kvList', label: 'Listes' },
+  { id: 'kvWrite', label: tr('Écritures') },
+  { id: 'kvRead', label: tr('Lectures') },
+  { id: 'requests', label: tr('Requêtes') },
+  { id: 'doRequests', label: tr('Appels aux objets') },
+  { id: 'kvDelete', label: tr('Suppressions') },
+  { id: 'kvList', label: tr('Listes') },
 ];
 
 function demoReport(): Report {
@@ -66,25 +67,25 @@ function demoReport(): Report {
       kvList: row(3, 1000),
       doRequests: row(w * 2, 100_000),
       writes: [
-        { name: 'santé', n: Math.round(w * 0.46) },
-        { name: 'sauvegarde', n: Math.round(w * 0.27) },
-        { name: 'état du jour', n: Math.round(w * 0.14) },
-        { name: 'connexions', n: Math.round(w * 0.08) },
-        { name: 'profil public', n: Math.round(w * 0.05) },
+        { name: tr('santé'), n: Math.round(w * 0.46) },
+        { name: tr('sauvegarde'), n: Math.round(w * 0.27) },
+        { name: tr('état du jour'), n: Math.round(w * 0.14) },
+        { name: tr('connexions'), n: Math.round(w * 0.08) },
+        { name: tr('profil public'), n: Math.round(w * 0.05) },
       ],
     };
   });
   return { tracked: true, mode: 'normal', limits: { kvWrite: 1000 }, days };
 }
 
-const pctText = (p: number) => `${formatNumber(Math.round(p * 1000) / 10, p < 0.1 ? 1 : 0)} %`;
+const pctText = (p: number) => pct(Math.round(p * 1000) / 10, p < 0.1 ? 1 : 0);
 const tone = (p: number) => (p >= 0.9 ? 'bad' : p >= 0.6 ? 'warn' : 'ok');
 
 /** Heure locale de la remise à zéro (00:00 UTC). */
 function resetTime(): string {
   const d = new Date();
   d.setUTCHours(24, 0, 0, 0);
-  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString(loc(), { hour: '2-digit', minute: '2-digit' });
 }
 
 export function UsagePage() {
@@ -101,9 +102,9 @@ export function UsagePage() {
 
   if (error) return <p className="small muted">{error}</p>;
   if (!r) return <div className="spinner" />;
-  if (!r.tracked) return <p className="small muted">Le compteur n’est pas encore déployé sur ce serveur.</p>;
+  if (!r.tracked) return <p className="small muted">{tr('Le compteur n’est pas encore déployé sur ce serveur.')}</p>;
   const today = r.days[0];
-  if (!today) return <p className="small muted">Pas encore de chiffres aujourd’hui.</p>;
+  if (!today) return <p className="small muted">{tr('Pas encore de chiffres aujourd’hui.')}</p>;
   const history = [...r.days].reverse();
   const max = Math.max(1000, ...history.map((d) => d.kvWrite.used));
   const shown = hover !== null ? history[hover] : null;
@@ -111,14 +112,14 @@ export function UsagePage() {
   return (
     <div className="stack" style={{ gap: 20 }}>
       <section className={`usage-mode ${r.mode}`}>
-        <b>Mode {MODES[r.mode].label.toLowerCase()}</b>
+        <b>{tr('Mode {label}', { label: lower(MODES[r.mode].label) })}</b>
         <span className="small">{MODES[r.mode].text}</span>
       </section>
 
       <section className="stack" style={{ gap: 12 }}>
         <div className="usage-head">
-          <h2 style={{ margin: 0 }}>Aujourd’hui</h2>
-          <span className="small faint">Remise à zéro à {resetTime()}</span>
+          <h2 style={{ margin: 0 }}>{tr('Aujourd’hui')}</h2>
+          <span className="small faint">{tr('Remise à zéro à {resetTime}', { resetTime: resetTime() })}</span>
         </div>
         <div className="group">
           {ROWS.map((x) => {
@@ -133,13 +134,13 @@ export function UsagePage() {
                       <b>{formatNumber(v.used)}</b> <span className="muted">/ {formatNumber(v.limit)}</span>
                     </span>
                   </div>
-                  <div className="usage-bar" role="img" aria-label={`${x.label} : ${pctText(v.pct)} de la limite`}>
+                  <div className="usage-bar" role="img" aria-label={tr('{label} : {pctText} de la limite', { label: x.label, pctText: pctText(v.pct) })}>
                     <i className={tone(v.pct)} style={{ width: `${Math.min(100, v.pct * 100)}%` }} />
                     {proj > v.pct && <s style={{ left: `${Math.min(100, proj * 100)}%` }} />}
                   </div>
                   <div className="small faint">
                     {pctText(v.pct)}
-                    {v.projected > v.used ? `, environ ${formatNumber(v.projected)} en fin de journée à ce rythme` : ''}
+                    {v.projected > v.used ? tr(', environ {n} en fin de journée à ce rythme', { n: formatNumber(v.projected) }) : ''}
                   </div>
                 </div>
               </div>
@@ -150,7 +151,7 @@ export function UsagePage() {
 
       {today.writes.length > 0 && (
         <section className="stack" style={{ gap: 10 }}>
-          <h2 style={{ margin: 0 }}>Qui écrit le plus aujourd’hui</h2>
+          <h2 style={{ margin: 0 }}>{tr('Qui écrit le plus aujourd’hui')}</h2>
           <div className="group">
             {today.writes.slice(0, 8).map((w) => (
               <div key={w.name} className="row" style={{ minHeight: 44 }}>
@@ -164,8 +165,8 @@ export function UsagePage() {
 
       <section className="stack" style={{ gap: 10 }}>
         <div className="usage-head">
-          <h2 style={{ margin: 0 }}>Écritures, 14 derniers jours</h2>
-          <span className="small faint">{shown ? `${new Date(`${shown.day}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} : ${formatNumber(shown.kvWrite.used)}` : 'limite : 1 000 par jour'}</span>
+          <h2 style={{ margin: 0 }}>{tr('Écritures, 14 derniers jours')}</h2>
+          <span className="small faint">{shown ? `${new Date(`${shown.day}T12:00:00`).toLocaleDateString(loc(), { day: 'numeric', month: 'short' })} : ${formatNumber(shown.kvWrite.used)}` : tr('limite : 1 000 par jour')}</span>
         </div>
         <div className="usage-chart" onPointerLeave={() => setHover(null)}>
           <span className="usage-limit" style={{ bottom: `${(1000 / max) * 100}%` }} aria-hidden="true" />
@@ -177,7 +178,7 @@ export function UsagePage() {
               onPointerEnter={() => setHover(i)}
               onFocus={() => setHover(i)}
               onClick={() => setHover(i)}
-              aria-label={`${d.day} : ${d.kvWrite.used} écritures`}
+              aria-label={tr('{day} : {used} écritures', { day: d.day, used: d.kvWrite.used })}
             >
               <i className={tone(d.kvWrite.pct)} style={{ height: `${Math.max(2, (d.kvWrite.used / max) * 100)}%` }} />
             </button>
@@ -186,11 +187,10 @@ export function UsagePage() {
       </section>
 
       <p className="small faint" style={{ margin: 0 }}>
-        Compté par Shred lui-même, à quelques requêtes près. Les chiffres officiels sont dans le tableau de bord Cloudflare, Workers et Pages, onglet
-        Utilisation. Quand les écritures passent 60 % puis 90 %, tu reçois une notification et l’app ralentit ce qui écrit le plus.
+        {tr('Compté par Shred lui-même, à quelques requêtes près. Les chiffres officiels sont dans le tableau de bord Cloudflare, Workers et Pages, onglet Utilisation. Quand les écritures passent 60 % puis 90 %, tu reçois une notification et l’app ralentit ce qui écrit le plus.')}
       </p>
       <button className="btn" onClick={load}>
-        Actualiser
+        {tr('Actualiser')}
       </button>
     </div>
   );

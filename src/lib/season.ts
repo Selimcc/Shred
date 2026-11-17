@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react';
 import { easter, holidayOn, isSeasonId, type SeasonId, SEASONS, seasonOn } from '../../shared/season';
 import { dayKey } from './date';
 import { type AppState, useApp } from './store';
+import { tr } from '../../shared/i18n';
 
 export { SEASONS, type SeasonId } from '../../shared/season';
 
@@ -83,7 +84,7 @@ export function seasonPeak(season: SeasonId | null, day: string): boolean {
 
 /** Le titre d'Aujourd'hui : le vœu le jour J de la fête affichée, sinon « Salut ». */
 export function greeting(season: SeasonId | null, today: string, name: string): string {
-  const wish = season && holidayOn(today) === season ? SEASONS[season].wish : 'Salut';
+  const wish = season && holidayOn(today) === season ? SEASONS[season].wish : tr('Salut');
   return name ? `${wish} ${name}` : wish;
 }
 
@@ -92,25 +93,25 @@ export function seasonStart(season: SeasonId, today: string, name: string, what:
   const n = name ? ` ${name}` : '';
   switch (season) {
     case 'halloween':
-      return `Bouh${n} ! Aujourd’hui c’est ${what}. Les bonbons, ce sera après la dernière série.`;
+      return tr('Bouh{n} ! Aujourd’hui c’est {what}. Les bonbons, ce sera après la dernière série.', { n, what });
     case 'noel':
-      return `Ho ho ho${n} ! Aujourd’hui c’est ${what}. Le père Noël livre, toi tu pousses.`;
+      return tr('Ho ho ho{n} ! Aujourd’hui c’est {what}. Le père Noël livre, toi tu pousses.', { n, what });
     case 'nouvel-an':
-      return today.slice(5) >= '12-28' ? `Dernière ligne droite de l’année${n} ! Aujourd’hui c’est ${what}.` : `Bonne année${n} ! On démarre fort : ${what}.`;
+      return today.slice(5) >= '12-28' ? tr('Dernière ligne droite de l’année{n} ! Aujourd’hui c’est {what}.', { n, what }) : tr('Bonne année{n} ! On démarre fort : {what}.', { n, what });
     case 'saint-valentin':
-      return `Rendez-vous${n} ! Aujourd’hui c’est ${what}. La barre ne pose jamais de lapin.`;
+      return tr('Rendez-vous{n} ! Aujourd’hui c’est {what}. La barre ne pose jamais de lapin.', { n, what });
     case 'paques':
-      return `Chasse aux œufs${n} ? Moi je chasse les records : aujourd’hui c’est ${what}.`;
+      return tr('Chasse aux œufs{n} ? Moi je chasse les records : aujourd’hui c’est {what}.', { n, what });
   }
 }
 
 /** La fin du message de journée validée. */
 export const SEASON_SHINE: Record<SeasonId, string> = {
-  halloween: 'Je brille comme une citrouille grâce à toi, reviens demain.',
-  noel: 'Je brille plus que le sapin grâce à toi, reviens demain.',
-  'nouvel-an': 'Je pétille comme le champagne grâce à toi, reviens demain.',
-  'saint-valentin': 'Mon cœur brille grâce à toi, reviens demain.',
-  paques: 'Je brille comme un œuf en or grâce à toi, reviens demain.',
+  halloween: tr('Je brille comme une citrouille grâce à toi, reviens demain.'),
+  noel: tr('Je brille plus que le sapin grâce à toi, reviens demain.'),
+  'nouvel-an': tr('Je pétille comme le champagne grâce à toi, reviens demain.'),
+  'saint-valentin': tr('Mon cœur brille grâce à toi, reviens demain.'),
+  paques: tr('Je brille comme un œuf en or grâce à toi, reviens demain.'),
 };
 
 /** Confettis et étincelles des fêtes. */

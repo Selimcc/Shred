@@ -2,6 +2,7 @@
 // 7 jours → 1re flamme, puis 14, 21, 30, 45, 60, 90… Chaque flamme gagnée change la couleur de la tienne.
 import { streakInfo } from './logic';
 import type { AppState } from './state';
+import { tr } from '../../shared/i18n';
 
 export const STREAK_GOALS = [3, 7, 14, 30] as const;
 
@@ -22,12 +23,12 @@ export interface FlameTier {
 }
 
 export const TIERS: FlameTier[] = [
-  { name: 'Étincelle', colors: ['#ff7a1f', '#ffb02e', '#fff1b8'] },
-  { name: 'Flamme ardente', colors: ['#ff4614', '#ff8f1f', '#ffe08a'] },
-  { name: 'Flamme d’or', colors: ['#f0a000', '#ffd23d', '#fff8d6'] },
-  { name: 'Flamme bleue', colors: ['#246bff', '#5cc8ff', '#e8fbff'] },
-  { name: 'Flamme violette', colors: ['#7a32ff', '#cf6bff', '#fbeaff'] },
-  { name: 'Flamme légendaire', colors: ['#ff2f78', '#ffc53d', '#ffffff'] },
+  { name: tr('Étincelle'), colors: ['#ff7a1f', '#ffb02e', '#fff1b8'] },
+  { name: tr('Flamme ardente'), colors: ['#ff4614', '#ff8f1f', '#ffe08a'] },
+  { name: tr('Flamme d’or'), colors: ['#f0a000', '#ffd23d', '#fff8d6'] },
+  { name: tr('Flamme bleue'), colors: ['#246bff', '#5cc8ff', '#e8fbff'] },
+  { name: tr('Flamme violette'), colors: ['#7a32ff', '#cf6bff', '#fbeaff'] },
+  { name: tr('Flamme légendaire'), colors: ['#ff2f78', '#ffc53d', '#ffffff'] },
 ];
 
 export const tierAt = (earned: number) => Math.min(earned, TIERS.length - 1);

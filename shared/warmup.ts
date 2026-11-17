@@ -5,6 +5,7 @@
 import { has, type Gym } from './athlete';
 import { catalogEntry, DISCIPLINE_NAMES, GROUP_NAMES } from './catalog';
 import type { CatalogEntry, Discipline, Exercise, MuscleGroup, Session } from './types';
+import { lower, tr } from './i18n';
 
 /** Monter la température, mobiliser, activer, préparer le premier effort. */
 export type WarmPhase = 'raise' | 'mobilise' | 'activate' | 'prime';
@@ -47,42 +48,42 @@ type Def = Omit<WarmMove, 'key'>;
 /** La bibliothèque des mouvements d'échauffement. */
 export const WARM_MOVES = {
   // Monter la température
-  'easy-cardio': { name: 'Cardio tranquille', cue: 'Tu dois pouvoir parler : on fait juste monter la température.', phase: 'raise', sec: 150 },
-  'jumping-jacks': { name: 'Jumping jacks', cue: 'Rythme tranquille, les bras montent au-dessus de la tête.', phase: 'raise', sec: 60 },
-  'easy-jog': { name: 'Footing très lent', cue: 'Plus lent que ton footing habituel. À la salle, rameur ou vélo tranquille.', phase: 'raise', sec: 180 },
-  'rope-easy': { name: 'Corde à sauter, tranquille', cue: 'Petits sauts sur l’avant du pied. Sans corde, sautille sur place.', phase: 'raise', sec: 120 },
+  'easy-cardio': { name: tr('Cardio tranquille'), cue: tr('Tu dois pouvoir parler : on fait juste monter la température.'), phase: 'raise', sec: 150 },
+  'jumping-jacks': { name: tr('Jumping jacks'), cue: tr('Rythme tranquille, les bras montent au-dessus de la tête.'), phase: 'raise', sec: 60 },
+  'easy-jog': { name: tr('Footing très lent'), cue: tr('Plus lent que ton footing habituel. À la salle, rameur ou vélo tranquille.'), phase: 'raise', sec: 180 },
+  'rope-easy': { name: tr('Corde à sauter, tranquille'), cue: tr('Petits sauts sur l’avant du pied. Sans corde, sautille sur place.'), phase: 'raise', sec: 120 },
   // Mobiliser
-  'arm-circles': { name: 'Cercles de bras', cue: 'Petits cercles puis grands, vers l’avant puis vers l’arrière.', phase: 'mobilise', sec: 30 },
-  'shoulder-pass': { name: 'Passages d’épaules au bâton', cue: 'Bâton ou serviette tenu large, bras tendus : passe de l’avant à l’arrière sans forcer.', phase: 'mobilise', reps: 10 },
-  'thoracic-rotation': { name: 'Rotations du haut du dos', cue: 'À quatre pattes, une main derrière la tête : ouvre le coude vers le plafond et suis-le des yeux.', phase: 'mobilise', reps: 6, side: true },
-  'cat-camel': { name: 'Dos rond, dos creux', cue: 'À quatre pattes, enroule puis creuse le dos, lentement, en respirant.', phase: 'mobilise', reps: 8 },
-  'neck-mobility': { name: 'Mobilité du cou', cue: 'Oui, non, oreille vers l’épaule : lentement, sans rouler la tête en arrière.', phase: 'mobilise', sec: 30 },
-  'leg-swings': { name: 'Balancés de jambe', cue: 'Une main sur un appui, la jambe balance d’avant en arrière, de plus en plus haut.', phase: 'mobilise', reps: 10, side: true },
-  'leg-swings-side': { name: 'Balancés de jambe sur le côté', cue: 'Face à un appui, la jambe passe devant toi puis s’ouvre sur le côté.', phase: 'mobilise', reps: 10, side: true },
-  'worlds-greatest': { name: 'Fente avec rotation', cue: 'Grande fente, main au sol à l’intérieur du pied avant, puis ouvre l’autre bras vers le plafond.', phase: 'mobilise', reps: 5, side: true },
-  'ankle-rocks': { name: 'Chevilles au mur', cue: 'Pied à une main du mur : avance le genou vers le mur sans décoller le talon.', phase: 'mobilise', reps: 10, side: true },
-  'deep-squat': { name: 'Squat profond tenu', cue: 'Tout en bas, talons au sol, coudes qui écartent les genoux. Respire.', phase: 'mobilise', sec: 30 },
-  'hip-hinge': { name: 'Charnière de hanche', cue: 'Mains sur les hanches, recule les fesses dos plat jusqu’à sentir l’arrière des cuisses.', phase: 'mobilise', reps: 10 },
-  'hip-circles': { name: 'Cercles de hanche', cue: 'Debout sur une jambe, le genou dessine de grands cercles vers l’extérieur.', phase: 'mobilise', reps: 6, side: true },
-  inchworm: { name: 'Chenille', cue: 'Mains au sol, avance sur les mains jusqu’à la planche, puis ramène les pieds en marchant.', phase: 'mobilise', reps: 5 },
-  streamline: { name: 'Étirement en flèche', cue: 'Bras tendus au-dessus de la tête, mains l’une sur l’autre : grandis-toi, côtes rentrées.', phase: 'mobilise', sec: 20 },
+  'arm-circles': { name: tr('Cercles de bras'), cue: tr('Petits cercles puis grands, vers l’avant puis vers l’arrière.'), phase: 'mobilise', sec: 30 },
+  'shoulder-pass': { name: tr('Passages d’épaules au bâton'), cue: tr('Bâton ou serviette tenu large, bras tendus : passe de l’avant à l’arrière sans forcer.'), phase: 'mobilise', reps: 10 },
+  'thoracic-rotation': { name: tr('Rotations du haut du dos'), cue: tr('À quatre pattes, une main derrière la tête : ouvre le coude vers le plafond et suis-le des yeux.'), phase: 'mobilise', reps: 6, side: true },
+  'cat-camel': { name: tr('Dos rond, dos creux'), cue: tr('À quatre pattes, enroule puis creuse le dos, lentement, en respirant.'), phase: 'mobilise', reps: 8 },
+  'neck-mobility': { name: tr('Mobilité du cou'), cue: tr('Oui, non, oreille vers l’épaule : lentement, sans rouler la tête en arrière.'), phase: 'mobilise', sec: 30 },
+  'leg-swings': { name: tr('Balancés de jambe'), cue: tr('Une main sur un appui, la jambe balance d’avant en arrière, de plus en plus haut.'), phase: 'mobilise', reps: 10, side: true },
+  'leg-swings-side': { name: tr('Balancés de jambe sur le côté'), cue: tr('Face à un appui, la jambe passe devant toi puis s’ouvre sur le côté.'), phase: 'mobilise', reps: 10, side: true },
+  'worlds-greatest': { name: tr('Fente avec rotation'), cue: tr('Grande fente, main au sol à l’intérieur du pied avant, puis ouvre l’autre bras vers le plafond.'), phase: 'mobilise', reps: 5, side: true },
+  'ankle-rocks': { name: tr('Chevilles au mur'), cue: tr('Pied à une main du mur : avance le genou vers le mur sans décoller le talon.'), phase: 'mobilise', reps: 10, side: true },
+  'deep-squat': { name: tr('Squat profond tenu'), cue: tr('Tout en bas, talons au sol, coudes qui écartent les genoux. Respire.'), phase: 'mobilise', sec: 30 },
+  'hip-hinge': { name: tr('Charnière de hanche'), cue: tr('Mains sur les hanches, recule les fesses dos plat jusqu’à sentir l’arrière des cuisses.'), phase: 'mobilise', reps: 10 },
+  'hip-circles': { name: tr('Cercles de hanche'), cue: tr('Debout sur une jambe, le genou dessine de grands cercles vers l’extérieur.'), phase: 'mobilise', reps: 6, side: true },
+  inchworm: { name: tr('Chenille'), cue: tr('Mains au sol, avance sur les mains jusqu’à la planche, puis ramène les pieds en marchant.'), phase: 'mobilise', reps: 5 },
+  streamline: { name: tr('Étirement en flèche'), cue: tr('Bras tendus au-dessus de la tête, mains l’une sur l’autre : grandis-toi, côtes rentrées.'), phase: 'mobilise', sec: 20 },
   // Activer
-  'scap-pushup': { name: 'Pompes omoplates', cue: 'En planche bras tendus : laisse la poitrine descendre entre les omoplates, puis repousse le sol.', phase: 'activate', reps: 10 },
-  ytw: { name: 'Y, T, W penché', cue: 'Buste penché, dos plat : 5 bras en Y, 5 en T, 5 en W, en serrant les omoplates.', phase: 'activate', reps: 15 },
-  'face-pull-light': { name: 'Face pull très léger', cue: 'Corde à hauteur des yeux, tire vers le front en écartant les mains. Charge minimale.', phase: 'activate', reps: 15 },
-  'scap-pullup': { name: 'Tractions omoplates', cue: 'Suspendu bras tendus : abaisse les épaules sans plier les coudes.', phase: 'activate', reps: 8 },
-  'external-rotation': { name: 'Rotations externes', cue: 'Coude collé au corps, ouvre l’avant-bras vers l’extérieur. Élastique, poulie légère ou à vide.', phase: 'activate', reps: 12, side: true },
-  'glute-bridge': { name: 'Pont fessier', cue: 'Pousse dans les talons, serre les fessiers une seconde en haut.', phase: 'activate', reps: 12 },
-  'bw-squat': { name: 'Squats au poids du corps', cue: 'Lents et complets, genoux dans l’axe des pieds.', phase: 'activate', reps: 10 },
-  'reverse-lunge': { name: 'Fentes arrière', cue: 'Grand pas en arrière, le genou frôle le sol, buste droit.', phase: 'activate', reps: 5, side: true },
-  'calf-raise': { name: 'Montées sur pointes', cue: 'Monte haut, redescends lentement.', phase: 'activate', reps: 15 },
-  'dead-bug': { name: 'Dead bug', cue: 'Bas du dos plaqué au sol : tends le bras et la jambe opposés, lentement.', phase: 'activate', reps: 6, side: true },
-  'bird-dog': { name: 'Bird dog', cue: 'À quatre pattes, tends le bras et la jambe opposés sans bouger le bassin.', phase: 'activate', reps: 6, side: true },
+  'scap-pushup': { name: tr('Pompes omoplates'), cue: tr('En planche bras tendus : laisse la poitrine descendre entre les omoplates, puis repousse le sol.'), phase: 'activate', reps: 10 },
+  ytw: { name: tr('Y, T, W penché'), cue: tr('Buste penché, dos plat : 5 bras en Y, 5 en T, 5 en W, en serrant les omoplates.'), phase: 'activate', reps: 15 },
+  'face-pull-light': { name: tr('Face pull très léger'), cue: tr('Corde à hauteur des yeux, tire vers le front en écartant les mains. Charge minimale.'), phase: 'activate', reps: 15 },
+  'scap-pullup': { name: tr('Tractions omoplates'), cue: tr('Suspendu bras tendus : abaisse les épaules sans plier les coudes.'), phase: 'activate', reps: 8 },
+  'external-rotation': { name: tr('Rotations externes'), cue: tr('Coude collé au corps, ouvre l’avant-bras vers l’extérieur. Élastique, poulie légère ou à vide.'), phase: 'activate', reps: 12, side: true },
+  'glute-bridge': { name: tr('Pont fessier'), cue: tr('Pousse dans les talons, serre les fessiers une seconde en haut.'), phase: 'activate', reps: 12 },
+  'bw-squat': { name: tr('Squats au poids du corps'), cue: tr('Lents et complets, genoux dans l’axe des pieds.'), phase: 'activate', reps: 10 },
+  'reverse-lunge': { name: tr('Fentes arrière'), cue: tr('Grand pas en arrière, le genou frôle le sol, buste droit.'), phase: 'activate', reps: 5, side: true },
+  'calf-raise': { name: tr('Montées sur pointes'), cue: tr('Monte haut, redescends lentement.'), phase: 'activate', reps: 15 },
+  'dead-bug': { name: tr('Dead bug'), cue: tr('Bas du dos plaqué au sol : tends le bras et la jambe opposés, lentement.'), phase: 'activate', reps: 6, side: true },
+  'bird-dog': { name: tr('Bird dog'), cue: tr('À quatre pattes, tends le bras et la jambe opposés sans bouger le bassin.'), phase: 'activate', reps: 6, side: true },
   // Préparer le premier effort
-  'high-knees': { name: 'Montées de genoux', cue: 'Sur place ou sur 20 m : genoux à hauteur de hanche, bras actifs.', phase: 'prime', sec: 20 },
-  'butt-kicks': { name: 'Talons-fesses', cue: 'Petits pas rapides, les talons viennent toucher les fesses.', phase: 'prime', sec: 20 },
-  'shadow-light': { name: 'Shadow boxing léger', cue: 'Garde haute, déplacements, coups relâchés à la moitié de ta vitesse.', phase: 'prime', sec: 120 },
-  'first-light': { name: 'Série légère', cue: '12 reps à environ la moitié de ta charge, sans forcer.', phase: 'prime', reps: 12 },
+  'high-knees': { name: tr('Montées de genoux'), cue: tr('Sur place ou sur 20 m : genoux à hauteur de hanche, bras actifs.'), phase: 'prime', sec: 20 },
+  'butt-kicks': { name: tr('Talons-fesses'), cue: tr('Petits pas rapides, les talons viennent toucher les fesses.'), phase: 'prime', sec: 20 },
+  'shadow-light': { name: tr('Shadow boxing léger'), cue: tr('Garde haute, déplacements, coups relâchés à la moitié de ta vitesse.'), phase: 'prime', sec: 120 },
+  'first-light': { name: tr('Série légère'), cue: tr('12 reps à environ la moitié de ta charge, sans forcer.'), phase: 'prime', reps: 12 },
 } satisfies Record<string, Def>;
 
 export type WarmKey = keyof typeof WARM_MOVES;
@@ -92,7 +93,7 @@ const move = (key: WarmKey, patch: Partial<Def> = {}): WarmMove => ({ key, ...(W
 /** « 30 s », « 3 min », « 10 reps », « 6 par côté ». */
 export function fmtDose(m: Dose): string {
   if (m.sec) return m.sec >= 60 ? `${Math.floor(m.sec / 60)} min${m.sec % 60 ? ` ${m.sec % 60}` : ''}` : `${m.sec} s`;
-  if (m.reps) return m.side ? `${m.reps} par côté` : `${m.reps} reps`;
+  if (m.reps) return m.side ? tr('{reps} par côté', { reps: m.reps }) : tr('{reps} reps', { reps: m.reps });
   return '';
 }
 
@@ -203,9 +204,9 @@ function focusOf(l: Load): string {
   const top = (Object.entries(l.groups) as [MuscleGroup, number][])
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map(([g]) => GROUP_NAMES[g].toLowerCase());
-  if (!top.length) return 'Tout le corps';
-  const text = top.length > 1 ? `${top.slice(0, -1).join(', ')} et ${top[top.length - 1]}` : top[0];
+    .map(([g]) => lower(GROUP_NAMES[g]));
+  if (!top.length) return tr('Tout le corps');
+  const text = top.length > 1 ? tr('{join} et {top}', { join: top.slice(0, -1).join(', '), top: top[top.length - 1] }) : top[0];
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
@@ -217,10 +218,10 @@ type Machine = [Parameters<typeof has>[1], string];
 function raise(gym: Gym | undefined, up: number, low: number): WarmMove {
   const lower = low > 0 && up * 2 <= low;
   const upper = up > 0;
-  const bike: Machine = ['bike', 'Vélo tranquille'];
-  const rower: Machine = ['rower', 'Rameur tranquille'];
-  const tread: Machine = ['treadmill', 'Tapis, marche rapide'];
-  const order = lower || !upper ? [bike, rower, tread] : [rower, ['skierg', 'SkiErg tranquille'] as Machine, bike, tread];
+  const bike: Machine = ['bike', tr('Vélo tranquille')];
+  const rower: Machine = ['rower', tr('Rameur tranquille')];
+  const tread: Machine = ['treadmill', tr('Tapis, marche rapide')];
+  const order = lower || !upper ? [bike, rower, tread] : [rower, ['skierg', tr('SkiErg tranquille')] as Machine, bike, tread];
   const found = order.find(([e]) => has(gym, e));
   return found ? move('easy-cardio', { name: found[1] }) : move('jumping-jacks');
 }
@@ -272,7 +273,7 @@ function liftWarmup(exercises: Exercise[], l: Load, gym: Gym | undefined, ramp: 
 
   // La première série lourde : séries d'approche si on connaît ta charge, sinon une série légère.
   const main = firstLoaded(exercises);
-  if (!ramp && main) moves.push(move('first-light', { name: `Série légère : ${main.name.replace(/ \(.*\)$/, '')}` }));
+  if (!ramp && main) moves.push(move('first-light', { name: tr('Série légère : {replace}', { replace: main.name.replace(/ \(.*\)$/, '') }) }));
   return { focus: focusOf(l), moves, ramp };
 }
 
@@ -288,39 +289,39 @@ function enduranceWarmup(d: Discipline, exercises: Exercise[]): Omit<Warmup, 'mi
       const moves = [move('leg-swings'), move('leg-swings-side'), move('worlds-greatest'), move('ankle-rocks'), move('glute-bridge')];
       if (hard || race) moves.push(move('high-knees'), move('butt-kicks'));
       const then = race
-        ? 'Ensuite 15 min de footing très facile et 3 ou 4 accélérations. Sur la ligne 10 min avant le départ.'
+        ? tr('Ensuite 15 min de footing très facile et 3 ou 4 accélérations. Sur la ligne 10 min avant le départ.')
         : startsWith(exercises, /warmup/)
           ? hard
-            ? 'Ton plan commence par le footing d’échauffement : finis-le par 3 accélérations de 80 m.'
-            : 'Ton plan commence par le footing d’échauffement : garde-le vraiment facile.'
+            ? tr('Ton plan commence par le footing d’échauffement : finis-le par 3 accélérations de 80 m.')
+            : tr('Ton plan commence par le footing d’échauffement : garde-le vraiment facile.')
           : hard
-            ? 'Avant la partie rapide : 10 à 15 min de footing facile, puis 3 accélérations de 80 m.'
-            : 'Pars très doucement : les 10 premières minutes font partie de l’échauffement.';
+            ? tr('Avant la partie rapide : 10 à 15 min de footing facile, puis 3 accélérations de 80 m.')
+            : tr('Pars très doucement : les 10 premières minutes font partie de l’échauffement.');
       return { focus, moves, then };
     }
     case 'bike': {
       const moves = [move('leg-swings'), move('worlds-greatest'), move('cat-camel'), move('glute-bridge'), move('bw-squat')];
       const then = startsWith(exercises, /warmup/)
-        ? `Ton plan commence par l’échauffement vélo : petit braquet, cadence qui monte${hard ? ', puis 3 accélérations de 15 s' : ''}.`
-        : `Les 10 premières minutes en souplesse, petit braquet, cadence qui monte${hard ? ', puis 3 accélérations de 15 s' : ''}.`;
+        ? tr('Ton plan commence par l’échauffement vélo : petit braquet, cadence qui monte{v}.', { v: hard ? ', puis 3 accélérations de 15 s' : '' })
+        : tr('Les 10 premières minutes en souplesse, petit braquet, cadence qui monte{v}.', { v: hard ? ', puis 3 accélérations de 15 s' : '' });
       return { focus, moves, then };
     }
     case 'swim': {
       const moves = [move('arm-circles'), move('shoulder-pass'), move('thoracic-rotation'), move('ytw'), move('streamline')];
-      const then = startsWith(exercises, /warmup/) ? 'Dans l’eau, ton plan commence par l’échauffement nage : souple, sans forcer.' : 'Dans l’eau, 200 m très souples avant le reste.';
+      const then = startsWith(exercises, /warmup/) ? tr('Dans l’eau, ton plan commence par l’échauffement nage : souple, sans forcer.') : tr('Dans l’eau, 200 m très souples avant le reste.');
       return { focus, moves, then };
     }
     case 'row':
       return {
         focus,
         moves: [move('cat-camel'), move('hip-hinge'), move('worlds-greatest'), move('arm-circles'), move('glute-bridge')],
-        then: 'Rameur : 3 min tranquilles en montant la cadence, puis 3 fois 10 coups plus appuyés.',
+        then: tr('Rameur : 3 min tranquilles en montant la cadence, puis 3 fois 10 coups plus appuyés.'),
       };
     case 'ski':
       return {
         focus,
         moves: [move('arm-circles'), move('shoulder-pass'), move('cat-camel'), move('hip-hinge'), move('scap-pushup')],
-        then: 'SkiErg : 2 min tranquilles, puis 3 fois 10 tirages plus forts.',
+        then: tr('SkiErg : 2 min tranquilles, puis 3 fois 10 tirages plus forts.'),
       };
     case 'combat':
       return { focus, moves: [move('rope-easy'), move('neck-mobility'), move('arm-circles'), move('hip-circles'), move('shadow-light')] };
@@ -328,16 +329,16 @@ function enduranceWarmup(d: Discipline, exercises: Exercise[]): Omit<Warmup, 'mi
       return {
         focus,
         moves: [move('ankle-rocks'), move('leg-swings'), move('calf-raise')],
-        then: exercises.some((x) => x.key === 'incline-walk') ? 'Les 5 premières minutes à plat, puis monte la pente.' : undefined,
+        then: exercises.some((x) => x.key === 'incline-walk') ? tr('Les 5 premières minutes à plat, puis monte la pente.') : undefined,
       };
   }
 }
 
 function hyroxWarmup(gym: Gym | undefined): Omit<Warmup, 'min'> {
   return {
-    focus: 'Course et stations',
-    moves: [move('easy-jog', has(gym, 'rower') ? {} : { cue: 'Plus lent que ton footing habituel.' }), move('worlds-greatest'), move('inchworm'), move('bw-squat'), move('scap-pushup'), move('glute-bridge')],
-    then: 'Premier passage sur chaque station à 70 %, puis à ton allure.',
+    focus: tr('Course et stations'),
+    moves: [move('easy-jog', has(gym, 'rower') ? {} : { cue: tr('Plus lent que ton footing habituel.') }), move('worlds-greatest'), move('inchworm'), move('bw-squat'), move('scap-pushup'), move('glute-bridge')],
+    then: tr('Premier passage sur chaque station à 70 %, puis à ton allure.'),
   };
 }
 
@@ -369,7 +370,7 @@ export function warmupFor(
 
   let w: Omit<Warmup, 'min'>;
   const race = exercises.some((x) => x.key === 'race-day');
-  if (race && /hyrox/i.test(session.name ?? '')) w = { ...hyroxWarmup(opts.gym), then: 'Sur place : 10 min de footing et de rameur faciles, 2 accélérations, puis chaque station à ton allure de course.' };
+  if (race && /hyrox/i.test(session.name ?? '')) w = { ...hyroxWarmup(opts.gym), then: tr('Sur place : 10 min de footing et de rameur faciles, 2 accélérations, puis chaque station à ton allure de course.') };
   else if (hyrox >= 2 && hyrox >= lifts && !firstLoaded(exercises)) w = hyroxWarmup(opts.gym);
   else if (lifts >= 2 || (lifts === 1 && !mainDiscipline(exercises))) {
     const first = firstLoaded(exercises);
@@ -383,7 +384,7 @@ export function warmupFor(
     const d = mainDiscipline(exercises) ?? (race ? 'run' : null);
     if (d) w = enduranceWarmup(d, exercises);
     else if (exercises.some((x) => x.key === 'hyrox-sim')) w = hyroxWarmup(opts.gym);
-    else w = { focus: 'Cardio', moves: [move('leg-swings'), move('worlds-greatest'), move('arm-circles')], then: 'Les 5 premières minutes plus lentes que le reste.' };
+    else w = { focus: tr('Cardio'), moves: [move('leg-swings'), move('worlds-greatest'), move('arm-circles')], then: tr('Les 5 premières minutes plus lentes que le reste.') };
   }
   // Toujours dans l'ordre : température, mobilité, activation, préparation.
   const moves = [...w.moves].sort((a, b) => PHASES.indexOf(a.phase) - PHASES.indexOf(b.phase));

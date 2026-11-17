@@ -10,6 +10,7 @@ import { type Moment, onMoment } from '../lib/moments';
 import { getState, useApp } from '../lib/store';
 import { TIERS } from '../lib/flames';
 import { Pulse } from './Pulse';
+import { tr } from '../../shared/i18n';
 
 const BIG: Moment['kind'][] = ['session'];
 const DURATION = { big: 3400, small: 2700 };
@@ -89,7 +90,7 @@ export function PulseMoment() {
         </div>
         <h2 className="moment-title display">{current.title}</h2>
         {current.text && <p className="moment-text">{current.text}</p>}
-        <span className="moment-hint small">Touche pour continuer</span>
+        <span className="moment-hint small">{tr('Touche pour continuer')}</span>
       </div>
     );
   }

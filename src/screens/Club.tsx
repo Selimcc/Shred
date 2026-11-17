@@ -54,6 +54,7 @@ import { signedIn } from '../lib/session';
 import { getState, setState, useApp } from '../lib/store';
 import { moment } from '../lib/moments';
 import { CHALLENGE_XP, SPARK_XP } from '../lib/logic';
+import { loc, lower, tn, tr } from '../../shared/i18n';
 
 type View = 'feed' | 'following' | 'members';
 
@@ -65,13 +66,13 @@ const hue = (id: string) => {
 
 function ago(at: number): string {
   const min = Math.round((Date.now() - at) / 60_000);
-  if (min < 1) return 'à l’instant';
-  if (min < 60) return `il y a ${min} min`;
+  if (min < 1) return tr('à l’instant');
+  if (min < 60) return tr('il y a {min} min', { min });
   const h = Math.round(min / 60);
-  if (h < 24) return `il y a ${h} h`;
+  if (h < 24) return tr('il y a {h} h', { h });
   const d = new Date(at);
   const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  if (h < 48) return `hier à ${time}`;
+  if (h < 48) return tr('hier à {time}', { time });
   return formatShort(dayKey(d));
 }
 
@@ -102,16 +103,16 @@ export function MemberAvatar({ m, size = 40 }: { m: Pick<Member, 'id' | 'name' |
 function untilText(at: number): string {
   const d = new Date(at);
   const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
-  return dayKey(d) === dayKey() ? `jusqu’à ${time}` : `jusqu’à demain ${time}`;
+  return dayKey(d) === dayKey() ? tr('jusqu’à {time}', { time }) : tr('jusqu’à demain {time}', { time });
 }
 
 /** Le bonnet de Nulos, à côté du nom de qui a raté un défi (24 h, ou jusqu'à son gage fait). */
 export function Nulos({ until }: { until?: number }) {
   if (!isNulos(until)) return null;
   return (
-    <span className="nulos" title={`Défi raté : bonnet de Nulos ${untilText(until!)}`}>
+    <span className="nulos" title={tr('Défi raté : bonnet de Nulos {until}', { until: untilText(until!) })}>
       <Icon name="dunce" size={13} />
-      Nulos
+      {tr('Nulos')}
     </span>
   );
 }
@@ -171,7 +172,7 @@ export function Club({
         memberShown.current = true;
         const target = m.members.find((x) => x.handle === openMember) ?? (await club.member(openMember).then((r) => r.member, () => null));
         if (target) setPerson(target);
-        else toast(`Aucun membre @${openMember}`, true);
+        else toast(tr('Aucun membre @{openMember}', { openMember }), true);
         try {
           history.replaceState(null, '', '?tab=club');
         } catch {
@@ -189,7 +190,7 @@ export function Club({
       if (mine && mine.sparks !== (before ?? 0)) {
         setState((d) => void (d.club = { ...d.club, sparks: mine.sparks }));
         const gained = mine.sparks - (before ?? 0);
-        if (before !== undefined && gained > 0) moment('spark', `+${gained} étincelle${gained > 1 ? 's' : ''}`, `Le club salue tes séances : +${gained * SPARK_XP} XP`);
+        if (before !== undefined && gained > 0) moment('spark', tn(gained, '+{n} étincelle', '+{n} étincelles'), tr('Le club salue tes séances : +{n} XP', { n: gained * SPARK_XP }));
       }
     } catch (e) {
       setError(errorText(e));
@@ -229,17 +230,17 @@ export function Club({
       <>
         <header className="topbar">
           <div>
-            <div className="date">Les séances des membres</div>
-            <h1>Club</h1>
+            <div className="date">{tr('Les séances des membres')}</div>
+            <h1>{tr('Club')}</h1>
           </div>
         </header>
         <div className="card stack" style={{ gap: 10 }}>
-          <div style={{ fontWeight: 800 }}>Rejoins le club</div>
+          <div style={{ fontWeight: 800 }}>{tr('Rejoins le club')}</div>
           <p className="small muted" style={{ margin: 0 }}>
-            Le club réunit les membres de ton serveur Shred : vous partagez vos séances, vos photos, vous vous identifiez et vous vous envoyez des étincelles. Il faut un compte pour y entrer.
+            {tr('Le club réunit les membres de ton serveur Shred : vous partagez vos séances, vos photos, vous vous identifiez et vous vous envoyez des étincelles. Il faut un compte pour y entrer.')}
           </p>
           <button className="btn primary" onClick={() => openSettings('account')}>
-            Me connecter
+            {tr('Me connecter')}
           </button>
         </div>
       </>
@@ -250,8 +251,8 @@ export function Club({
     <>
       <header className="topbar">
         <div>
-          <div className="date">Les séances des membres</div>
-          <h1>Club</h1>
+          <div className="date">{tr('Les séances des membres')}</div>
+          <h1>{tr('Club')}</h1>
         </div>
         <PlatesButton />
         <button
@@ -260,22 +261,22 @@ export function Club({
             setShowNotices(true);
             if (notices?.unread) void club.read().then(() => setNotices((n) => n && { ...n, unread: 0 }));
           }}
-          aria-label={`Notifications${notices?.unread ? `, ${notices.unread} non lues` : ''}`}
+          aria-label={tr('Notifications{v}', { v: notices?.unread ? tn(notices.unread, ', {n} non lue', ', {n} non lues') : '' })}
         >
           <Icon name="bell" />
           {notices?.unread ? <span className="badge num">{notices.unread}</span> : null}
         </button>
-        <button className="icon-btn primary-icon" onClick={() => setComposer(dayKey())} aria-label="Publier une séance">
+        <button className="icon-btn primary-icon" onClick={() => setComposer(dayKey())} aria-label={tr('Publier une séance')}>
           <Icon name="plus" />
         </button>
       </header>
 
-      <div className="seg" role="tablist" aria-label="Club" style={{ marginBottom: 16 }}>
+      <div className="seg" role="tablist" aria-label={tr('Club')} style={{ marginBottom: 16 }}>
         {(
           [
-            ['feed', 'Tout le club'],
-            ['following', 'Abonnements'],
-            ['members', 'Membres'],
+            ['feed', tr('Tout le club')],
+            ['following', tr('Abonnements')],
+            ['members', tr('Membres')],
           ] as [View, string][]
         ).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={view === id} className={view === id ? 'on' : ''} onClick={() => setView(id)}>
@@ -293,7 +294,7 @@ export function Club({
             {error}
           </p>
           <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={load}>
-            Réessayer
+            {tr('Réessayer')}
           </button>
         </div>
       )}
@@ -305,12 +306,12 @@ export function Club({
           {!posts && !error && <FeedSkeleton />}
           {posts && posts.length === 0 && (
             <div className="card empty-feed">
-              <div style={{ fontWeight: 800 }}>{view === 'following' ? 'Personne de suivi pour l’instant' : 'Le fil est vide'}</div>
+              <div style={{ fontWeight: 800 }}>{view === 'following' ? tr('Personne de suivi pour l’instant') : tr('Le fil est vide')}</div>
               <p className="small muted" style={{ margin: '4px 0 12px' }}>
-                {view === 'following' ? 'Cherche un membre par son @pseudo dans l’onglet Membres, puis abonne-toi pour voir ses séances ici.' : 'Publie ta première séance : les autres membres la verront ici.'}
+                {view === 'following' ? tr('Cherche un membre par son @pseudo dans l’onglet Membres, puis abonne-toi pour voir ses séances ici.') : tr('Publie ta première séance : les autres membres la verront ici.')}
               </p>
               <button className="btn primary" onClick={() => (view === 'following' ? setView('members') : setComposer(dayKey()))}>
-                {view === 'following' ? 'Chercher un membre' : 'Publier une séance'}
+                {view === 'following' ? tr('Chercher un membre') : tr('Publier une séance')}
               </button>
             </div>
           )}
@@ -319,7 +320,7 @@ export function Club({
           ))}
           {next && (
             <button className="btn block" onClick={more}>
-              Voir plus
+              {tr('Voir plus')}
             </button>
           )}
         </div>
@@ -381,9 +382,9 @@ function FeedSkeleton() {
 /* ---------- Une publication ---------- */
 
 const VIS: Record<Visibility, { icon: string; label: string }> = {
-  all: { icon: 'globe', label: 'Tout le club' },
-  followers: { icon: 'users', label: 'Abonnés' },
-  private: { icon: 'lock', label: 'Moi seul' },
+  all: { icon: 'globe', label: tr('Tout le club') },
+  followers: { icon: 'users', label: tr('Abonnés') },
+  private: { icon: 'lock', label: tr('Moi seul') },
 };
 
 function MentionText({ text, mentions }: { text: string; mentions: Mention[] }) {
@@ -426,7 +427,7 @@ export function SummaryCard({ s, compact = false }: { s: SessionSummary; compact
         </div>
       )}
       {s.profile && total > 0 && (
-        <div className="post-profile" aria-label="Profil d’intensité de la séance">
+        <div className="post-profile" aria-label={tr('Profil d’intensité de la séance')}>
           {s.profile.map(([z, sec], i) => (
             <i key={i} className={`profile-col z${z}`} style={{ flexGrow: sec, height: `${[22, 40, 60, 80, 100][z - 1]}%` }} />
           ))}
@@ -434,21 +435,22 @@ export function SummaryCard({ s, compact = false }: { s: SessionSummary; compact
       )}
       {s.records?.map((r) => (
         <div key={r} className="post-record small">
-          <Icon name="trophy" size={15} /> Record : {r}
+          <Icon name="trophy" size={15} />{' '}{tr('Record : {r}', { r })}
         </div>
       ))}
     </div>
   );
 }
 
-const DAY_NAMES = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+// Lundi à dimanche dans la langue de l’app (le 1er janvier 2024 était un lundi).
+const DAY_NAMES = [1, 2, 3, 4, 5, 6, 7].map((d) => new Date(Date.UTC(2024, 0, d)).toLocaleDateString(loc(), { weekday: 'long', timeZone: 'UTC' }));
 
 /** La semaine en sept points, du lundi au dimanche : allumé si une séance a été validée ce jour-là. */
 function WeekDots({ days, today }: { days: number; today: number }) {
   const on = boardDays(days);
   const named = DAY_NAMES.filter((_, i) => on[i]);
   return (
-    <span className="board-days" role="img" aria-label={named.length ? `Séances : ${named.join(', ')}` : 'Pas encore de séance cette semaine'}>
+    <span className="board-days" role="img" aria-label={named.length ? tr('Séances : {join}', { join: named.join(', ') }) : tr('Pas encore de séance cette semaine')}>
       {on.map((v, i) => (
         <i key={i} className={`${v ? 'on' : ''}${i === today ? ' today' : ''}${i > today ? ' later' : ''}`} />
       ))}
@@ -474,7 +476,7 @@ function Leaderboard({ onOpen }: { onOpen: (id: string) => void }) {
     <section className="card board">
       <div className="board-head">
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 800 }}>Classement de la semaine</div>
+          <div style={{ fontWeight: 800 }}>{tr('Classement de la semaine')}</div>
           <div className="small muted">{boardLine(rows, left)}</div>
         </div>
         <Icon name="trophy" size={22} />
@@ -482,15 +484,15 @@ function Leaderboard({ onOpen }: { onOpen: (id: string) => void }) {
       <ol className="board-list">
         {(all ? rows : rows.slice(0, 3)).map((r, i) => (
           <li key={r.id} className={r.me ? 'me' : ''}>
-            <button onClick={() => !r.me && onOpen(r.id)} disabled={r.me} aria-label={`${ranks[i]}e : ${r.me ? 'toi' : r.name}, ${r.week} séance${r.week > 1 ? 's' : ''}`}>
+            <button onClick={() => !r.me && onOpen(r.id)} disabled={r.me} aria-label={tn(r.week, '{ranks}e : {v}, {n} séance', '{ranks}e : {v}, {n} séances', { ranks: ranks[i], v: r.me ? 'toi' : r.name })}>
               <span className={`board-rank r${ranks[i]}`}>{ranks[i]}</span>
               <MemberAvatar m={r} size={36} />
               <span className="board-who">
                 <span className="board-name">
-                  <span className="title ellipsis">{r.me ? 'Toi' : r.name}</span>
+                  <span className="title ellipsis">{r.me ? tr('Toi') : r.name}</span>
                   <Nulos until={r.nulos} />
                   {r.streak > 1 && (
-                    <span className="board-streak num" title={`${r.streak} jours de série`}>
+                    <span className="board-streak num" title={tr('{streak} jours de série', { streak: r.streak })}>
                       <Icon name="flame" size={12} />
                       {r.streak}
                     </span>
@@ -503,7 +505,7 @@ function Leaderboard({ onOpen }: { onOpen: (id: string) => void }) {
               </span>
               <span className="board-score num">
                 <b>{r.week}</b>
-                <span>séance{r.week > 1 ? 's' : ''}</span>
+                <span>{tn(r.week, 'séance', 'séances')}</span>
               </span>
             </button>
           </li>
@@ -511,7 +513,7 @@ function Leaderboard({ onOpen }: { onOpen: (id: string) => void }) {
       </ol>
       {rows.length > 3 && (
         <button className="link small board-more" onClick={() => setAll((v) => !v)}>
-          {all ? 'Voir le podium' : `Voir les ${rows.length}`}
+          {all ? tr('Voir le podium') : tr('Voir les {length}', { length: rows.length })}
         </button>
       )}
     </section>
@@ -529,7 +531,7 @@ function SoundButton({ on, onToggle }: { on: boolean; onToggle: (next: boolean) 
         e.stopPropagation();
         onToggle(!on);
       }}
-      aria-label={on ? 'Couper le son' : 'Activer le son'}
+      aria-label={on ? tr('Couper le son') : tr('Activer le son')}
       aria-pressed={on}
     >
       <Icon name={on ? 'sound' : 'mute'} size={15} />
@@ -568,7 +570,7 @@ function PostVideoView({ v, slot, audible, videoRef }: { v: PostVideo; slot: str
   return (
     <div className="post-video" style={{ aspectRatio: String(ratio) }} onClick={() => setPaused((p) => !p)}>
       {src ? (
-        <video ref={videoRef} src={src} poster={poster ?? undefined} playsInline loop muted preload="auto" aria-label={`Vidéo de ${fmtDur(v.dur)}`} />
+        <video ref={videoRef} src={src} poster={poster ?? undefined} playsInline loop muted preload="auto" aria-label={tr('Vidéo de {fmtDur}', { fmtDur: fmtDur(v.dur) })} />
       ) : poster ? (
         <img src={poster} alt="" />
       ) : (
@@ -626,7 +628,7 @@ function Photos({ ids, onOpen }: { ids: string[]; onOpen: (i: number) => void })
 function PostPhoto({ id, onClick }: { id: string; onClick: () => void }) {
   const url = useImage(photoPath(id));
   return (
-    <button className="post-photo" onClick={onClick} aria-label="Agrandir la photo">
+    <button className="post-photo" onClick={onClick} aria-label={tr('Agrandir la photo')}>
       {url ? <img src={url} alt="" loading="lazy" /> : <span className="sk-block" />}
     </button>
   );
@@ -639,13 +641,13 @@ function EditPostSheet({ post, members, onClose, onSaved }: { post: ClubPost; me
   const [busy, setBusy] = useState(false);
   const empty = !text.trim() && !post.session && !post.photos.length && !post.video && !post.music;
   const save = async () => {
-    if (empty) return toast('Sans photo ni séance, la publication a besoin d’un texte', true);
+    if (empty) return toast(tr('Sans photo ni séance, la publication a besoin d’un texte'), true);
     setBusy(true);
     try {
       const clean = text.trim();
       const { post: p } = await club.edit(post.id, clean, keptMentions(clean, mentions));
       onSaved(p);
-      toast(p.editedAt !== post.editedAt ? 'Publication modifiée' : 'Rien n’a changé');
+      toast(p.editedAt !== post.editedAt ? tr('Publication modifiée') : tr('Rien n’a changé'));
       onClose();
     } catch (e) {
       toast(errorText(e), true);
@@ -655,18 +657,18 @@ function EditPostSheet({ post, members, onClose, onSaved }: { post: ClubPost; me
   };
   return (
     <Sheet
-      title="Modifier la publication"
+      title={tr('Modifier la publication')}
       onClose={onClose}
       footer={
         <button className="btn primary block" onClick={save} disabled={busy || empty}>
-          {busy ? 'Enregistrement…' : 'Enregistrer'}
+          {busy ? tr('Enregistrement…') : tr('Enregistrer')}
         </button>
       }
     >
       <div className="stack">
-        <MentionInput value={text} onChange={setText} mentions={mentions} onMentions={setMentions} members={members} placeholder="Ton texte. Tape @ pour identifier un membre." rows={5} autoFocus />
+        <MentionInput value={text} onChange={setText} mentions={mentions} onMentions={setMentions} members={members} placeholder={tr('Ton texte. Tape @ pour identifier un membre.')} rows={5} autoFocus />
         <p className="small faint" style={{ margin: 0 }}>
-          Seul le texte change ; « (modifié) » s’affichera à côté. Les personnes que tu ajoutes avec @ sont prévenues.
+          {tr('Seul le texte change ; « (modifié) » s’affichera à côté. Les personnes que tu ajoutes avec @ sont prévenues.')}
         </p>
       </div>
     </Sheet>
@@ -731,11 +733,11 @@ function PostCard({
     }
   };
   const remove = async () => {
-    if (!(await ask('Supprimer cette publication ? Les photos et les commentaires partent avec.', 'Supprimer', true))) return;
+    if (!(await ask(tr('Supprimer cette publication ? Les photos et les commentaires partent avec.'), tr('Supprimer'), true))) return;
     try {
       await club.remove(post.id);
       onRemoved?.();
-      toast('Publication supprimée');
+      toast(tr('Publication supprimée'));
     } catch (e) {
       toast(errorText(e), true);
     }
@@ -743,7 +745,7 @@ function PostCard({
   return (
     <article className="card post" ref={box}>
       <header className="post-head">
-        <button className="post-author" onClick={onAuthor} aria-label={`Voir le profil de ${post.authorName}`}>
+        <button className="post-author" onClick={onAuthor} aria-label={tr('Voir le profil de {authorName}', { authorName: post.authorName })}>
           <MemberAvatar m={author} />
           <span style={{ minWidth: 0 }}>
             <b className="post-name">
@@ -755,7 +757,7 @@ function PostCard({
               {post.visibility !== 'all' && (
                 <>
                   {' '}
-                  <Icon name={VIS[post.visibility].icon} size={12} /> {VIS[post.visibility].label.toLowerCase()}
+                  <Icon name={VIS[post.visibility].icon} size={12} /> {lower(VIS[post.visibility].label)}
                 </>
               )}
             </span>
@@ -763,10 +765,10 @@ function PostCard({
         </button>
         {post.mine && (
           <>
-            <button className="icon-btn" onClick={() => setEditing(true)} aria-label="Modifier la publication">
+            <button className="icon-btn" onClick={() => setEditing(true)} aria-label={tr('Modifier la publication')}>
               <Icon name="pencil" size={18} />
             </button>
-            <button className="icon-btn" onClick={remove} aria-label="Supprimer la publication">
+            <button className="icon-btn" onClick={remove} aria-label={tr('Supprimer la publication')}>
               <Icon name="trash" size={18} />
             </button>
           </>
@@ -794,25 +796,25 @@ function PostCard({
           onClick={spark}
           disabled={post.mine}
           aria-pressed={post.sparked}
-          aria-label={post.mine ? `${post.sparks} étincelles reçues` : post.sparked ? 'Reprendre ton étincelle' : 'Envoyer une étincelle'}
+          aria-label={post.mine ? tr('{sparks} étincelles reçues', { sparks: post.sparks }) : post.sparked ? tr('Reprendre ton étincelle') : tr('Envoyer une étincelle')}
         >
           <span className="spark-icon" key={burst}>
             <Icon name="spark" size={20} filled={post.sparked} />
             {burst > 0 && post.sparked && <SparkBurst />}
           </span>
           <RollingNumber value={post.sparks} />
-          <span className="small">{post.sparks > 1 ? 'étincelles' : 'étincelle'}</span>
+          <span className="small">{tn(post.sparks, 'étincelle', 'étincelles')}</span>
         </button>
-        <button className="post-action" onClick={onOpen} disabled={detail} aria-label="Commentaires">
+        <button className="post-action" onClick={onOpen} disabled={detail} aria-label={tr('Commentaires')}>
           <Icon name="chat" size={19} />
           <RollingNumber value={post.comments} />
-          <span className="small">{post.comments > 1 ? 'commentaires' : 'commentaire'}</span>
+          <span className="small">{tn(post.comments, 'commentaire', 'commentaires')}</span>
         </button>
       </footer>
 
       {editing && <EditPostSheet post={post} members={members} onClose={() => setEditing(false)} onSaved={onChange} />}
       {photo !== null && (
-        <Sheet title={`Photo ${photo + 1} sur ${post.photos.length}`} onClose={() => setPhoto(null)}>
+        <Sheet title={tr('Photo {n} sur {length}', { n: photo + 1, length: post.photos.length })} onClose={() => setPhoto(null)}>
           <Lightbox ids={post.photos} index={photo} onIndex={setPhoto} />
         </Sheet>
       )}
@@ -823,9 +825,8 @@ function PostCard({
 /** La petite mention après un texte réécrit, avec l'heure de la modification au survol. */
 function Edited({ at }: { at: number }) {
   return (
-    <span className="post-edited" title={`Modifié ${ago(at)}`}>
-      {' '}
-      (modifié)
+    <span className="post-edited" title={tr('Modifié {ago}', { ago: ago(at) })}>
+      {' '}{tr('(modifié)')}
     </span>
   );
 }
@@ -849,10 +850,10 @@ function Lightbox({ ids, index, onIndex }: { ids: string[]; index: number; onInd
       {ids.length > 1 && (
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
           <button className="btn small" disabled={index === 0} onClick={() => onIndex(index - 1)}>
-            Précédente
+            {tr('Précédente')}
           </button>
           <button className="btn small" disabled={index === ids.length - 1} onClick={() => onIndex(index + 1)}>
-            Suivante
+            {tr('Suivante')}
           </button>
         </div>
       )}
@@ -925,7 +926,7 @@ function MentionInput({
         onSelect={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
       />
       {options.length > 0 && (
-        <div className="mention-list" role="listbox" aria-label="Identifier un membre">
+        <div className="mention-list" role="listbox" aria-label={tr('Identifier un membre')}>
           {options.map((m) => (
             <button key={m.id} type="button" role="option" aria-selected="false" className="mention-option" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(m)}>
               <MemberAvatar m={m} size={26} />
@@ -989,13 +990,13 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
         const img = await prepareImage(f, 1440, 0.82);
         setPhotos((p) => [...p, `data:image/jpeg;base64,${img.base64}`].slice(0, 4));
       } catch {
-        toast('Cette photo n’a pas pu être lue', true);
+        toast(tr('Cette photo n’a pas pu être lue'), true);
       }
     }
   };
 
   const publish = async () => {
-    if (!summary && !text.trim() && !photos.length && !video && !music) return toast('Ajoute une séance, un texte, une photo ou une vidéo', true);
+    if (!summary && !text.trim() && !photos.length && !video && !music) return toast(tr('Ajoute une séance, un texte, une photo ou une vidéo'), true);
     // La vidéo se prépare tout de suite, dans le geste : sinon l'iPhone coupe son son pendant la compression.
     const preparing = video ? prepareVideo(video, videoSound, setPrep) : null;
     setBusy(true);
@@ -1019,10 +1020,10 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
       });
       stopMusic();
       onPosted(post);
-      if (visibility === 'private') toast('Gardé pour toi');
+      if (visibility === 'private') toast(tr('Gardé pour toi'));
       else {
         const tagged = keptMentions(text, mentions).map((m) => m.name);
-        moment('post', 'Publié dans le club', tagged.length ? `${tagged.join(', ')} ${tagged.length > 1 ? 'vont' : 'va'} le voir.` : 'Les étincelles vont pleuvoir.');
+        moment('post', tr('Publié dans le club'), tagged.length ? tn(tagged.length, '{join} va le voir.', '{join} vont le voir.', { join: tagged.join(', ') }) : tr('Les étincelles vont pleuvoir.'));
       }
       onClose();
     } catch (e) {
@@ -1034,35 +1035,35 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
   };
 
   return (
-    <Sheet title="Partager une séance" onClose={onClose}>
+    <Sheet title={tr('Partager une séance')} onClose={onClose}>
       <div className="stack" style={{ gap: 16 }}>
         {days.length > 0 ? (
           <>
-            <div className="chips day-chips" role="group" aria-label="Séance">
+            <div className="chips day-chips" role="group" aria-label={tr('Séance')}>
               {days.map((d) => (
                 <button key={d.date} type="button" className={`chip ${picked === d.date ? 'on' : ''}`} onClick={() => setPicked(d.date)}>
-                  {d.date === dayKey() ? 'Aujourd’hui' : formatShort(d.date)}, {d.summary.title}
+                  {d.date === dayKey() ? tr('Aujourd’hui') : formatShort(d.date)}, {d.summary.title}
                 </button>
               ))}
               <button type="button" className={`chip ${picked === null ? 'on' : ''}`} onClick={() => setPicked(null)}>
-                Sans séance
+                {tr('Sans séance')}
               </button>
             </div>
             {summary && <SummaryCard s={summary} compact />}
           </>
         ) : (
           <p className="small muted" style={{ margin: 0 }}>
-            Pas de séance notée ces 7 derniers jours : tu peux quand même publier un mot, une photo ou une vidéo.
+            {tr('Pas de séance notée ces 7 derniers jours : tu peux quand même publier un mot, une photo ou une vidéo.')}
           </p>
         )}
 
-        <MentionInput value={text} onChange={setText} mentions={mentions} onMentions={setMentions} members={members} placeholder="Raconte ta séance. Tape @ pour identifier un membre." rows={4} />
+        <MentionInput value={text} onChange={setText} mentions={mentions} onMentions={setMentions} members={members} placeholder={tr('Raconte ta séance. Tape @ pour identifier un membre.')} rows={4} />
 
         {video && (
           <div className="compose-video">
             <video src={video.url} muted autoPlay loop playsInline poster={video.poster} />
             <span className="video-badge small">{fmtDur(Math.min(video.dur, VIDEO_SECONDS))}</span>
-            <button className="icon-btn" onClick={() => setVideo(null)} aria-label="Retirer la vidéo">
+            <button className="icon-btn" onClick={() => setVideo(null)} aria-label={tr('Retirer la vidéo')}>
               <Icon name="x" size={16} />
             </button>
           </div>
@@ -1070,11 +1071,11 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
         {video && (
           <div className="stack" style={{ gap: 6 }}>
             <button type="button" className={`chip sound-chip ${videoSound ? 'on' : ''}`} onClick={() => setVideoSound((v) => !v)} aria-pressed={videoSound}>
-              <Icon name={videoSound ? 'sound' : 'mute'} size={15} /> {videoSound ? 'Son de la vidéo gardé' : 'Son de la vidéo coupé'}
+              <Icon name={videoSound ? 'sound' : 'mute'} size={15} /> {videoSound ? tr('Son de la vidéo gardé') : tr('Son de la vidéo coupé')}
             </button>
             <p className="small faint" style={{ margin: 0 }}>
-              {video.dur > VIDEO_SECONDS + 0.5 ? 'Seules les 15 premières secondes seront gardées. ' : ''}
-              {music && videoSound ? 'La musique et le son de la vidéo se joueront ensemble.' : music ? 'On entendra ta musique.' : ''}
+              {video.dur > VIDEO_SECONDS + 0.5 ? tr('Seules les 15 premières secondes seront gardées. ') : ''}
+              {music && videoSound ? tr('La musique et le son de la vidéo se joueront ensemble.') : music ? tr('On entendra ta musique.') : ''}
             </p>
           </div>
         )}
@@ -1083,7 +1084,7 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
           {photos.map((p, i) => (
             <div key={i} className="compose-photo">
               <img src={p} alt="" />
-              <button className="icon-btn" onClick={() => setPhotos((l) => l.filter((_, j) => j !== i))} aria-label="Retirer la photo">
+              <button className="icon-btn" onClick={() => setPhotos((l) => l.filter((_, j) => j !== i))} aria-label={tr('Retirer la photo')}>
                 <Icon name="x" size={16} />
               </button>
             </div>
@@ -1091,21 +1092,21 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
           {photos.length < 4 && !video && (
             <button className="compose-add" onClick={() => file.current?.click()}>
               <Icon name="camera" size={22} />
-              <span className="small">Photo</span>
+              <span className="small">{tr('Photo')}</span>
             </button>
           )}
           <input ref={file} type="file" accept="image/*" multiple hidden onChange={add} />
           {!video && !photos.length && (
             <button className="compose-add" onClick={() => videoFile.current?.click()}>
               <Icon name="video" size={22} />
-              <span className="small">Vidéo</span>
+              <span className="small">{tr('Vidéo')}</span>
             </button>
           )}
           <input ref={videoFile} type="file" accept="video/mp4,video/quicktime,video/webm,video/*" hidden onChange={addVideo} />
           {!music && (
             <button className="compose-add" onClick={() => setPicking(true)}>
               <Icon name="music" size={22} />
-              <span className="small">Musique</span>
+              <span className="small">{tr('Musique')}</span>
             </button>
           )}
         </div>
@@ -1125,7 +1126,7 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
           />
         )}
 
-        <div className="seg" role="group" aria-label="Qui peut voir">
+        <div className="seg" role="group" aria-label={tr('Qui peut voir')}>
           {(Object.keys(VIS) as Visibility[]).map((v) => (
             <button key={v} type="button" className={visibility === v ? 'on' : ''} onClick={() => setVisibility(v)}>
               <Icon name={VIS[v].icon} size={14} /> {VIS[v].label}
@@ -1134,20 +1135,20 @@ function Composer({ date, members, onClose, onPosted }: { date: string; members:
         </div>
         {summary && s.days[summary.date]?.activities?.some((a) => a.source === 'strava') && (
           <p className="small faint" style={{ margin: 0 }}>
-            Les chiffres de Strava ne sont pas partagés (règle de Strava) : la publication montre ce que tu as noté dans Shred.
+            {tr('Les chiffres de Strava ne sont pas partagés (règle de Strava) : la publication montre ce que tu as noté dans Shred.')}
           </p>
         )}
 
         <button className="btn primary block" disabled={busy} onClick={publish}>
           {prep !== null && prep < 1
-            ? `Préparation de la vidéo… ${Math.round(prep * 100)} %`
+            ? tr('Préparation de la vidéo… {n} %', { n: Math.round(prep * 100) })
             : prep === 1
-              ? 'Envoi de la vidéo…'
+              ? tr('Envoi de la vidéo…')
               : busy
-                ? 'Publication…'
+                ? tr('Publication…')
                 : visibility === 'private'
-                  ? 'Garder pour moi'
-                  : 'Publier'}
+                  ? tr('Garder pour moi')
+                  : tr('Publier')}
         </button>
       </div>
     </Sheet>
@@ -1190,7 +1191,7 @@ function PostSheet({ id, members, onClose, onChange }: { id: string; members: Me
   };
 
   const remove = async (c: ClubComment) => {
-    if (!(await ask('Supprimer ce commentaire ?', 'Supprimer', true))) return;
+    if (!(await ask(tr('Supprimer ce commentaire ?'), tr('Supprimer'), true))) return;
     try {
       const r = await club.uncomment(id, c.id);
       setData((d) => d && { post: r.post, comments: d.comments.filter((x) => x.id !== c.id) });
@@ -1202,13 +1203,13 @@ function PostSheet({ id, members, onClose, onChange }: { id: string; members: Me
 
   return (
     <Sheet
-      title="Publication"
+      title={tr('Publication')}
       onClose={onClose}
       footer={
         data && (
           <div className="comment-box">
-            <MentionInput value={text} onChange={setText} mentions={mentions} onMentions={setMentions} members={members} placeholder="Écris un commentaire, @ pour identifier" rows={1} grow />
-            <button className="btn primary comment-send" disabled={busy || !text.trim()} onClick={send} aria-label="Envoyer le commentaire">
+            <MentionInput value={text} onChange={setText} mentions={mentions} onMentions={setMentions} members={members} placeholder={tr('Écris un commentaire, @ pour identifier')} rows={1} grow />
+            <button className="btn primary comment-send" disabled={busy || !text.trim()} onClick={send} aria-label={tr('Envoyer le commentaire')}>
               <Icon name="send" size={18} />
             </button>
           </div>
@@ -1221,7 +1222,7 @@ function PostSheet({ id, members, onClose, onChange }: { id: string; members: Me
         <div className="stack" style={{ gap: 16 }}>
           <PostCard post={data.post} author={memberOf(data.post.author, data.post.authorName)} members={members} onChange={change} detail onRemoved={onClose} />
           <section className="stack comments" style={{ gap: 12 }}>
-            {data.comments.length === 0 && <p className="small muted" style={{ margin: 0 }}>Pas encore de commentaire. Lance la discussion.</p>}
+            {data.comments.length === 0 && <p className="small muted" style={{ margin: 0 }}>{tr('Pas encore de commentaire. Lance la discussion.')}</p>}
             {data.comments.map((c) => (
               <div key={c.id} className="comment">
                 <MemberAvatar m={memberOf(c.author, c.authorName)} size={30} />
@@ -1234,7 +1235,7 @@ function PostSheet({ id, members, onClose, onChange }: { id: string; members: Me
                   </div>
                 </div>
                 {(c.mine || data.post.mine) && (
-                  <button className="icon-btn" onClick={() => remove(c)} aria-label="Supprimer le commentaire">
+                  <button className="icon-btn" onClick={() => remove(c)} aria-label={tr('Supprimer le commentaire')}>
                     <Icon name="trash" size={16} />
                   </button>
                 )}
@@ -1251,21 +1252,21 @@ function PostSheet({ id, members, onClose, onChange }: { id: string; members: Me
 
 function FollowButton({ m, onChange }: { m: Member; onChange: (m: Member) => void }) {
   const [busy, setBusy] = useState(false);
-  if (m.me) return <span className="tag">Toi</span>;
-  const label = m.following ? 'Abonné' : m.requested ? 'Demandé' : m.private ? 'Demander' : 'Suivre';
+  if (m.me) return <span className="tag">{tr('Toi')}</span>;
+  const label = m.following ? tr('Abonné') : m.requested ? tr('Demandé') : m.private ? tr('Demander') : tr('Suivre');
   return (
     <button
       className={`btn small ${m.following || m.requested ? '' : 'primary'}`}
       disabled={busy}
-      aria-label={m.following ? `Ne plus suivre ${m.name}` : m.requested ? `Annuler la demande à ${m.name}` : `${label} ${m.name}`}
+      aria-label={m.following ? tr('Ne plus suivre {name}', { name: m.name }) : m.requested ? tr('Annuler la demande à {name}', { name: m.name }) : `${label} ${m.name}`}
       onClick={async (e) => {
         e.stopPropagation();
-        if (m.following && m.private && !(await ask(`Ne plus suivre ${m.name} ? Son compte est privé : il faudra refaire une demande.`, 'Ne plus suivre'))) return;
+        if (m.following && m.private && !(await ask(tr('Ne plus suivre {name} ? Son compte est privé : il faudra refaire une demande.', { name: m.name }), tr('Ne plus suivre')))) return;
         setBusy(true);
         try {
           const r = await club.follow(m.id);
           onChange({ ...m, following: r.following, requested: Boolean(r.requested), followers: m.followers + (r.following ? 1 : m.following ? -1 : 0) });
-          if (r.requested) toast(`Demande envoyée à ${m.name}`);
+          if (r.requested) toast(tr('Demande envoyée à {name}', { name: m.name }));
         } catch (err) {
           toast(errorText(err), true);
         } finally {
@@ -1294,8 +1295,8 @@ function MemberRow({ m, onOpen, onChange }: { m: Member; onOpen: (m: Member) => 
           </div>
         )}
         <div className="small muted">
-          {m.followsMe && !m.me ? 'Te suit, ' : ''}
-          {m.posts} publication{m.posts > 1 ? 's' : ''}, {m.followers} abonné{m.followers > 1 ? 's' : ''}
+          {m.followsMe && !m.me ? tr('Te suit, ') : ''}
+          {tn(m.posts, '{n} publication', '{n} publications')}, {tn(m.followers, '{n} abonné', '{n} abonnés')}
         </div>
       </div>
       <FollowButton m={m} onChange={onChange} />
@@ -1310,7 +1311,7 @@ function RequestRow({ m, onDone }: { m: Member; onDone: (accepted: boolean) => v
     setBusy(true);
     try {
       await club.answer(m.id, accept);
-      toast(accept ? `${m.name} te suit maintenant` : 'Demande refusée');
+      toast(accept ? tr('{name} te suit maintenant', { name: m.name }) : tr('Demande refusée'));
       onDone(accept);
     } catch (e) {
       toast(errorText(e), true);
@@ -1326,9 +1327,9 @@ function RequestRow({ m, onDone }: { m: Member; onDone: (accepted: boolean) => v
       </div>
       <div className="request-actions">
         <button className="btn small primary" disabled={busy} onClick={() => answer(true)}>
-          Accepter
+          {tr('Accepter')}
         </button>
-        <button className="btn small" disabled={busy} onClick={() => answer(false)} aria-label={`Refuser la demande de ${m.name}`}>
+        <button className="btn small" disabled={busy} onClick={() => answer(false)} aria-label={tr('Refuser la demande de {name}', { name: m.name })}>
           <Icon name="x" size={15} />
         </button>
       </div>
@@ -1379,8 +1380,8 @@ function MemberList({ members, onOpen, onChange, onAnswered }: { members: Member
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Chercher un @pseudo"
-          aria-label="Chercher un membre par son pseudo"
+          placeholder={tr('Chercher un @pseudo')}
+          aria-label={tr('Chercher un membre par son pseudo')}
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
@@ -1396,15 +1397,15 @@ function MemberList({ members, onOpen, onChange, onAnswered }: { members: Member
           </div>
         ) : (
           <p className="small muted" style={{ margin: 0 }}>
-            Aucun membre avec un pseudo proche de « {query} ».
+            {tr('Aucun membre avec un pseudo proche de « {query} ».', { query })}
           </p>
         )
       ) : (
         <>
-          {query.length === 1 && <p className="small muted" style={{ margin: 0 }}>Encore un caractère pour chercher.</p>}
+          {query.length === 1 && <p className="small muted" style={{ margin: 0 }}>{tr('Encore un caractère pour chercher.')}</p>}
           {requests.length > 0 && (
             <section className="stack" style={{ gap: 8 }}>
-              <h2 style={{ fontSize: '1rem' }}>Demandes d’abonnement</h2>
+              <h2 style={{ fontSize: '1rem' }}>{tr('Demandes d’abonnement')}</h2>
               <div className="group">
                 {requests.map((m) => (
                   <RequestRow
@@ -1426,7 +1427,7 @@ function MemberList({ members, onOpen, onChange, onAnswered }: { members: Member
           )}
           {following.length > 0 && (
             <section className="stack" style={{ gap: 8 }}>
-              <h2 style={{ fontSize: '1rem' }}>Tes abonnements</h2>
+              <h2 style={{ fontSize: '1rem' }}>{tr('Tes abonnements')}</h2>
               <div className="group">
                 {following.map((m) => (
                   <MemberRow key={m.id} m={m} onOpen={onOpen} onChange={change} />
@@ -1436,7 +1437,7 @@ function MemberList({ members, onOpen, onChange, onAnswered }: { members: Member
           )}
           {followers.length > 0 && (
             <section className="stack" style={{ gap: 8 }}>
-              <h2 style={{ fontSize: '1rem' }}>Ils te suivent</h2>
+              <h2 style={{ fontSize: '1rem' }}>{tr('Ils te suivent')}</h2>
               <div className="group">
                 {followers.map((m) => (
                   <MemberRow key={m.id} m={m} onOpen={onOpen} onChange={change} />
@@ -1446,7 +1447,7 @@ function MemberList({ members, onOpen, onChange, onAnswered }: { members: Member
           )}
           {!following.length && !followers.length && (
             <p className="small muted" style={{ margin: 0 }}>
-              La liste des membres n’est pas publique : cherche tes amis par leur @pseudo, ou partage le tien depuis ton profil.
+              {tr('La liste des membres n’est pas publique : cherche tes amis par leur @pseudo, ou partage le tien depuis ton profil.')}
             </p>
           )}
         </>
@@ -1471,11 +1472,11 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
     onChange(x);
   };
   const stats = [
-    [m.posts, m.posts > 1 ? 'publications' : 'publication'],
-    [m.followers, m.followers > 1 ? 'abonnés' : 'abonné'],
-    ...(m.followingCount !== undefined ? [[m.followingCount, m.followingCount > 1 ? 'abonnements' : 'abonnement']] : []),
-    [m.sparks, m.sparks > 1 ? 'étincelles' : 'étincelle'],
-    ...(m.followingCount === undefined && m.profile?.streak !== undefined ? [[m.profile.streak, 'série']] : []),
+    [m.posts, tn(m.posts, 'publication', 'publications')],
+    [m.followers, tn(m.followers, 'abonné', 'abonnés')],
+    ...(m.followingCount !== undefined ? [[m.followingCount, tn(m.followingCount, 'abonnement', 'abonnements')]] : []),
+    [m.sparks, tn(m.sparks, 'étincelle', 'étincelles')],
+    ...(m.followingCount === undefined && m.profile?.streak !== undefined ? [[m.profile.streak, tr('série')]] : []),
   ] as [number, string][];
   const [crop, setCrop] = useState<File | null>(null);
   const [challenge, setChallenge] = useState(false);
@@ -1490,16 +1491,16 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
       update({ ...m, avatar: r.avatar });
       setMe({ id: m.id, avatar: r.avatar });
       setCrop(null);
-      toast('Photo de profil mise à jour');
+      toast(tr('Photo de profil mise à jour'));
     } catch (err) {
       toast(errorText(err), true);
     }
   };
   return (
-    <Sheet title={m.me ? 'Mon profil' : m.name} onClose={onClose}>
+    <Sheet title={m.me ? tr('Mon profil') : m.name} onClose={onClose}>
       <div className="stack" style={{ gap: 18 }}>
         <div className="member-head">
-          <button className="member-photo" onClick={() => m.me && file.current?.click()} disabled={!m.me} aria-label={m.me ? 'Changer ma photo de profil' : undefined}>
+          <button className="member-photo" onClick={() => m.me && file.current?.click()} disabled={!m.me} aria-label={m.me ? tr('Changer ma photo de profil') : undefined}>
             <MemberAvatar m={m} size={72} />
             {m.me && (
               <span className="member-photo-edit">
@@ -1524,7 +1525,7 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
           </div>
           {m.me ? (
             <button className="btn small" onClick={onEdit}>
-              Modifier
+              {tr('Modifier')}
             </button>
           ) : (
             <FollowButton m={m} onChange={update} />
@@ -1533,21 +1534,21 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
         {m.bio && <p className="member-bio small">{m.bio}</p>}
         {!m.me && m.followsMe && (
           <div className="follows-me small">
-            <span className="muted">Te suit</span>
+            <span className="muted">{tr('Te suit')}</span>
             <button
               className="link small"
               onClick={async () => {
-                if (!(await ask(`Retirer ${m.name} de tes abonnés ? Ça ne lui est pas notifié.`, 'Retirer'))) return;
+                if (!(await ask(tr('Retirer {name} de tes abonnés ? Ça ne lui est pas notifié.', { name: m.name }), tr('Retirer')))) return;
                 try {
                   await club.removeFollower(m.id);
                   update({ ...m, followsMe: false });
-                  toast(`${m.name} ne te suit plus`);
+                  toast(tr('{name} ne te suit plus', { name: m.name }));
                 } catch (e) {
                   toast(errorText(e), true);
                 }
               }}
             >
-              Retirer cet abonné
+              {tr('Retirer cet abonné')}
             </button>
           </div>
         )}
@@ -1555,16 +1556,16 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
           <div className="card private-card">
             <Icon name="lock" size={22} />
             <div>
-              <div style={{ fontWeight: 800 }}>Compte privé</div>
+              <div style={{ fontWeight: 800 }}>{tr('Compte privé')}</div>
               <p className="small muted" style={{ margin: 0 }}>
-                {m.requested ? `Demande envoyée : tu verras ses séances quand ${m.name} l’aura acceptée.` : `Abonne-toi pour voir ses séances. ${m.name} devra accepter ta demande.`}
+                {m.requested ? tr('Demande envoyée : tu verras ses séances quand {name} l’aura acceptée.', { name: m.name }) : tr('Abonne-toi pour voir ses séances. {name} devra accepter ta demande.', { name: m.name })}
               </p>
             </div>
           </div>
         )}
         {!m.me && !locked && (
           <button className="btn block" onClick={() => setChallenge(true)}>
-            <Icon name="bolt" size={17} /> Défier {m.name}
+            <Icon name="bolt" size={17} />{' '}{tr('Défier {name}', { name: m.name })}
           </button>
         )}
         {challenge && <ChallengeSheet m={m} onClose={() => setChallenge(false)} />}
@@ -1580,7 +1581,7 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
         </div>
         {m.record && (m.record.won > 0 || m.record.lost > 0) && (
           <p className="small muted member-record">
-            <Icon name="bolt" size={14} /> Défis : {m.record.won} relevé{m.record.won > 1 ? 's' : ''}, {m.record.lost} raté{m.record.lost > 1 ? 's' : ''}
+            <Icon name="bolt" size={14} />{' '}{tn(m.record.won, 'Défis : {n} relevé', 'Défis : {n} relevés')}, {tn(m.record.lost, '{n} raté', '{n} ratés')}
           </p>
         )}
         {!locked && m.profile?.radar && m.profile.radar.some((r) => r.score !== null) && (
@@ -1590,7 +1591,7 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
         )}
         <section className="stack" style={{ gap: 12 }}>
           {!posts && <div className="spinner" />}
-          {posts?.length === 0 && !locked && <p className="small muted" style={{ margin: 0 }}>Aucune publication visible pour l’instant.</p>}
+          {posts?.length === 0 && !locked && <p className="small muted" style={{ margin: 0 }}>{tr('Aucune publication visible pour l’instant.')}</p>}
           {posts?.map((p) => (
             <PostCard key={p.id} post={p} author={m} onChange={(x) => setPosts((l) => l?.map((y) => (y.id === x.id ? x : y)) ?? null)} onOpen={() => setOpen(p.id)} onRemoved={() => setPosts((l) => l?.filter((x) => x.id !== p.id) ?? null)} />
           ))}
@@ -1604,18 +1605,18 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
 /* ---------- Notifications ---------- */
 
 const NOTICE_TEXT: Record<Notice['type'], (n: Notice) => string> = {
-  mention: (n) => `${n.actorName} t’a identifié${n.text ? ` : « ${n.text.slice(0, 70)} »` : ''}`,
-  comment: (n) => `${n.actorName} a commenté ta séance${n.text ? ` : « ${n.text.slice(0, 70)} »` : ''}`,
-  spark: (n) => `${n.actorName} t’a envoyé une étincelle pour ${n.text ? `« ${n.text.slice(0, 50)} »` : 'ta séance'} (+5 XP)`,
-  follow: (n) => `${n.actorName} s’est abonné à tes séances`,
-  request: (n) => `${n.actorName} demande à suivre tes séances`,
-  accepted: (n) => `${n.actorName} a accepté ta demande : tu vois ses séances`,
-  challenge: (n) => `${n.actorName} te lance un défi${n.text ? ` : « ${n.text.slice(0, 70)} »` : ' : une séance avant la fin du délai'}`,
-  challengeDone: (n) => `${n.actorName} a relevé ton défi${n.text ? ` « ${n.text.slice(0, 50)} »` : ''}`,
-  challengeFailed: (n) => `Défi de ${n.actorName} raté : bonnet de Nulos pour 24 h${n.text ? `. Gage : « ${n.text.slice(0, 60)} »` : ''}`,
-  challengeExpired: (n) => `${n.actorName} n’a pas relevé ton défi : ta mise te revient`,
-  gageDone: (n) => `${n.actorName} a fait son gage${n.text ? ` : « ${n.text.slice(0, 60)} »` : ''}`,
-  rematch: (n) => `${n.actorName} prend sa revanche : une séance avant la fin du délai`,
+  mention: (n) => tr('{actorName} t’a identifié{v}', { actorName: n.actorName, v: n.text ? tr(' : « {text} »', { text: n.text.slice(0, 70) }) : '' }),
+  comment: (n) => tr('{actorName} a commenté ta séance{v}', { actorName: n.actorName, v: n.text ? tr(' : « {text} »', { text: n.text.slice(0, 70) }) : '' }),
+  spark: (n) => tr('{actorName} t’a envoyé une étincelle pour {v} (+5 XP)', { actorName: n.actorName, v: n.text ? tr('« {text} »', { text: n.text.slice(0, 50) }) : tr('ta séance') }),
+  follow: (n) => tr('{actorName} s’est abonné à tes séances', { actorName: n.actorName }),
+  request: (n) => tr('{actorName} demande à suivre tes séances', { actorName: n.actorName }),
+  accepted: (n) => tr('{actorName} a accepté ta demande : tu vois ses séances', { actorName: n.actorName }),
+  challenge: (n) => tr('{actorName} te lance un défi{v}', { actorName: n.actorName, v: n.text ? tr(' : « {text} »', { text: n.text.slice(0, 70) }) : tr(' : une séance avant la fin du délai') }),
+  challengeDone: (n) => tr('{actorName} a relevé ton défi{v}', { actorName: n.actorName, v: n.text ? tr(' « {text} »', { text: n.text.slice(0, 50) }) : '' }),
+  challengeFailed: (n) => tr('Défi de {actorName} raté : bonnet de Nulos pour 24 h{v}', { actorName: n.actorName, v: n.text ? tr('. Gage : « {text} »', { text: n.text.slice(0, 60) }) : '' }),
+  challengeExpired: (n) => tr('{actorName} n’a pas relevé ton défi : ta mise te revient', { actorName: n.actorName }),
+  gageDone: (n) => tr('{actorName} a fait son gage{v}', { actorName: n.actorName, v: n.text ? tr(' : « {text} »', { text: n.text.slice(0, 60) }) : '' }),
+  rematch: (n) => tr('{actorName} prend sa revanche : une séance avant la fin du délai', { actorName: n.actorName }),
 };
 
 function NoticeAnswer({ n, onAnswered }: { n: Notice; onAnswered: (n: Notice) => void }) {
@@ -1624,7 +1625,7 @@ function NoticeAnswer({ n, onAnswered }: { n: Notice; onAnswered: (n: Notice) =>
     setBusy(true);
     try {
       await club.answer(n.actor, accept);
-      toast(accept ? `${n.actorName} te suit maintenant` : 'Demande refusée');
+      toast(accept ? tr('{actorName} te suit maintenant', { actorName: n.actorName }) : tr('Demande refusée'));
       onAnswered(n);
     } catch (e) {
       toast(errorText(e), true);
@@ -1634,9 +1635,9 @@ function NoticeAnswer({ n, onAnswered }: { n: Notice; onAnswered: (n: Notice) =>
   return (
     <div className="request-actions">
       <button className="btn small primary" disabled={busy} onClick={() => answer(true)}>
-        Accepter
+        {tr('Accepter')}
       </button>
-      <button className="btn small" disabled={busy} onClick={() => answer(false)} aria-label={`Refuser la demande de ${n.actorName}`}>
+      <button className="btn small" disabled={busy} onClick={() => answer(false)} aria-label={tr('Refuser la demande de {actorName}', { actorName: n.actorName })}>
         <Icon name="x" size={15} />
       </button>
     </div>
@@ -1674,9 +1675,9 @@ function NoticesSheet({
   // Les demandes d'abonnement passent en tête : elles attendent une réponse.
   const sorted = [...notices].sort((a, b) => Number(b.type === 'request') - Number(a.type === 'request') || b.at - a.at);
   return (
-    <Sheet title="Notifications" onClose={onClose}>
+    <Sheet title={tr('Notifications')} onClose={onClose}>
       {notices.length === 0 ? (
-        <p className="muted">Rien pour l’instant. Abonnements, demandes, étincelles, commentaires et mentions arrivent ici.</p>
+        <p className="muted">{tr('Rien pour l’instant. Abonnements, demandes, étincelles, commentaires et mentions arrivent ici.')}</p>
       ) : (
         <div className="group">
           {sorted.map((n) => (
@@ -1704,7 +1705,7 @@ function NoticesSheet({
 
 /* ---------- Défis ---------- */
 
-const GAGES = ['50 burpees filmés', 'Payer le café', '2 min de gainage en vidéo', 'Selfie en sueur au club'];
+const GAGES = [tr('50 burpees filmés'), tr('Payer le café'), tr('2 min de gainage en vidéo'), tr('Selfie en sueur au club')];
 
 /** Les disques : le solde en haut du club, et les règles en un coup d'œil. */
 function PlatesButton() {
@@ -1715,7 +1716,7 @@ function PlatesButton() {
   }, [wallet]);
   return (
     <>
-      <button className="plates-pill" onClick={() => setOpen(true)} aria-label={`Disques : ${wallet?.plates ?? 'chargement'}`}>
+      <button className="plates-pill" onClick={() => setOpen(true)} aria-label={tr('Disques : {n}', { n: wallet?.plates ?? tr('chargement') })}>
         <Icon name="plate" size={17} />
         <span className="num">{wallet ? <RollingNumber value={wallet.plates} /> : '–'}</span>
       </button>
@@ -1731,27 +1732,26 @@ function PlatesSheet({ onClose }: { onClose: () => void }) {
   const next = nextBonus(streak);
   const full = wallet ? wallet.plates >= wallet.cap : false;
   return (
-    <Sheet title="Disques" onClose={onClose}>
+    <Sheet title={tr('Disques')} onClose={onClose}>
       <div className="stack plates-sheet" style={{ gap: 18 }}>
         <div className="plates-total">
           <Icon name="plate" size={30} />
           <b className="display num">{wallet?.plates ?? '–'}</b>
-          <span className="small muted">{full ? 'plein : lance des défis' : `sur ${PLATES.cap} au plus`}</span>
+          <span className="small muted">{full ? tr('plein : lance des défis') : tr('sur {cap} au plus', { cap: PLATES.cap })}</span>
         </div>
         <dl className="plates-rules">
-          <dt>Gagner</dt>
+          <dt>{tr('Gagner')}</dt>
           <dd>
-            +1 par journée validée, et un bonus à chaque palier de série. Prochain : {next.days} jours, +{next.plates}
-            {next.days > streak ? `, dans ${next.days - streak} jour${next.days - streak > 1 ? 's' : ''}` : ''}.
+            {tr('+1 par journée validée, et un bonus à chaque palier de série. Prochain : {days} jours, +{plates}', { days: next.days, plates: next.plates })}
+            {next.days > streak ? tn(next.days - streak, ', dans {n} jour', ', dans {n} jours') : ''}.
           </dd>
-          <dt>Miser</dt>
+          <dt>{tr('Miser')}</dt>
           <dd>
-            Un défi coûte {PLATES.challenge} disque, {stakeOf(true)} avec un gage. Relevé dans les temps : ta mise est pour la personne défiée. Raté : elle
-            te revient.
+            {tr('Un défi coûte {challenge} disque, {stakeOf} avec un gage. Relevé dans les temps : ta mise est pour la personne défiée. Raté : elle te revient.', { challenge: PLATES.challenge, stakeOf: stakeOf(true) })}
           </dd>
-          <dt>Rater</dt>
+          <dt>{tr('Rater')}</dt>
           <dd>
-            Le bonnet de Nulos s’affiche à côté de ton nom pendant {NULOS_HOURS} h, ou jusqu’à ce que tu fasses ton gage. Tu as droit à une revanche gratuite.
+            {tr('Le bonnet de Nulos s’affiche à côté de ton nom pendant {NULOS_HOURS} h, ou jusqu’à ce que tu fasses ton gage. Tu as droit à une revanche gratuite.', { NULOS_HOURS })}
           </dd>
         </dl>
       </div>
@@ -1776,7 +1776,7 @@ function ChallengeSheet({ m, rematch, onClose }: { m: Pick<Member, 'id' | 'name'
     try {
       const r = await club.challenge(m.id, hours, text.trim(), rematch ? { rematch: rematch.id } : withGage && gage.trim() ? { gage: gage.trim() } : {});
       setWallet(r.wallet);
-      toast(rematch ? `Revanche lancée contre ${m.name}` : `Défi envoyé à ${m.name}`);
+      toast(rematch ? tr('Revanche lancée contre {name}', { name: m.name }) : tr('Défi envoyé à {name}', { name: m.name }));
       window.dispatchEvent(new Event('shred:challenges'));
       onClose();
     } catch (e) {
@@ -1786,15 +1786,15 @@ function ChallengeSheet({ m, rematch, onClose }: { m: Pick<Member, 'id' | 'name'
     }
   };
   return (
-    <Sheet title={rematch ? `Revanche contre ${m.name}` : `Défier ${m.name}`} onClose={onClose}>
+    <Sheet title={rematch ? tr('Revanche contre {name}', { name: m.name }) : tr('Défier {name}', { name: m.name })} onClose={onClose}>
       <div className="stack" style={{ gap: 16 }}>
         <p className="small muted" style={{ margin: 0 }}>
           {rematch
-            ? `Gratuite. ${m.name} doit valider une séance avant la fin du délai, sinon c’est à son tour de porter le bonnet de Nulos.`
-            : `${m.name} doit valider une séance avant la fin du délai. Relevé : ta mise est pour ${m.name}, avec +${CHALLENGE_XP} XP. Raté : ta mise te revient et ${m.name} porte le bonnet de Nulos ${NULOS_HOURS} h.`}
+            ? tr('Gratuite. {name} doit valider une séance avant la fin du délai, sinon c’est à son tour de porter le bonnet de Nulos.', { name: m.name })
+            : tr('{name} doit valider une séance avant la fin du délai. Relevé : ta mise est pour {name}, avec +{CHALLENGE_XP} XP. Raté : ta mise te revient et {name} porte le bonnet de Nulos {NULOS_HOURS} h.', { name: m.name, CHALLENGE_XP, NULOS_HOURS })}
         </p>
-        <Field label="Délai">
-          <div className="chips" role="group" aria-label="Délai">
+        <Field label={tr('Délai')}>
+          <div className="chips" role="group" aria-label={tr('Délai')}>
             {CHALLENGE_DELAYS.map((d) => (
               <button key={d.hours} type="button" className={`chip ${hours === d.hours ? 'on' : ''}`} onClick={() => setHours(d.hours)}>
                 {d.label}
@@ -1802,18 +1802,18 @@ function ChallengeSheet({ m, rematch, onClose }: { m: Pick<Member, 'id' | 'name'
             ))}
           </div>
         </Field>
-        <Field label="Un mot (facultatif)">
-          <input className="input" value={text} maxLength={140} placeholder="Jambes avant jeudi ?" onChange={(e) => setText(e.target.value)} />
+        <Field label={tr('Un mot (facultatif)')}>
+          <input className="input" value={text} maxLength={140} placeholder={tr('Jambes avant jeudi ?')} onChange={(e) => setText(e.target.value)} />
         </Field>
         {!rematch && (
           <div className="stack" style={{ gap: 10 }}>
             <div className="group">
-              <Toggle title="Ajouter un gage" text={`+${PLATES.gage} disques. À faire s’il rate, le bonnet tombe une fois fait.`} on={withGage} onChange={setWithGage} />
+              <Toggle title={tr('Ajouter un gage')} text={tr('+{gage} disques. À faire s’il rate, le bonnet tombe une fois fait.', { gage: PLATES.gage })} on={withGage} onChange={setWithGage} />
             </div>
             {withGage && (
               <>
-                <input className="input" value={gage} maxLength={GAGE_MAX} placeholder="Le gage" aria-label="Le gage" onChange={(e) => setGage(e.target.value)} />
-                <div className="chips" role="group" aria-label="Idées de gage">
+                <input className="input" value={gage} maxLength={GAGE_MAX} placeholder={tr('Le gage')} aria-label={tr('Le gage')} onChange={(e) => setGage(e.target.value)} />
+                <div className="chips" role="group" aria-label={tr('Idées de gage')}>
                   {GAGES.map((g) => (
                     <button key={g} type="button" className={`chip ${gage === g ? 'on' : ''}`} onClick={() => setGage(g)}>
                       {g}
@@ -1826,15 +1826,15 @@ function ChallengeSheet({ m, rematch, onClose }: { m: Pick<Member, 'id' | 'name'
         )}
         <div className={`stake-line ${short ? 'short' : ''}`}>
           <Icon name="plate" size={18} />
-          <span className="grow">{rematch ? 'Revanche gratuite' : `Mise : ${stake} disque${stake > 1 ? 's' : ''}`}</span>
-          {wallet && <span className="small muted num">tu en as {wallet.plates}</span>}
+          <span className="grow">{rematch ? tr('Revanche gratuite') : tn(stake, 'Mise : {n} disque', 'Mise : {n} disques')}</span>
+          {wallet && <span className="small muted num">{tr('tu en as {plates}', { plates: wallet.plates })}</span>}
         </div>
         <button className="btn primary block" disabled={busy || short || (withGage && !gage.trim())} onClick={send}>
-          <Icon name="bolt" size={18} /> {rematch ? 'Lancer la revanche' : short ? 'Pas assez de disques' : 'Lancer le défi'}
+          <Icon name="bolt" size={18} /> {rematch ? tr('Lancer la revanche') : short ? tr('Pas assez de disques') : tr('Lancer le défi')}
         </button>
         {short && (
           <p className="small muted" style={{ margin: '-6px 0 0' }}>
-            Valide tes journées : +1 disque par jour, un bonus à chaque palier de série.
+            {tr('Valide tes journées : +1 disque par jour, un bonus à chaque palier de série.')}
           </p>
         )}
       </div>
@@ -1869,7 +1869,7 @@ function ChallengeStrip({ me, onUpdate }: { me: string | null; onUpdate: () => v
     setBusy(c.id);
     try {
       await club.gageDone(c.id);
-      toast('Gage fait : le bonnet tombe');
+      toast(tr('Gage fait : le bonnet tombe'));
       window.dispatchEvent(new Event('shred:challenges'));
       onUpdate();
     } catch (e) {
@@ -1879,30 +1879,30 @@ function ChallengeStrip({ me, onUpdate }: { me: string | null; onUpdate: () => v
     }
   };
   return (
-    <section className="challenges" aria-label="Défis">
+    <section className="challenges" aria-label={tr('Défis')}>
       {shown.map((c) => {
         const received = c.to === me;
         const other = received ? c.fromName : c.toName;
         const stake = c.stake ?? 0;
-        const plates = stake ? `${stake} disque${stake > 1 ? 's' : ''}` : '';
+        const plates = stake ? tn(stake, '{n} disque', '{n} disques') : '';
         let title: string;
         let sub: string;
         if (c.status === 'open') {
-          title = received ? (c.rematch ? `${other} prend sa revanche` : `${other} te défie`) : c.rematch ? `Revanche contre ${other}` : `Défi envoyé à ${other}`;
-          sub = c.text ? `« ${c.text} »` : 'Une séance avant la fin du délai';
+          title = received ? (c.rematch ? tr('{other} prend sa revanche', { other }) : tr('{other} te défie', { other })) : c.rematch ? tr('Revanche contre {other}', { other }) : tr('Défi envoyé à {other}', { other });
+          sub = c.text ? tr('« {text} »', { text: c.text }) : tr('Une séance avant la fin du délai');
         } else if (c.status === 'done') {
-          title = received ? `Défi de ${other} relevé` : `${other} a relevé ton défi`;
-          sub = plates ? (received ? `+${plates} pour toi` : `Ta mise de ${plates} est pour ${other}`) : 'Séance validée dans les temps';
+          title = received ? tr('Défi de {other} relevé', { other }) : tr('{other} a relevé ton défi', { other });
+          sub = plates ? (received ? tr('+{plates} pour toi', { plates }) : tr('Ta mise de {plates} est pour {other}', { plates, other })) : tr('Séance validée dans les temps');
         } else {
-          title = received ? `Défi de ${other} raté` : `${other} n’a pas relevé ton défi`;
+          title = received ? tr('Défi de {other} raté', { other }) : tr('{other} n’a pas relevé ton défi', { other });
           const until = (c.failedAt ?? c.due) + NULOS_HOURS * 3600_000;
           sub = received
             ? c.gageDone
-              ? 'Gage fait, le bonnet est tombé'
-              : `Bonnet de Nulos ${untilText(until)}`
+              ? tr('Gage fait, le bonnet est tombé')
+              : tr('Bonnet de Nulos {until}', { until: untilText(until) })
             : plates
-              ? `Ta mise de ${plates} te revient`
-              : 'Pas de séance dans les temps';
+              ? tr('Ta mise de {plates} te revient', { plates })
+              : tr('Pas de séance dans les temps');
         }
         const revenge = canRematch(c, me, now);
         const owesGage = received && c.status === 'failed' && c.gage && !c.gageDone;
@@ -1919,22 +1919,22 @@ function ChallengeStrip({ me, onUpdate }: { me: string | null; onUpdate: () => v
               <div className="small muted ellipsis">{sub}</div>
               {c.gage && (c.status === 'open' || c.status === 'failed') && (
                 <div className="small challenge-gage">
-                  {c.status === 'open' ? (received ? 'Gage si tu rates : ' : 'Gage : ') : received ? 'Ton gage : ' : 'Son gage : '}
+                  {c.status === 'open' ? (received ? tr('Gage si tu rates : ') : tr('Gage : ')) : received ? tr('Ton gage : ') : tr('Son gage : ')}
                   <b>{c.gage}</b>
-                  {c.gageDone ? ', fait' : ''}
+                  {c.gageDone ? tr(', fait') : ''}
                 </div>
               )}
-              {c.status === 'open' && plates && <div className="small faint">Mise : {plates}</div>}
+              {c.status === 'open' && plates && <div className="small faint">{tr('Mise : {plates}', { plates })}</div>}
               {(owesGage || revenge) && (
                 <div className="challenge-actions">
                   {owesGage && (
                     <button className="btn small" disabled={busy === c.id} onClick={() => gageDone(c)}>
-                      <Icon name="check" size={15} /> Gage fait
+                      <Icon name="check" size={15} />{' '}{tr('Gage fait')}
                     </button>
                   )}
                   {revenge && (
                     <button className="btn small primary" onClick={() => setRematch(c)}>
-                      <Icon name="bolt" size={15} /> Revanche
+                      <Icon name="bolt" size={15} />{' '}{tr('Revanche')}
                     </button>
                   )}
                 </div>

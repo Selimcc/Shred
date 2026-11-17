@@ -10,7 +10,10 @@
 import { athleteSummary } from '../../shared/athlete';
 import { catalogEntry, GROUP_NAMES } from '../../shared/catalog';
 import { programSummary } from '../../shared/program';
-import { addDays, diffDays, formatNumber, formatShort, mondayOf, WEEKDAY_NAMES, weekdayOf } from './date';
+import { addDays, diffDays, formatNumber, formatShort, mondayOf, weekdayOf } from './date';
+
+/** Les documents du coach restent en français, quelle que soit la langue de l'app. */
+const WEEKDAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 import { formatSets, fmtKg, dayValidated, mealsCount, ruleOf, sessionFor, totals } from './logic';
 import { type AppState, WEIGHT_GOALS } from './state';
 import { e1rm } from './strength';

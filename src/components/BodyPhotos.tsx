@@ -8,11 +8,12 @@ import { deletePhoto, loadPhoto, savePhoto } from '../lib/photos';
 import { type AppState, type BodyPhoto, type Pose, setState, useApp } from '../lib/store';
 import { Icon } from './Icon';
 import { ask, toast } from './ui';
+import { lower, tr } from '../../shared/i18n';
 
 export const POSES: { id: Pose; label: string }[] = [
-  { id: 'front', label: 'Face' },
-  { id: 'side', label: 'Profil' },
-  { id: 'back', label: 'Dos' },
+  { id: 'front', label: tr('Face') },
+  { id: 'side', label: tr('Profil') },
+  { id: 'back', label: tr('Dos') },
 ];
 
 /** Une photo de physique est-elle attendue cette semaine ? */
@@ -49,7 +50,7 @@ function PhotoImg({ id, alt }: { id: string; alt: string }) {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [id]);
-  if (missing) return <div className="body-photo empty-photo small faint">Photo sur un autre appareil</div>;
+  if (missing) return <div className="body-photo empty-photo small faint">{tr('Photo sur un autre appareil')}</div>;
   return url ? <img className="body-photo" src={url} alt={alt} /> : <div className="body-photo" />;
 }
 
@@ -80,16 +81,16 @@ export function BodyPhotos({ today }: { today: string }) {
         list.sort((x, y) => x.date.localeCompare(y.date));
         d.body.photos = list;
       });
-      toast(`Photo du ${formatShort(date)} enregistrée`);
+      toast(tr('Photo du {date} enregistrée', { date: formatShort(date) }));
     } catch {
-      toast('Impossible de lire cette photo', true);
+      toast(tr('Impossible de lire cette photo'), true);
     } finally {
       setBusy(false);
     }
   };
 
   const remove = async (p: BodyPhoto) => {
-    if (!(await ask(`Supprimer la photo du ${formatShort(p.date)} ?`, 'Supprimer', true))) return;
+    if (!(await ask(tr('Supprimer la photo du {date} ?', { date: formatShort(p.date) }), tr('Supprimer'), true))) return;
     await deletePhoto(p.id);
     setState((d) => void (d.body.photos = (d.body.photos ?? []).filter((x) => x.id !== p.id)));
   };
@@ -98,7 +99,7 @@ export function BodyPhotos({ today }: { today: string }) {
     if (!d) return '';
     const kg = nearest(s.body.weight, d);
     const cm = nearest(s.body.waist, d);
-    return [kg !== undefined ? `${formatNumber(kg, 1)} kg` : '', cm !== undefined ? `${formatNumber(cm, 1)} cm de taille` : ''].filter(Boolean).join(', ');
+    return [kg !== undefined ? `${formatNumber(kg, 1)} kg` : '', cm !== undefined ? tr('{n} cm de taille', { n: formatNumber(cm, 1) }) : ''].filter(Boolean).join(', ');
   };
 
   const pa = photoAt(a);
@@ -107,10 +108,10 @@ export function BodyPhotos({ today }: { today: string }) {
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Physique</h2>
-        <span className="small muted">Reste sur ce téléphone</span>
+        <h2>{tr('Physique')}</h2>
+        <span className="small muted">{tr('Reste sur ce téléphone')}</span>
       </div>
-      <div className="seg" role="tablist" aria-label="Pose" style={{ marginBottom: 12 }}>
+      <div className="seg" role="tablist" aria-label={tr('Pose')} style={{ marginBottom: 12 }}>
         {POSES.map((p) => (
           <button key={p.id} type="button" className={pose === p.id ? 'on' : ''} onClick={() => setPose(p.id)}>
             {p.label}
@@ -126,7 +127,7 @@ export function BodyPhotos({ today }: { today: string }) {
               [b, pb],
             ].map(([d, p]) => (
               <figure key={(p as BodyPhoto).id}>
-                <PhotoImg id={(p as BodyPhoto).id} alt={`Physique, ${formatShort(d as string)}`} />
+                <PhotoImg id={(p as BodyPhoto).id} alt={tr('Physique, {date}', { date: formatShort(d as string) })} />
                 <figcaption>
                   <b>{formatShort(d as string)}</b>
                   <span>{stat(d as string)}</span>
@@ -135,14 +136,13 @@ export function BodyPhotos({ today }: { today: string }) {
             ))}
           </div>
           <p className="small muted" style={{ margin: '10px 2px 0' }}>
-            {diffDays(b!, a!)} jours d’écart.
-            {(() => {
+            {tr('{diffDays} jours d’écart.{v}', { diffDays: diffDays(b!, a!), v: (() => {
               const ca = nearest(s.body.waist, a!);
               const cb = nearest(s.body.waist, b!);
-              return ca !== undefined && cb !== undefined ? ` Tour de taille : ${cb - ca > 0 ? '+' : ''}${formatNumber(cb - ca, 1)} cm.` : '';
-            })()}
+              return ca !== undefined && cb !== undefined ? tr(' Tour de taille : {change} cm.', { change: `${cb - ca > 0 ? '+' : ''}${formatNumber(cb - ca, 1)}` }) : '';
+            })() })}
           </p>
-          <div className="photo-strip" aria-label="Choisir les dates à comparer">
+          <div className="photo-strip" aria-label={tr('Choisir les dates à comparer')}>
             {dates.map((d) => (
               <button
                 key={d}
@@ -158,29 +158,29 @@ export function BodyPhotos({ today }: { today: string }) {
       ) : dates.length === 1 && pa ? (
         <div className="compare">
           <figure>
-            <PhotoImg id={pa.id} alt={`Physique, ${formatShort(dates[0])}`} />
+            <PhotoImg id={pa.id} alt={tr('Physique, {date}', { date: formatShort(dates[0]) })} />
             <figcaption>
               <b>{formatShort(dates[0])}</b>
               <span>{stat(dates[0])}</span>
             </figcaption>
           </figure>
           <figure className="compare-next">
-            <span className="small muted">Ta prochaine photo le {formatShort(addDays(dates[0], 7))} apparaîtra ici, à côté.</span>
+            <span className="small muted">{tr('Ta prochaine photo le {date} apparaîtra ici, à côté.', { date: formatShort(addDays(dates[0], 7)) })}</span>
           </figure>
         </div>
       ) : (
         <p className="muted" style={{ margin: 0 }}>
-          Une photo par semaine, même lumière, même heure (le matin à jeun), même distance. C’est le meilleur juge de ta recompo, bien plus que la balance.
+          {tr('Une photo par semaine, même lumière, même heure (le matin à jeun), même distance. C’est le meilleur juge de ta recompo, bien plus que la balance.')}
         </p>
       )}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
         <button className="btn" onClick={() => input.current?.click()} disabled={busy}>
-          <Icon name="camera" size={18} /> {busy ? 'Enregistrement…' : `Ajouter une photo de ${POSES.find((p) => p.id === pose)!.label.toLowerCase()}`}
+          <Icon name="camera" size={18} /> {busy ? tr('Enregistrement…') : tr('Ajouter une photo de {label}', { label: lower(POSES.find((p) => p.id === pose)!.label) })}
         </button>
         {photoAt(today) && (
           <button className="btn small danger" onClick={() => remove(photoAt(today)!)}>
-            Supprimer celle du jour
+            {tr('Supprimer celle du jour')}
           </button>
         )}
       </div>

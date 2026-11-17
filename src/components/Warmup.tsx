@@ -5,6 +5,7 @@ import { fmtDose, type Warmup } from '../../shared/warmup';
 import { fmtKg } from '../lib/logic';
 import { setWarmup } from '../lib/workoutActions';
 import { Icon } from './Icon';
+import { tr } from '../../shared/i18n';
 
 export function WarmupCard({
   today,
@@ -26,34 +27,34 @@ export function WarmupCard({
       <div className={`warmup-mini ${status ?? ''}`}>
         <Icon name={status === 'done' ? 'check' : 'warmup'} size={17} />
         <span className="grow small">
-          {status === 'done' ? 'Échauffement fait' : status === 'skipped' ? 'Échauffement passé' : `Échauffement, ${warm.min} min`}
+          {status === 'done' ? tr('Échauffement fait') : status === 'skipped' ? tr('Échauffement passé') : tr('Échauffement, {min} min', { min: warm.min })}
         </span>
         <button className="link small" onClick={() => setOpen(true)}>
-          {status === 'done' ? 'Revoir' : 'Voir'}
+          {status === 'done' ? tr('Revoir') : tr('Voir')}
         </button>
       </div>
     );
   }
   return (
-    <section className="card warmup-card" aria-label="Échauffement">
+    <section className="card warmup-card" aria-label={tr('Échauffement')}>
       <div className="warmup-head">
         <span className="warmup-icon" aria-hidden="true">
           <Icon name="warmup" size={20} />
         </span>
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="warmup-title">
-            Échauffement <span className="num muted">{warm.min} min</span>
+            {tr('Échauffement')}{' '}<span className="num muted">{tr('{min} min', { min: warm.min })}</span>
           </div>
           <div className="small muted">{warm.focus}</div>
         </div>
         {status !== 'skipped' && !open && (
           <button className="link small" onClick={() => setWarmup(today, 'skipped')}>
-            Passer
+            {tr('Passer')}
           </button>
         )}
         {open && (
           <button className="link small" onClick={() => setOpen(false)}>
-            Replier
+            {tr('Replier')}
           </button>
         )}
       </div>
@@ -66,7 +67,7 @@ export function WarmupCard({
         ))}
         {warm.ramp && (
           <li className="warmup-ramp">
-            <span className="grow">Séries d’approche : {warm.ramp.name}</span>
+            <span className="grow">{tr('Séries d’approche : {name}', { name: warm.ramp.name })}</span>
             <span className="warmup-sets num">
               {warm.ramp.sets.map((x, i) => (
                 <span key={i}>
@@ -80,11 +81,11 @@ export function WarmupCard({
       {warm.then && <p className="small muted warmup-then">{warm.then}</p>}
       <div className="warmup-actions">
         <button className="btn primary" onClick={onLaunch}>
-          <Icon name="play" size={16} filled /> Lancer
+          <Icon name="play" size={16} filled />{' '}{tr('Lancer')}
         </button>
         {status === 'done' ? (
           <button className="btn" onClick={() => setWarmup(today, undefined)}>
-            Pas encore fait
+            {tr('Pas encore fait')}
           </button>
         ) : (
           <button
@@ -94,7 +95,7 @@ export function WarmupCard({
               setOpen(false);
             }}
           >
-            <Icon name="check" size={16} /> C’est fait
+            <Icon name="check" size={16} />{' '}{tr('C’est fait')}
           </button>
         )}
       </div>

@@ -20,6 +20,8 @@ export { Usage } from './usage';
 export { seal as sealForTest, unseal as unsealForTest } from './seal';
 import { placeRoutes } from './places';
 import { VERSION } from './version';
+import { langOf, rememberLang, requestLang, tx } from './i18n';
+import { isLang } from '../shared/i18n';
 import { authorizeDecision, authorizeStart, connectorFetch, connectorRoutes, consentInfo, isConnectorPath } from './oauth';
 
 
@@ -90,7 +92,7 @@ async function consumeAiQuota(env: Env, user: User) {
   const day = new Date().toISOString().slice(0, 10);
   const key = `ai:${user.id}:${day}`;
   const used = await counters.get(env, key);
-  if (used >= limit) throw new HttpError(429, `Limite de ${limit} requêtes IA atteinte aujourd’hui`);
+  if (used >= limit) throw new HttpError(429, 'Limite de {n} requêtes IA atteinte aujourd’hui', { n: limit });
   return { used: await counters.incr(env, key, 2 * 86400), limit };
 }
 
@@ -121,6 +123,8 @@ function sanitizeCfg(input: Partial<UserCfg> | undefined, current: UserCfg): Use
   }
   if (Array.isArray(input.plan) && input.plan.length === 7) cfg.plan = input.plan.map((p) => String(p).slice(0, 30));
   if (Array.isArray(input.lifting) && input.lifting.length === 7) cfg.lifting = input.lifting.map(Boolean);
+  if (Array.isArray(input.rest) && input.rest.length === 7) cfg.rest = input.rest.map(Boolean);
+  if (isLang(input.lang)) cfg.lang = input.lang;
   if (input.meals !== undefined) cfg.meals = Math.max(0, Math.min(4, Math.round(Number(input.meals) || 0)));
   return cfg;
 }
@@ -165,6 +169,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
 
   const user: User = await authenticate(req, env, { deviceKey: DEVICE_ROUTES.has(pathname) });
   const store = user.store;
+  // La langue de l'app, pour écrire les notifications de cette personne dans la sienne.
+  const remembered = rememberLang(user.id, store, req).catch(() => undefined);
+  if (ctx) ctx.waitUntil(remembered);
   // Présence pour le panneau admin, sans ralentir la réponse.
   if (!DEVICE_ROUTES.has(pathname)) {
     const mark = presence.mark(env, user.id, req.headers.get('x-shred-client'), req.headers.get('user-agent')).catch(() => undefined);
@@ -279,12 +286,12 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
     if (!sub) throw new HttpError(404, 'Aucun appareil abonné aux notifications');
     const res = await sendPush(
       sub,
-      { title: 'Notifications activées', body: 'Tu recevras tes rappels ici. Pas d’excuse.', tag: 'test', url: '/' },
+      { title: tx(requestLang(req), 'Notifications activées'), body: tx(requestLang(req), 'Tu recevras tes rappels ici. Pas d’excuse.'), tag: 'test', url: '/' },
       vapid,
       { urgency: 'high' },
     );
     if (res.gone) await store.delete('sub');
-    if (!res.ok) throw new HttpError(502, `Le service push a refusé l’envoi (${res.status})`);
+    if (!res.ok) throw new HttpError(502, 'Le service push a refusé l’envoi ({status})', { status: res.status });
     return json({ ok: true });
   }
 
@@ -308,6 +315,7 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
       streak: Math.max(0, Number(b.streak) || 0),
       banked: Math.max(0, Number(b.banked) || 0),
       lifting: typeof b.lifting === 'boolean' ? b.lifting : undefined,
+      rest: typeof b.rest === 'boolean' ? b.rest : undefined,
     };
     await store.put('state', JSON.stringify(state));
     return json({ ok: true });
@@ -316,7 +324,7 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
   if (pathname === '/api/health/ingest' && method === 'POST') {
     // Appelé par le Raccourci iPhone « Shred Santé ».
     const body = await readJson<Record<string, unknown>>(req, 5_000);
-    return json({ ok: true, saved: await ingestHealth(store, body, new Date(), await currentMode(env)) });
+    return json({ ok: true, saved: await ingestHealth(store, body, new Date(), await currentMode(env), requestLang(req)) });
   }
 
   if (pathname === '/api/health/recent' && method === 'GET') {
@@ -332,7 +340,7 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
     const body = await readJson<MealRequest>(req);
     validateMeal(body);
     const quota = await consumeAiQuota(env, user);
-    const analysis = await analyzeMeal(env, body);
+    const analysis = await analyzeMeal(env, { ...body, lang: requestLang(req) });
     return json({ ...analysis, quota });
   }
 
@@ -340,7 +348,7 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
     const body = await readJson<CoachRequest>(req, 200_000);
     normalizeMessages(Array.isArray(body.messages) ? body.messages : []);
     const quota = await consumeAiQuota(env, user);
-    const reply = await coachReply(env, body);
+    const reply = await coachReply(env, { ...body, lang: requestLang(req) });
     return json({ reply, quota });
   }
 
@@ -391,9 +399,10 @@ export default {
       const res = await route(req, env, url, ctx);
       return secureAsset(cors(res, origin));
     } catch (e) {
-      if (e instanceof HttpError) return cors(json({ error: e.message }, e.status), origin);
+      // Messages d'erreur dans la langue de l'app qui a fait la requête.
+      if (e instanceof HttpError) return cors(json({ error: tx(requestLang(req), e.message, e.vars) }, e.status), origin);
       console.error(e);
-      return cors(json({ error: 'Erreur serveur' }, 500), origin);
+      return cors(json({ error: tx(requestLang(req), 'Erreur serveur') }, 500), origin);
     }
   },
 
@@ -427,14 +436,15 @@ async function alertIfNeeded(env: Env) {
       const store = userStore(env.KV, a.id);
       const sub = await loadJson<PushSubscriptionData>(store, 'sub');
       if (!sub) return;
+      const lang = await langOf(a.id, store);
       await sendPush(
         sub,
         {
-          title: mode === 'critical' ? 'Cloudflare : plan gratuit presque épuisé' : 'Cloudflare : mode économie',
+          title: mode === 'critical' ? tx(lang, 'Cloudflare : plan gratuit presque épuisé') : tx(lang, 'Cloudflare : mode économie'),
           body:
             mode === 'critical'
-              ? 'Plus de 90 % des écritures du jour. La santé et les sauvegardes ralentissent jusqu’à 1 h du matin.'
-              : 'Plus de 60 % des écritures du jour. Shred enregistre moins souvent pour tenir jusqu’à minuit UTC.',
+              ? tx(lang, 'Plus de 90 % des écritures du jour. La santé et les sauvegardes ralentissent jusqu’à 1 h du matin.')
+              : tx(lang, 'Plus de 60 % des écritures du jour. Shred enregistre moins souvent pour tenir jusqu’à minuit UTC.'),
           tag: 'usage',
           url: '/?settings=usage',
         },

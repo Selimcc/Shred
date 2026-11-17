@@ -4,6 +4,7 @@
 //  - « auth » : envoyée au serveur pour se connecter. Le serveur n'en garde qu'une empreinte.
 //  - « data » : reste sur le téléphone et chiffre la sauvegarde (AES-GCM). Le serveur ne la voit jamais.
 // Le mot de passe lui-même n'est ni envoyé ni stocké.
+import { tr } from '../../shared/i18n';
 
 export const KDF_ITERATIONS = 600_000;
 const enc = new TextEncoder();
@@ -30,7 +31,7 @@ export function cryptoAvailable(): boolean {
 }
 
 export async function deriveKeys(email: string, password: string): Promise<{ auth: string; data: string }> {
-  if (!cryptoAvailable()) throw new Error('Connexion sécurisée requise : ouvre l’app en https.');
+  if (!cryptoAvailable()) throw new Error(tr('Connexion sécurisée requise : ouvre l’app en https.'));
   const base = await crypto.subtle.importKey('raw', enc.encode(password.normalize('NFC')), 'PBKDF2', false, ['deriveBits']);
   const master = await crypto.subtle.deriveBits(
     { name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(`shred:v1:${normEmail(email)}`), iterations: KDF_ITERATIONS },

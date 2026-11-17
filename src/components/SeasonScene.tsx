@@ -11,6 +11,7 @@ import { reducedMotion } from '../lib/motion';
 import { SEASONS, type SeasonId } from '../lib/season';
 import { Arrow, CupidPulse, HEART, TargetHeart } from './CupidPulse';
 import { BunnyCast, EggCast, GiftDrop, PartyCast, SleighCast, WitchCast } from './SeasonCast';
+import { tr } from '../../shared/i18n';
 
 /** Durée de chaque scène, en ms (l'animation principale de chaque scène, dans le CSS, dure autant). */
 export const SCENE_MS: Record<SeasonId, number> = {
@@ -135,7 +136,7 @@ function NewYear({ today }: { today: string }) {
       <Firework k={2} n={18} colors={['#6fdcb0', '#fff3c4', '#ffd166']} />
       <Firework k={3} n={30} colors={['#ffd166', '#fff3c4', '#ffffff', '#ffe08a']} />
       <div className="ny-year2">
-        <span>{today.slice(5, 7) === '12' ? 'Bientôt' : 'Bonne année'}</span>
+        <span>{today.slice(5, 7) === '12' ? tr('Bientôt') : tr('Bonne année')}</span>
         <b>{year}</b>
       </div>
       <div className="ny-confetti">
@@ -275,7 +276,7 @@ function Glyph({ season }: { season: SeasonId }) {
 /** Rejouer la scène de la fête : une pastille à côté de la date, l'emblème et le nom de la fête. */
 export function SeasonReplay({ season }: { season: SeasonId }) {
   return (
-    <button type="button" className={`season-replay sr-${season}`} onClick={playSeasonScene} aria-label={`Revoir l’animation : ${SEASONS[season].name}`}>
+    <button type="button" className={`season-replay sr-${season}`} onClick={playSeasonScene} aria-label={tr('Revoir l’animation : {name}', { name: SEASONS[season].name })}>
       <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
         <Glyph season={season} />
       </svg>

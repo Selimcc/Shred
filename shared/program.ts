@@ -4,6 +4,7 @@ import { catalogEntry } from './catalog';
 import { blocksSeconds, fmtClock, sessionBlocks } from './effort';
 import { DEFAULT_PROGRAM } from './templates';
 import type { CatalogEntry, Exercise, HabitDef, Macros, MealSlot, PlannedMeal, Program, Session, SessionDef } from './types';
+import { tr } from './i18n';
 
 export type { Exercise, HabitDef, Macros, MealSlot, PlannedMeal, Program, Session, SessionDef } from './types';
 export type SessionId = string;
@@ -18,7 +19,8 @@ function parseReps(reps: string): { repMin?: number; repMax?: number } {
 
 export function resolveExercise(slot: SessionDef['exercises'][number], custom: Record<string, CatalogEntry> = {}): Exercise {
   const e = catalogEntry(slot.key, custom);
-  const name = e?.name ?? slot.key;
+  // Le nom affiché : la bibliothèque est traduite, un exercice créé par l'utilisateur reste tel quel.
+  const name = e ? (e.custom ? e.name : tr(e.name)) : slot.key;
   const reps = slot.reps ?? e?.defaults.reps ?? '10';
   return {
     key: slot.key,
@@ -28,7 +30,7 @@ export function resolveExercise(slot: SessionDef['exercises'][number], custom: R
     ...parseReps(reps),
     rest: slot.rest ?? e?.defaults.rest ?? 90,
     kind: e?.kind ?? 'isolation',
-    note: slot.note ?? e?.note,
+    note: slot.note ?? (e?.note ? tr(e.note) : undefined),
     step: e?.step ?? 2.5,
     noLoad: e?.noLoad ?? false,
     ...(e?.discipline ? { discipline: e.discipline } : {}),
@@ -58,8 +60,9 @@ export function resolveSession(def: SessionDef, custom: Record<string, CatalogEn
   const exercises = def.exercises.map((x) => resolveExercise(x, custom));
   return {
     id: def.id,
-    name: def.name,
-    focus: def.focus,
+    // Noms des modèles traduits à l'affichage ; ceux qu'on a tapés soi-même ne changent pas.
+    name: tr(def.name),
+    focus: tr(def.focus),
     type: def.type,
     duration: sessionDuration(exercises),
     completeWhen: def.type === 'lifting' ? 'all' : def.type === 'rest' ? 'first' : 'any',
@@ -89,36 +92,45 @@ export function scheduleFor(program: Program, date: string): string[] {
 }
 
 export function findSession(program: Program, id: string): SessionDef {
-  return program.sessions.find((s) => s.id === id) ?? program.sessions[0] ?? { id: 'empty', name: 'Séance', focus: '', type: 'lifting', exercises: [] };
+  return program.sessions.find((s) => s.id === id) ?? program.sessions[0] ?? { id: 'empty', name: tr('Séance'), focus: '', type: 'lifting', exercises: [] };
 }
 
 /* ---------- Nutrition et habitudes par défaut ---------- */
 
 export const SLOTS: { id: MealSlot; name: string }[] = [
-  { id: 'breakfast', name: 'Petit-déjeuner' },
-  { id: 'lunch', name: 'Déjeuner' },
-  { id: 'snack', name: 'Collation' },
-  { id: 'dinner', name: 'Dîner' },
-  { id: 'extra', name: 'Extras' },
+  { id: 'breakfast', name: tr('Petit-déjeuner') },
+  { id: 'lunch', name: tr('Déjeuner') },
+  { id: 'snack', name: tr('Collation') },
+  { id: 'dinner', name: tr('Dîner') },
+  { id: 'extra', name: tr('Extras') },
 ];
 
+/** « Ajouter au … » écrit en entier pour chaque repas : l’article change selon le mot et selon la langue. */
+export const ADD_TO_SLOT: Record<MealSlot, string> = {
+  breakfast: tr('Ajouter au petit-déjeuner'),
+  lunch: tr('Ajouter au déjeuner'),
+  snack: tr('Ajouter à la collation'),
+  dinner: tr('Ajouter au dîner'),
+  extra: tr('Ajouter aux extras'),
+};
+
 export const DEFAULT_MEAL_PLAN: PlannedMeal[] = [
-  { id: 'oats', slot: 'breakfast', label: 'Avoine, lait, whey, banane', detail: '80 g d’avoine, 300 ml de lait demi-écrémé, 30 g de whey, 1 banane', kcal: 650, protein: 46, carbs: 90, fat: 12 },
-  { id: 'chicken-box', slot: 'lunch', label: 'Box poulet riz', detail: '150 g de poulet, 90 g de riz cru, 200 g de légumes, 1 c. à soupe d’huile', kcal: 630, protein: 46, carbs: 78, fat: 14 },
-  { id: 'skyr', slot: 'snack', label: 'Skyr, fruits rouges, beurre de cacahuète', detail: '250 g de skyr, 100 g de fruits rouges, 20 g de beurre de cacahuète', kcal: 320, protein: 33, carbs: 21, fat: 11 },
-  { id: 'bolo-box', slot: 'dinner', label: 'Box bolognaise', detail: '150 g de bœuf 5 %, 100 g de pâtes crues, coulis, légumes, 1 c. à soupe d’huile', kcal: 730, protein: 46, carbs: 86, fat: 19 },
-  { id: 'fish-dinner', slot: 'dinner', label: 'Sardines et pâtes', detail: '2 boîtes de sardines, 80 g de pâtes crues, légumes', kcal: 680, protein: 52, carbs: 66, fat: 23 },
-  { id: 'fruit', slot: 'extra', label: 'Fruit', detail: 'Pomme, clémentines…', kcal: 80, protein: 1, carbs: 20, fat: 0 },
+  { id: 'oats', slot: 'breakfast', label: tr('Avoine, lait, whey, banane'), detail: tr('80 g d’avoine, 300 ml de lait demi-écrémé, 30 g de whey, 1 banane'), kcal: 650, protein: 46, carbs: 90, fat: 12 },
+  { id: 'chicken-box', slot: 'lunch', label: tr('Box poulet riz'), detail: tr('150 g de poulet, 90 g de riz cru, 200 g de légumes, 1 c. à soupe d’huile'), kcal: 630, protein: 46, carbs: 78, fat: 14 },
+  { id: 'skyr', slot: 'snack', label: tr('Skyr, fruits rouges, beurre de cacahuète'), detail: tr('250 g de skyr, 100 g de fruits rouges, 20 g de beurre de cacahuète'), kcal: 320, protein: 33, carbs: 21, fat: 11 },
+  { id: 'bolo-box', slot: 'dinner', label: tr('Box bolognaise'), detail: tr('150 g de bœuf 5 %, 100 g de pâtes crues, coulis, légumes, 1 c. à soupe d’huile'), kcal: 730, protein: 46, carbs: 86, fat: 19 },
+  { id: 'fish-dinner', slot: 'dinner', label: tr('Sardines et pâtes'), detail: tr('2 boîtes de sardines, 80 g de pâtes crues, légumes'), kcal: 680, protein: 52, carbs: 66, fat: 23 },
+  { id: 'fruit', slot: 'extra', label: tr('Fruit'), detail: tr('Pomme, clémentines…'), kcal: 80, protein: 1, carbs: 20, fat: 0 },
 ];
 
 /** Alias conservé pour le code existant. */
 export const PLANNED_MEALS = DEFAULT_MEAL_PLAN;
 
 export const DEFAULT_HABITS: HabitDef[] = [
-  { id: 'steps', name: '8 000 pas', icon: 'steps' },
-  { id: 'creatine', name: 'Créatine', icon: 'pill' },
-  { id: 'magnesium', name: 'Magnésium', icon: 'moon' },
-  { id: 'd3', name: 'Vitamine D3', icon: 'sun' },
+  { id: 'steps', name: tr('8 000 pas'), icon: 'steps' },
+  { id: 'creatine', name: tr('Créatine'), icon: 'pill' },
+  { id: 'magnesium', name: tr('Magnésium'), icon: 'moon' },
+  { id: 'd3', name: tr('Vitamine D3'), icon: 'sun' },
 ];
 
 export const HABIT_ICONS = ['steps', 'pill', 'moon', 'sun', 'flame', 'bolt', 'apple', 'scale', 'check'];
@@ -143,23 +155,23 @@ export function programSummary(
     .filter((s) => used.has(s.id))
     .map((def) => {
       const s = resolveSession(def, opts.custom);
-      const list = s.exercises.map((e) => `  - ${e.name} : ${e.sets} × ${e.reps}`).join('\n');
-      return `${s.name} (${s.focus}) :\n${list || '  (vide)'}`;
+      const list = s.exercises.map((e) => `  - ${tr('{name} : {detail}', { name: e.name, detail: `${e.sets} × ${e.reps}` })}`).join('\n');
+      return `${s.name} (${s.focus}) :\n${list || `  ${tr('(vide)')}`}`;
     })
     .join('\n');
   const w = planWeek(program, today);
   const parts = [
-    `PROGRAMME « ${program.name} »`,
-    program.event && w !== null ? `Plan daté : semaine ${w + 1} sur ${program.weeks!.length}${program.phases?.[w] ? ` (${program.phases[w]})` : ''}, ${program.event.name} le ${program.event.date}.` : '',
-    `${w !== null ? 'Cette semaine' : 'Semaine type'} : ${week}.`,
+    tr('PROGRAMME « {name} »', { name: program.name }),
+    program.event && w !== null ? tr('Plan daté : semaine {n} sur {length}{v}, {name} le {date}.', { n: w + 1, length: program.weeks!.length, v: program.phases?.[w] ? ` (${program.phases[w]})` : '', name: program.event.name, date: program.event.date }) : '',
+    `${tr('{name} : {detail}', { name: w !== null ? tr('Cette semaine') : tr('Semaine type'), detail: week })}.`,
     sessions,
-    `RÈGLES : double progression (haut de fourchette sur toutes les séries → charge suivante), polyarticulaires à 1–2 reps de l'échec, décharge toutes les 6–8 semaines.`,
+    tr('RÈGLES : double progression (haut de fourchette sur toutes les séries → charge suivante), polyarticulaires à 1–2 reps de l\'échec, décharge toutes les 6–8 semaines.'),
   ];
   if (opts.nutrition !== false) {
     const t = opts.targets ?? DEFAULT_TARGETS;
-    parts.push(`NUTRITION : objectif ${t.kcal} kcal/jour, ${t.protein} g de protéines, ${t.carbs} g de glucides, ${t.fat} g de lipides.`);
-    const meals = (opts.meals ?? DEFAULT_MEAL_PLAN).map((m) => `- ${m.label} (${m.detail}) : ${m.kcal} kcal, ${m.protein} g P`).join('\n');
-    if (meals) parts.push(`Repas prévus :\n${meals}`);
+    parts.push(tr('NUTRITION : objectif {kcal} kcal/jour, {protein} g de protéines, {carbs} g de glucides, {fat} g de lipides.', { kcal: t.kcal, protein: t.protein, carbs: t.carbs, fat: t.fat }));
+    const meals = (opts.meals ?? DEFAULT_MEAL_PLAN).map((m) => tr('- {label} ({detail}) : {kcal} kcal, {protein} g P', { label: m.label, detail: m.detail, kcal: m.kcal, protein: m.protein })).join('\n');
+    if (meals) parts.push(tr('Repas prévus :\n{meals}', { meals }));
   }
   return parts.filter(Boolean).join('\n\n');
 }

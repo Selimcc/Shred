@@ -9,6 +9,7 @@ import { DEMO } from './api';
 import { signedIn } from './session';
 import { type AppState, getState, setState, subscribe } from './store';
 import { e1rm } from './strength';
+import { loc, tn, tr } from '../../shared/i18n';
 
 export type MomentKind = 'session' | 'record' | 'habits' | 'steps' | 'post' | 'spark' | 'challenge' | 'trophy' | 'plates';
 
@@ -83,8 +84,8 @@ export function startMoments() {
       const meals = day ? mealsCount(day) : 0;
       moment(
         'session',
-        session.type === 'rest' ? 'Récup validée' : 'Séance validée',
-        `${session.name}${session.lifting && sets ? `, ${sets} séries` : ''}. +50 XP${meals < s.settings.goal.minMeals ? ', note tes repas pour la flamme' : ''}`,
+        session.type === 'rest' ? tr('Récup validée') : tr('Séance validée'),
+        `${session.name}${session.lifting && sets ? tr(', {sets} séries', { sets }) : ''}. +50 XP${meals < s.settings.goal.minMeals ? tr(', note tes repas pour la flamme') : ''}`,
       );
       // Une séance validée relève aussi les défis reçus encore ouverts.
       if (DEMO || signedIn()) {
@@ -94,15 +95,15 @@ export function startMoments() {
             setState((d) => void (d.club = { sparks: d.club?.sparks ?? 0, challenges: (d.club?.challenges ?? 0) + done.length }));
             const who = done.map((c) => c.fromName).join(', ');
             const plates = done.reduce((n, c) => n + (c.stake ?? 0), 0);
-            const won = plates ? `, +${plates} disque${plates > 1 ? 's' : ''}` : '';
-            setTimeout(() => moment('challenge', done.length > 1 ? `${done.length} défis relevés` : 'Défi relevé', `${who} est prévenu. +${CHALLENGE_XP * done.length} XP${won}`), 3600);
+            const won = plates ? tn(plates, ', +{n} disque', ', +{n} disques') : '';
+            setTimeout(() => moment('challenge', done.length > 1 ? tr('{length} défis relevés', { length: done.length }) : tr('Défi relevé'), tr('{who} est prévenu. +{n} XP{won}', { who, n: CHALLENGE_XP * done.length, won })), 3600);
           })
           .catch(() => undefined);
       }
     } else if (now.habits && !last.habits) {
-      moment('habits', 'Habitudes du jour bouclées', `${s.habits.length} sur ${s.habits.length}, propre.`);
+      moment('habits', tr('Habitudes du jour bouclées'), tr('{length} sur {length}, propre.', { length: s.habits.length }));
     } else if (now.steps && !last.steps) {
-      moment('steps', `${STEP_GOAL.toLocaleString('fr-FR')} pas`, 'Objectif atteint, l’habitude est cochée.');
+      moment('steps', tr('{STEP_GOAL} pas', { STEP_GOAL: STEP_GOAL.toLocaleString(loc()) }), tr('Objectif atteint, l’habitude est cochée.'));
     }
     last = now;
   });

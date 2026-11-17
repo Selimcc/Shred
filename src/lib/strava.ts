@@ -6,6 +6,7 @@ import { addDays, dayKey } from './date';
 import { isNative } from './native';
 import { signedIn } from './session';
 import { type Activity, getState, setState } from './store';
+import { tr } from '../../shared/i18n';
 
 export interface StravaStatus {
   configured: boolean;
@@ -34,7 +35,7 @@ export async function stravaStatus(): Promise<StravaStatus> {
 /** Ouvre la page d'autorisation de Strava. Le retour se fait sur le serveur, l'app vérifie en revenant au premier plan. */
 export async function connectStrava(): Promise<void> {
   if (DEMO) {
-    setState((d) => void (d.strava = { athlete: 'Démo S', connectedAt: new Date().toISOString() }));
+    setState((d) => void (d.strava = { athlete: tr('Démo S'), connectedAt: new Date().toISOString() }));
     await syncStrava(true);
     return;
   }
@@ -59,9 +60,9 @@ function demoActivities(): Activity[] {
   const today = dayKey();
   const at = (days: number, time: string) => `${addDays(today, -days)}T${time}:00`;
   return [
-    { id: 'strava:demo-1', source: 'strava', sport: 'run', name: 'Footing du soir', start: at(1, '18:40'), min: 46, km: 8.4, elev: 38, hr: 148 },
-    { id: 'strava:demo-2', source: 'strava', sport: 'bike', name: 'Sortie vélo', start: at(3, '09:10'), min: 92, km: 41.2, elev: 410, hr: 136 },
-    { id: 'strava:demo-3', source: 'strava', sport: 'swim', name: 'Piscine', start: at(5, '07:15'), min: 38, km: 1.8 },
+    { id: 'strava:demo-1', source: 'strava', sport: 'run', name: tr('Footing du soir'), start: at(1, '18:40'), min: 46, km: 8.4, elev: 38, hr: 148 },
+    { id: 'strava:demo-2', source: 'strava', sport: 'bike', name: tr('Sortie vélo'), start: at(3, '09:10'), min: 92, km: 41.2, elev: 410, hr: 136 },
+    { id: 'strava:demo-3', source: 'strava', sport: 'swim', name: tr('Piscine'), start: at(5, '07:15'), min: 38, km: 1.8 },
   ];
 }
 

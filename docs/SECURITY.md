@@ -155,6 +155,13 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 | Low | Forfeit text written by another member. | 80 characters, trimmed, shown with `textContent` like comments; notifications and pushes carry it as plain text. Only people who can already be challenged (public accounts, or private ones you follow) can receive one. |
 | Design | Warm-ups. | Computed on the phone from the program; `warmup` is a two-value field in the backup. Nothing new is sent, except a line in the connector's `get_today` for the member's own Claude. |
 
+## Version 0.31
+
+| Severity | Finding | Fix |
+| --- | --- | --- |
+| Low | A language header and a stored preference. | `X-Shred-Lang` and `Accept-Language` only ever select one of six codes (`isLang`, `pickLang`); any other value is ignored. The per-account `lang` key holds one of those codes and nothing else. |
+| Low | Translated strings with placeholders. | Dictionaries are static JSON bundled at build time, never fetched from elsewhere. Placeholders are filled with plain text: React escapes it in the app; in the weekly email, text that comes from the member (name, exercise names, advice) is escaped (`esc`) and the only values placed inside the translated HTML snippets are numbers; pushes are plain text. `npm test` rejects a translation whose placeholders differ from the French key. |
+
 ## Accepted
 
 | Severity | Finding | Why |

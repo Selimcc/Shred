@@ -8,6 +8,7 @@
 // les flous et les dégradés ; les parties qui bougent (main, cape, queue, yeux, oreilles) sont des calques à
 // part que le CSS anime en transform / opacity. Le navigateur déplace ces calques sans redessiner le verre.
 import type { CSSProperties, ReactNode } from 'react';
+import { tr } from '../../shared/i18n';
 
 const css = (o: Record<string, string | number>) => o as CSSProperties;
 
@@ -212,7 +213,7 @@ export function SleighCast() {
       <Lay vb={SV} cls="reins">
         <path d="M60 108c14 9 32 9 48 2M124 114c20 10 42 10 64-6" stroke="#ffd166" strokeWidth="1.5" fill="none" strokeLinecap="round" />
       </Lay>
-      <Lay vb={SV} cls="deer a" pivot={[46, 80]}>
+      <Lay vb={SV} cls={'deer a'} pivot={[46, 80]}>
         <defs>
           <GlassDefs id={`${id}d`} glass={['#5a4232', '#2c1f16', '#130c08']} light={['#a8572a', '#ffb35c', '#fff1d6']} />
           <radialGradient id="scNoseRed" cx="35%" cy="30%" r="70%">
@@ -231,12 +232,12 @@ export function SleighCast() {
           <Reindeer id={`${id}d`} lead />
         </g>
       </Lay>
-      <Lay vb={SV} cls="deer nose" pivot={[46, 80]}>
+      <Lay vb={SV} cls={'deer nose'} pivot={[46, 80]}>
         <g transform={at(46, 80, 20)}>
           <circle cx="22" cy="72" r="13" fill="#ff3b3b" opacity="0.45" filter={`url(#${id}dblur)`} />
         </g>
       </Lay>
-      <Lay vb={SV} cls="deer b" pivot={[112, 86]}>
+      <Lay vb={SV} cls={'deer b'} pivot={[112, 86]}>
         <g transform={at(112, 86, 20)}>
           <Reindeer id={`${id}d`} />
         </g>
@@ -306,12 +307,12 @@ export function SleighCast() {
         {/* La main qui tient les rênes. */}
         <Hand id={id} x={192} y={104} tint="#ffb35c" />
       </Lay>
-      <Lay vb={SV} cls="eyes open" pivot={[224, 64]}>
+      <Lay vb={SV} cls={'eyes open'} pivot={[224, 64]}>
         <g transform={at(226, 70, 31)} filter={`url(#${id}glow)`}>
           <EyesOpen dx={-3} dy={-6} h={13} />
         </g>
       </Lay>
-      <Lay vb={SV} cls="eyes happy">
+      <Lay vb={SV} cls={'eyes happy'}>
         <g transform={at(226, 70, 31)} filter={`url(#${id}glow)`}>
           <EyesHappy dx={-3} dy={-8} />
         </g>
@@ -321,7 +322,7 @@ export function SleighCast() {
         <path d="M193 54c-3 4-2 9 2 11" stroke="#f4f8fb" strokeWidth="4.6" fill="none" strokeLinecap="round" />
         <Hand id={id} x={186} y={48} r={7.5} tint="#ffb35c" />
       </Lay>
-      <b className="scene-say sleigh-say">Ho ho ho !</b>
+      <b className="scene-say sleigh-say">{tr('Ho ho ho !')}</b>
     </div>
   );
 }
@@ -457,7 +458,7 @@ export function WitchCast() {
       <Lay vb={WV} cls="tail" pivot={[202, 100]}>
         <path d="M202 100c18-2 28-16 20-30-4-6-12-5-10 2" stroke="#101015" strokeWidth="4.6" fill="none" strokeLinecap="round" />
       </Lay>
-      <b className="scene-say witch-say">Hé hé hé !</b>
+      <b className="scene-say witch-say">{tr('Hé hé hé !')}</b>
     </div>
   );
 }
@@ -510,23 +511,23 @@ export function PartyCast() {
         {/* La main droite qui fête. */}
         <Hand id={id} x={196} y={162} r={8.5} tint="#ffd166" />
       </Lay>
-      <Lay vb={PV} cls="eyes open">
+      <Lay vb={PV} cls={'eyes open'}>
         <g transform={P} filter={`url(#${id}glow)`}>
           <EyesOpen dy={-2} />
         </g>
       </Lay>
-      <Lay vb={PV} cls="eyes happy">
+      <Lay vb={PV} cls={'eyes happy'}>
         <g transform={P} filter={`url(#${id}glow)`}>
           <EyesHappy dy={-3} />
         </g>
       </Lay>
       {/* La langue de belle-mère : roulée, puis déroulée quand Pulse souffle. */}
-      <Lay vb={PV} cls="horn coil" pivot={[132, 150]}>
+      <Lay vb={PV} cls={'horn coil'} pivot={[132, 150]}>
         <path d="M128 150c8 2 14 0 16-6 2-7-3-12-9-11-5 1-7 6-4 9 2 2 5 1 5-1" stroke="#ff6b8b" strokeWidth="5" fill="none" strokeLinecap="round" />
         <path d="M128 150c8 2 14 0 16-6 2-7-3-12-9-11" stroke="#ffd166" strokeWidth="1.6" fill="none" strokeDasharray="3 4" strokeLinecap="round" />
         <rect x="120" y="145" width="11" height="9" rx="2.5" fill="#7e5bff" />
       </Lay>
-      <Lay vb={PV} cls="horn blow" pivot={[124, 150]}>
+      <Lay vb={PV} cls={'horn blow'} pivot={[124, 150]}>
         <path d="M124 150c30-2 58-8 86-22" stroke="#ff6b8b" strokeWidth="6.4" fill="none" strokeLinecap="round" />
         <path d="M128 149c28-2 56-8 82-21" stroke="#ffd166" strokeWidth="2" fill="none" strokeDasharray="5 6" strokeLinecap="round" />
         <path d="M210 128l14-9M211 130l16-2M211 132l13 7" stroke="#c9a7ff" strokeWidth="2.2" strokeLinecap="round" />
@@ -539,13 +540,13 @@ export function PartyCast() {
         <circle cx="45" cy="99" r="3.6" fill="#fffbe6" />
         <Hand id={id} x={66} y={166} r={8.5} tint="#ffd166" />
       </Lay>
-      <Lay vb={PV} cls="sparkler sparks s0" pivot={[66, 166]}>
+      <Lay vb={PV} cls={'sparkler sparks s0'} pivot={[66, 166]}>
         <path d="M45 91v-8M53 99h8M45 107v6M37 99h-8M51 93l6-6M51 105l5 5M39 93l-5-6M39 105l-6 5" stroke="#fff3c4" strokeWidth="1.4" strokeLinecap="round" />
       </Lay>
-      <Lay vb={PV} cls="sparkler sparks s1" pivot={[66, 166]}>
+      <Lay vb={PV} cls={'sparkler sparks s1'} pivot={[66, 166]}>
         <path d="M49 89l3-7M55 96l7-3M50 108l3 6M36 104l-6 3M38 90l-3-6M56 102l6 2" stroke="#ffd166" strokeWidth="1.2" strokeLinecap="round" />
       </Lay>
-      <b className="scene-say party-say">Pouêt !</b>
+      <b className="scene-say party-say">{tr('Pouêt !')}</b>
     </div>
   );
 }
@@ -563,7 +564,7 @@ export function BunnyCast() {
     <div className="actor bunny2">
       <div className="hop">
         {/* Les oreilles, qui suivent chaque bond avec un temps de retard. */}
-        <Lay vb={BV} cls="ear l" pivot={[86, 94]}>
+        <Lay vb={BV} cls={'ear l'} pivot={[86, 94]}>
           <defs>
             <linearGradient id={`${id}ear`} x1="0" y1="0" x2="1" y2="1">
               <stop offset="0" stopColor="#ffffff" />
@@ -574,7 +575,7 @@ export function BunnyCast() {
           <path d="M79 86c-5-18-6-40-1-54 2-5 7-5 8 1 2 16 1 36-2 53Z" fill="#ffb3c7" />
           <path d="M78 30c-2 10-2 24 0 36" stroke="#fff" strokeOpacity="0.6" strokeWidth="1.4" fill="none" strokeLinecap="round" />
         </Lay>
-        <Lay vb={BV} cls="ear r" pivot={[108, 94]}>
+        <Lay vb={BV} cls={'ear r'} pivot={[108, 94]}>
           <path d="M104 94c4-22 12-40 26-50 8-6 18-2 14 8-6 12-16 28-30 46Z" fill={`url(#${id}ear)`} />
           <path d="M108 86c5-16 12-30 22-37 4-3 9-1 7 3-5 10-14 22-25 35Z" fill="#ffb3c7" />
         </Lay>
@@ -615,12 +616,12 @@ export function BunnyCast() {
           <path d="M143 151h50" stroke="#f0c98a" strokeWidth="3" strokeLinecap="round" />
           <Hand id={id} x={150} y={146} r={7.5} tint="#ffe066" />
         </Lay>
-        <Lay vb={BV} cls="eyes open" pivot={[100, 123]}>
+        <Lay vb={BV} cls={'eyes open'} pivot={[100, 123]}>
           <g transform={B} filter={`url(#${id}glow)`}>
             <EyesOpen dx={4} dy={-3} h={13} />
           </g>
         </Lay>
-        <Lay vb={BV} cls="eyes happy">
+        <Lay vb={BV} cls={'eyes happy'}>
           <g transform={B} filter={`url(#${id}glow)`}>
             <EyesHappy dx={4} dy={-4} />
           </g>
@@ -695,7 +696,7 @@ export function EggCast() {
       <Lay vb={EV} cls="crack">
         <path d={zig} stroke="#5b3fa8" strokeWidth="1.8" fill="none" strokeLinejoin="round" clipPath={`url(#${id}egg)`} />
       </Lay>
-      <b className="scene-say egg-say">Piou !</b>
+      <b className="scene-say egg-say">{tr('Piou !')}</b>
     </div>
   );
 }

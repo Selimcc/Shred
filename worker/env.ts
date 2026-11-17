@@ -34,10 +34,12 @@ export interface Env {
   MOCK_AI?: string;
 }
 
+/** Erreur renvoyée à l'app : le message (en français, traduit à l'envoi) et ses variables. */
 export class HttpError extends Error {
   constructor(
     public status: number,
     message: string,
+    public vars?: Record<string, string | number>,
   ) {
     super(message);
   }

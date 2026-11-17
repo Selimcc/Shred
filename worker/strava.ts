@@ -3,7 +3,8 @@
 // des sorties résumées. Règle de Strava : ces données ne s'affichent qu'à la personne qui les a enregistrées.
 import { type Env, HttpError, json, readJson } from './env';
 import { seal, unseal } from './seal';
-import { loadJson, type Store, type User } from './users';
+import { loadJson, type Store, type User, userStore } from './users';
+import { type Lang, langOf, say, tx } from './i18n';
 
 const AUTHORIZE = 'https://www.strava.com/oauth/authorize';
 const TOKEN = 'https://www.strava.com/oauth/token';
@@ -109,12 +110,12 @@ async function accessToken(env: Env, store: Store): Promise<Tokens> {
   return next;
 }
 
-const page = (title: string, text: string) =>
+const page = (lang: Lang, title: string, text: string) =>
   new Response(
-    `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
+    `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#15171b;color:#f2f3f5;font:16px/1.5 system-ui,-apple-system,sans-serif;padding:24px}
 main{max-width:360px;text-align:center}h1{font-size:1.4rem;margin:0 0 8px}p{color:#a0a5ad;margin:0 0 20px}a{display:inline-block;background:#f2f3f5;color:#15171b;border-radius:14px;padding:12px 20px;font-weight:700;text-decoration:none}</style></head>
-<body><main><h1>${title}</h1><p>${text}</p><a href="/">Revenir dans Shred</a></main></body></html>`,
+<body><main><h1>${tx(lang, title)}</h1><p>${tx(lang, text)}</p><a href="/">${tx(lang, 'Revenir dans Shred')}</a></main></body></html>`,
     { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } },
   );
 
@@ -125,10 +126,12 @@ export async function stravaCallback(env: Env, url: URL): Promise<Response | nul
   const code = url.searchParams.get('code');
   const userId = /^[a-f0-9]{32}$/.test(state) ? await env.KV.get(`strava-state:${state}`) : null;
   if (userId) await env.KV.delete(`strava-state:${state}`);
-  if (url.searchParams.get('error') || !code) return page('Connexion annulée', 'Strava n’a pas été relié. Tu peux réessayer depuis Réglages, Strava.');
-  if (!userId) return page('Lien expiré', 'Ce lien de connexion a expiré. Relance la connexion depuis Réglages, Strava.');
+  // La page s'affiche dans la langue de l'app de la personne.
+  const lang = userId ? await langOf(userId, userStore(env.KV, userId)) : 'fr';
+  if (url.searchParams.get('error') || !code) return page(lang, say('Connexion annulée'), say('Strava n’a pas été relié. Tu peux réessayer depuis Réglages, Strava.'));
+  if (!userId) return page(lang, say('Lien expiré'), say('Ce lien de connexion a expiré. Relance la connexion depuis Réglages, Strava.'));
   const scope = url.searchParams.get('scope') ?? '';
-  if (!scope.includes('activity:read')) return page('Accès aux sorties refusé', 'Shred a besoin de lire tes activités pour les importer. Relance la connexion et coche l’accès aux activités.');
+  if (!scope.includes('activity:read')) return page(lang, say('Accès aux sorties refusé'), say('Shred a besoin de lire tes activités pour les importer. Relance la connexion et coche l’accès aux activités.'));
   const data = await tokenRequest(env, { code, grant_type: 'authorization_code' });
   const athlete = (data.athlete ?? {}) as { id?: number; firstname?: string; lastname?: string };
   const tokens: Tokens = {
@@ -136,12 +139,12 @@ export async function stravaCallback(env: Env, url: URL): Promise<Response | nul
     refresh: String(data.refresh_token),
     expiresAt: Number(data.expires_at),
     athleteId: Number(athlete.id ?? 0),
-    athlete: [athlete.firstname, athlete.lastname?.slice(0, 1)].filter(Boolean).join(' ') || 'ton compte',
+    athlete: [athlete.firstname, athlete.lastname?.slice(0, 1)].filter(Boolean).join(' ') || tx(lang, 'ton compte'),
     scope,
     connectedAt: new Date().toISOString(),
   };
   await env.KV.put(`u:${userId}:strava`, await sealTokens(env, tokens));
-  return page('Strava est relié', 'Tes sorties vont arriver dans Shred. Tu peux fermer cette page et revenir dans l’app.');
+  return page(lang, say('Strava est relié'), say('Tes sorties vont arriver dans Shred. Tu peux fermer cette page et revenir dans l’app.'));
 }
 
 export async function disconnectStrava(env: Env, store: Store) {
@@ -191,7 +194,7 @@ export async function stravaRoutes(req: Request, env: Env, user: User, url: URL)
       throw new HttpError(409, 'Strava a été déconnecté. Relie-le à nouveau dans Réglages, Strava.');
     }
     if (res.status === 429) throw new HttpError(429, 'Strava limite les requêtes : réessaie dans un quart d’heure.');
-    if (!res.ok) throw new HttpError(502, `Strava ne répond pas (${res.status})`);
+    if (!res.ok) throw new HttpError(502, 'Strava ne répond pas ({status})', { status: res.status });
     const list = (await res.json()) as Record<string, unknown>[];
     const activities = list.map(mapActivity).filter((a): a is ImportedActivity => Boolean(a));
     return json({ activities, athlete: t.athlete });

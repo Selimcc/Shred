@@ -24,6 +24,7 @@ import { RollingNumber } from '../components/RollingNumber';
 import { liftSeries, recentRecords, rollingWeeks, totalMinutes, trackedLifts, trainingWeeks } from '../lib/training';
 import { DISCIPLINE_NAMES } from '../../shared/catalog';
 import type { Discipline } from '../../shared/types';
+import { lower, tn, tr } from '../../shared/i18n';
 
 const WEEKS = 12;
 
@@ -43,10 +44,10 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
     <>
       <header className="topbar">
         <div>
-          <div className="date">Depuis le {formatShort(s.createdAt)}</div>
-          <h1>Ma fiche</h1>
+          <div className="date">{tr('Depuis le {date}', { date: formatShort(s.createdAt) })}</div>
+          <h1>{tr('Ma fiche')}</h1>
         </div>
-        <button className="icon-btn" onClick={() => openSettings()} aria-label="Réglages">
+        <button className="icon-btn" onClick={() => openSettings()} aria-label={tr('Réglages')}>
           <Icon name="gear" />
         </button>
       </header>
@@ -55,9 +56,9 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
         {(
           [
-            [st.current, 'série', 'var(--flame)'],
+            [st.current, tr('série'), 'var(--flame)'],
             [st.best, 'record', 'var(--ink)'],
-            [st.freezes, st.freezes > 1 ? 'gels' : 'gel', 'var(--ice)'],
+            [st.freezes, tn(st.freezes, 'gel', 'gels'), 'var(--ice)'],
             [lvl.level, 'niveau', 'var(--gold)'],
           ] as const
         ).map(([v, label, color]) => (
@@ -85,7 +86,7 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
 
       <section className="section">
         <div className="section-head">
-          <h2>12 dernières semaines</h2>
+          <h2>{tr('12 dernières semaines')}</h2>
         </div>
         <Calendar today={today} />
       </section>
@@ -93,11 +94,11 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
       {mod.weight && (
       <section className="section">
         <div className="section-head">
-          <h2>Poids</h2>
+          <h2>{tr('Poids')}</h2>
           {change !== null && (
             <span className={`tag num ${change >= goal.min && change <= goal.max ? 'up' : 'warn'}`}>
               {change > 0 ? '+' : ''}
-              {formatNumber(change, 2)} kg/sem
+              {tr('{n} kg/sem', { n: formatNumber(change, 2) })}
             </span>
           )}
         </div>
@@ -105,14 +106,14 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
           <WeightChart data={series} />
         </div>
         <p className="small muted" style={{ margin: '8px 2px 0' }}>
-          {goal.label} : entre {formatNumber(goal.min, 1)} et {formatNumber(goal.max, 1)} kg par semaine sur la moyenne.
+          {tr('{label} : entre {n} et {n2} kg par semaine sur la moyenne.', { label: goal.label, n: formatNumber(goal.min, 1), n2: formatNumber(goal.max, 1) })}
         </p>
         {recent.length > 0 && (
           <div className="group" style={{ marginTop: 10 }}>
             {recent.map(([date, kg]) => (
               <div className="row" key={date} style={{ minHeight: 44, padding: '10px 16px' }}>
                 <span className="grow muted">{formatShort(date)}</span>
-                <span className="num">{formatNumber(kg, 1)} kg</span>
+                <span className="num">{tr('{n} kg', { n: formatNumber(kg, 1) })}</span>
               </div>
             ))}
           </div>
@@ -125,7 +126,7 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
 
       <section className="section">
         <div className="section-head">
-          <h2>Records</h2>
+          <h2>{tr('Records')}</h2>
         </div>
         <div className="group">
           {bestLifts(s).map(({ key, name, best }) => {
@@ -133,8 +134,8 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
             return (
               <div className="row" key={key}>
                 <span className="grow">{name}</span>
-                {fresh && <span className="tag up">Nouveau</span>}
-                <span className="num muted">{best ? `${fmtKg(best.w)} × ${best.r}` : 'à venir'}</span>
+                {fresh && <span className="tag up">{tr('Nouveau')}</span>}
+                <span className="num muted">{best ? `${fmtKg(best.w)} × ${best.r}` : tr('à venir')}</span>
               </div>
             );
           })}
@@ -163,9 +164,9 @@ function Calendar({ today }: { today: string }) {
         ))}
       </div>
       <div className="small muted" style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap' }}>
-        <Legend color="var(--green)" label="Validé" />
-        <Legend color="var(--ice)" label="Protégé par un gel" />
-        <Legend color="var(--line)" label="Manqué" />
+        <Legend color="var(--green)" label={tr('Validé')} />
+        <Legend color="var(--ice)" label={tr('Protégé par un gel')} />
+        <Legend color="var(--line)" label={tr('Manqué')} />
       </div>
     </div>
   );
@@ -226,18 +227,18 @@ function Waist({ today }: { today: string }) {
   const entries = Object.entries(s.body.waist).sort(([a], [b]) => b.localeCompare(a));
   const save = () => {
     const cm = parseDecimal(draft);
-    if (cm === undefined || cm < 40 || cm > 200) return toast('Entre un tour de taille valide en cm', true);
+    if (cm === undefined || cm < 40 || cm > 200) return toast(tr('Entre un tour de taille valide en cm'), true);
     logBody('waist', today, cm);
     setDraft('');
-    toast('Tour de taille enregistré');
+    toast(tr('Tour de taille enregistré'));
   };
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Tour de taille</h2>
+        <h2>{tr('Tour de taille')}</h2>
         {entries.length > 1 && (
           <span className="small muted num">
-            {formatNumber(entries[0][1] - entries[entries.length - 1][1], 1)} cm depuis le début
+            {tr('{n} cm depuis le début', { n: formatNumber(entries[0][1] - entries[entries.length - 1][1], 1) })}
           </span>
         )}
       </div>
@@ -245,21 +246,21 @@ function Waist({ today }: { today: string }) {
         <input
           className="input num"
           inputMode="decimal"
-          placeholder="cm, au nombril"
+          placeholder={tr('cm, au nombril')}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && save()}
-          aria-label="Tour de taille en cm"
+          aria-label={tr('Tour de taille en cm')}
         />
         <button className="btn primary" onClick={save} disabled={!draft.trim()}>
-          Enregistrer
+          {tr('Enregistrer')}
         </button>
       </div>
       {entries.length > 0 && (
         <p className="small muted num" style={{ margin: '8px 2px 0' }}>
           {entries
             .slice(0, 4)
-            .map(([d, v]) => `${formatShort(d)} : ${formatNumber(v, 1)} cm`)
+            .map(([d, v]) => tr('{date} : {n} cm', { date: formatShort(d), n: formatNumber(v, 1) }))
             .join(', ')}
         </p>
       )}
@@ -274,17 +275,17 @@ function Strength({ today }: { today: string }) {
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Fiche de force</h2>
-        <span className="small muted">8 dernières semaines</span>
+        <h2>{tr('Fiche de force')}</h2>
+        <span className="small muted">{tr('8 dernières semaines')}</span>
       </div>
       <div className="card" style={{ padding: '8px 8px 12px' }}>
         <Radar groups={p.groups} weakestId={p.weakest?.id} />
         <p className="small muted" style={{ margin: '0 8px', textAlign: 'center' }}>
           {rated.length === 0
-            ? 'Note tes charges en séance : chaque groupe reçoit une note de E à A.'
+            ? tr('Note tes charges en séance : chaque groupe reçoit une note de E à A.')
             : p.weakest
-              ? `Point faible : ${p.weakest.name.toLowerCase()} (${p.weakest.grade}). Point fort : ${p.strongest?.name.toLowerCase()} (${p.strongest?.grade}).`
-              : 'Encore quelques séances pour comparer tes groupes musculaires.'}
+              ? tr('Point faible : {name} ({grade}). Point fort : {name2} ({grade2}).', { name: lower(p.weakest.name), grade: p.weakest.grade, name2: lower(p.strongest?.name), grade2: p.strongest?.grade })
+              : tr('Encore quelques séances pour comparer tes groupes musculaires.')}
         </p>
       </div>
       <div className="group" style={{ marginTop: 10 }}>
@@ -298,8 +299,8 @@ function Strength({ today }: { today: string }) {
                 <div className="title">{g.name}</div>
                 <div className="small muted num">
                   {best
-                    ? `Meilleure série : ${best.name.replace(/ \(.*\)$/, '')}, ${best.bodyweight ? `+${formatNumber(best.w, 1)} kg de lest` : `${formatNumber(best.w, 1)} kg`} × ${best.r}`
-                    : 'Pas encore de charge notée'}
+                    ? tr('Meilleure série : {replace}, {v} × {r}', { replace: best.name.replace(/ \(.*\)$/, ''), v: best.bodyweight ? tr('+{n} kg de lest', { n: formatNumber(best.w, 1) }) : `${formatNumber(best.w, 1)} kg`, r: best.r })
+                    : tr('Pas encore de charge notée')}
                 </div>
               </div>
             </div>
@@ -307,7 +308,7 @@ function Strength({ today }: { today: string }) {
         })}
       </div>
       <p className="small faint" style={{ margin: '8px 2px 0' }}>
-        Notes indicatives : 1RM estimé (formule d’Epley) rapporté à {p.estimatedBodyweight ? 'un poids de 75 kg, pèse-toi pour affiner' : `ton poids (${formatNumber(p.bodyweight, 1)} kg)`}, comparé à des repères de force débutant à avancé.
+        {tr('Notes indicatives : 1RM estimé (formule d’Epley) rapporté à {weight}, comparé à des repères de force débutant à avancé.', { weight: p.estimatedBodyweight ? tr('un poids de 75 kg, pèse-toi pour affiner') : tr('ton poids ({n} kg)', { n: formatNumber(p.bodyweight, 1) }) })}
       </p>
     </section>
   );
@@ -321,8 +322,8 @@ function Focus({ today }: { today: string }) {
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Où mettre l’effort</h2>
-        <span className="small muted">séries / semaine</span>
+        <h2>{tr('Où mettre l’effort')}</h2>
+        <span className="small muted">{tr('séries / semaine')}</span>
       </div>
       {f.headline && <p style={{ margin: '0 2px 10px', fontWeight: 700 }}>{f.headline}</p>}
       <div className="group">
@@ -330,7 +331,7 @@ function Focus({ today }: { today: string }) {
           <div className="row" key={i.group} style={{ alignItems: 'flex-start' }}>
             <div className="grow">
               <div className="title">
-                {i.name} {i.weak && <span className="tag up">point faible</span>}
+                {i.name} {i.weak && <span className="tag up">{tr('point faible')}</span>}
               </div>
               <div className="focus-bar">
                 <i style={{ width: `${Math.min(100, (i.sets / i.target[1]) * 100)}%`, background: color[i.status] }} />
@@ -341,7 +342,7 @@ function Focus({ today }: { today: string }) {
         ))}
       </div>
       <p className="small faint" style={{ margin: '8px 2px 0' }}>
-        Moyenne des 2 dernières semaines. Repères hypertrophie : environ 10 à 20 séries par muscle et par semaine.
+        {tr('Moyenne des 2 dernières semaines. Repères hypertrophie : environ 10 à 20 séries par muscle et par semaine.')}
       </p>
     </section>
   );
@@ -363,14 +364,14 @@ function ActivitySection({ today }: { today: string }) {
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Santé</h2>
-        <span className="small muted">Apple Santé, 7 jours</span>
+        <h2>{tr('Santé')}</h2>
+        <span className="small muted">{tr('Apple Santé, 7 jours')}</span>
       </div>
       <HealthStats s={s} today={today} />
       <p className="small muted" style={{ margin: '10px 2px 0' }}>
         {visits.length
-          ? `${visits.length} passage${visits.length > 1 ? 's' : ''} à la salle ces 7 derniers jours${avg ? `, ${avg} min en moyenne` : ''}.${lastVisit && gymDuration(lastVisit) ? ` Dernière séance : ${gymDuration(lastVisit)}.` : ''}`
-          : 'Aucun passage à la salle détecté ces 7 derniers jours.'}
+          ? tn(visits.length, '{n} passage à la salle ces 7 derniers jours{v}.{v2}', '{n} passages à la salle ces 7 derniers jours{v}.{v2}', { v: avg ? tr(', {avg} min en moyenne', { avg }) : '', v2: lastVisit && gymDuration(lastVisit) ? tr(' Dernière séance : {duration}.', { duration: gymDuration(lastVisit) }) : '' })
+          : tr('Aucun passage à la salle détecté ces 7 derniers jours.')}
       </p>
     </section>
   );
@@ -386,9 +387,9 @@ function Flames({ today, openGoals }: { today: string; openGoals: () => void }) 
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Mes flammes</h2>
+        <h2>{tr('Mes flammes')}</h2>
         <button className="link small" onClick={openGoals}>
-          Objectif : {f.goal} jours
+          {tr('Objectif : {goal} jours', { goal: f.goal })}
         </button>
       </div>
       <div className="card stack" style={{ gap: 14 }}>
@@ -397,10 +398,10 @@ function Flames({ today, openGoals }: { today: string; openGoals: () => void }) 
             const i = start + j;
             const got = n <= f.best;
             return (
-              <div key={n} className={`flame-badge ${got ? '' : 'locked'}`} title={got ? TIERS[tierAt(i + 1)].name : `À ${n} jours`}>
+              <div key={n} className={`flame-badge ${got ? '' : 'locked'}`} title={got ? TIERS[tierAt(i + 1)].name : tr('À {n} jours', { n })}>
                 <Flame tier={tierAt(i + 1)} size={34} animated={false} />
                 <span className="small num" style={{ fontWeight: 800 }}>
-                  {n} j
+                  {tr('{n} j', { n })}
                 </span>
               </div>
             );
@@ -411,8 +412,8 @@ function Flames({ today, openGoals }: { today: string; openGoals: () => void }) 
             <i style={{ width: `${Math.min(100, Math.round((f.current / f.next) * 100))}%`, background: `linear-gradient(90deg, ${f.tierInfo.colors[0]}, ${f.tierInfo.colors[1]})` }} />
           </div>
           <div className="small muted">
-            {f.earned.length ? `${f.tierInfo.name}, ${f.earned.length} flamme${f.earned.length > 1 ? 's' : ''} gagnée${f.earned.length > 1 ? 's' : ''}. ` : ''}
-            Prochaine à {f.next} jours : encore {f.toNext} jour{f.toNext > 1 ? 's' : ''} validé{f.toNext > 1 ? 's' : ''}.
+            {f.earned.length ? `${tn(f.earned.length, '{tier}, {n} flamme gagnée.', '{tier}, {n} flammes gagnées.', { tier: f.tierInfo.name })} ` : ''}
+            {tn(f.toNext, 'Prochaine à {next} jours : encore {n} jour validé.', 'Prochaine à {next} jours : encore {n} jours validés.', { next: f.next })}
           </div>
         </div>
       </div>
@@ -430,17 +431,17 @@ function Reports({ today, openCoach }: { today: string; openCoach: () => void })
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Bilans</h2>
-        <span className="small muted">Chaque lundi</span>
+        <h2>{tr('Bilans')}</h2>
+        <span className="small muted">{tr('Chaque lundi')}</span>
       </div>
       <div className="group">
         {weeks.map((m, i) => (
           <button key={m} className="row" style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }} onClick={() => setOpen(m)}>
             <div className="grow">
-              <div className="title">{i === 0 ? 'Semaine en cours' : `Semaine du ${formatShort(m)}`}</div>
+              <div className="title">{i === 0 ? tr('Semaine en cours') : tr('Semaine du {date}', { date: formatShort(m) })}</div>
               <div className="small muted">{weeklyReport(s, m).headline}</div>
             </div>
-            {i === 1 && s.ui.reportSeen !== m && <span className="tag blue">Nouveau</span>}
+            {i === 1 && s.ui.reportSeen !== m && <span className="tag blue">{tr('Nouveau')}</span>}
             <Icon name="chevron" size={18} />
           </button>
         ))}
@@ -480,10 +481,10 @@ function WeekHero({ today }: { today: string }) {
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Ta semaine</h2>
+        <h2>{tr('Ta semaine')}</h2>
         <span className="small muted num">
-          {now.sessions} séance{now.sessions > 1 ? 's' : ''}
-          {now.planned ? ` sur ${now.planned}` : ''}
+          {tn(now.sessions, '{n} séance', '{n} séances')}
+          {now.planned ? tr(' sur {planned}', { planned: now.planned }) : ''}
         </span>
       </div>
       <div className="card week-hero">
@@ -493,14 +494,14 @@ function WeekHero({ today }: { today: string }) {
           </b>
           <span className={`small ${delta === null ? 'muted' : delta >= 0 ? 'trend-good' : 'muted'}`}>
             {delta === null
-              ? 'd’entraînement cette semaine'
+              ? tr('d’entraînement cette semaine')
               : delta >= 0
-                ? `+${Math.round(delta * 100)} % sur ta moyenne des 4 dernières semaines`
+                ? tr('+{n} % sur ta moyenne des 4 dernières semaines', { n: Math.round(delta * 100) })
                 : dayIndex <= 1
-                  ? `Ta moyenne : ${fmtHours(avg!)} par semaine. La semaine ne fait que commencer.`
+                  ? tr('Ta moyenne : {fmtHours} par semaine. La semaine ne fait que commencer.', { fmtHours: fmtHours(avg!) })
                   : dayIndex < 6
-                    ? `Encore ${fmtHours(Math.max(0, avg! - total))} pour rejoindre ta moyenne de ${fmtHours(avg!)}`
-                    : `${Math.round(-delta * 100)} % sous ta moyenne : semaine plus calme`}
+                    ? tr('Encore {fmtHours} pour rejoindre ta moyenne de {fmtHours2}', { fmtHours: fmtHours(Math.max(0, avg! - total)), fmtHours2: fmtHours(avg!) })
+                    : tr('{n} % sous ta moyenne : semaine plus calme', { n: Math.round(-delta * 100) })}
           </span>
         </div>
         <WeekLoadChart weeks={weeks} />
@@ -520,8 +521,8 @@ function EnduranceTiles({ today }: { today: string }) {
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Endurance</h2>
-        <span className="small muted">7 derniers jours</span>
+        <h2>{tr('Endurance')}</h2>
+        <span className="small muted">{tr('7 derniers jours')}</span>
       </div>
       <div className={`endurance-tiles ${sports.length % 2 ? 'odd' : ''}`}>
         {sports.map((d) => (
@@ -544,9 +545,9 @@ function DistanceTile({ d, values }: { d: Discipline; values: number[] }) {
         <RollingNumber value={swim ? now * 1000 : now} format={(v) => (swim ? formatNumber(Math.round(v / 50) * 50) : formatNumber(v, v >= 100 ? 0 : 1))} />
         <small>{swim ? 'm' : 'km'}</small>
       </div>
-      <Sparkline values={values} color={DISC_VAR[d] ?? 'var(--d-other)'} label={`${DISCIPLINE_NAMES[d]} : 8 dernières semaines`} />
+      <Sparkline values={values} color={DISC_VAR[d] ?? 'var(--d-other)'} label={tr('{DISCIPLINE_NAMES} : 8 dernières semaines', { DISCIPLINE_NAMES: DISCIPLINE_NAMES[d] })} />
       <div className={`small ${Math.abs(diff) < (swim ? 50 : 0.5) ? 'faint' : diff > 0 ? 'trend-good' : 'muted'} num`}>
-        {Math.abs(diff) < (swim ? 50 : 0.5) ? 'comme les 7 jours d’avant' : `${diff > 0 ? '+' : '−'}${swim ? formatNumber(Math.round(Math.abs(diff) / 50) * 50) : formatNumber(Math.abs(diff), 1)} ${swim ? 'm' : 'km'} vs les 7 jours d’avant`}
+        {Math.abs(diff) < (swim ? 50 : 0.5) ? tr('comme les 7 jours d’avant') : tr('{v}{v2} {v3} vs les 7 jours d’avant', { v: diff > 0 ? '+' : '−', v2: swim ? formatNumber(Math.round(Math.abs(diff) / 50) * 50) : formatNumber(Math.abs(diff), 1), v3: swim ? 'm' : 'km' })}
       </div>
     </div>
   );
@@ -568,14 +569,14 @@ function Lifts({ today }: { today: string }) {
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Tes charges</h2>
+        <h2>{tr('Tes charges')}</h2>
         {prs > 0 && (
           <span className="tag up">
-            {prs} record{prs > 1 ? 's' : ''} en 2 semaines
+            {tn(prs, '{n} record en 2 semaines', '{n} records en 2 semaines')}
           </span>
         )}
       </div>
-      <div className="chips lift-chips" role="tablist" aria-label="Exercice">
+      <div className="chips lift-chips" role="tablist" aria-label={tr('Exercice')}>
         {lifts.map((l) => (
           <button key={l.key} role="tab" aria-selected={l.key === current.key} className={`chip ${l.key === current.key ? 'on' : ''}`} onClick={() => setKey(l.key)}>
             {l.name.replace(/ \(.*\)$/, '')}
@@ -585,14 +586,14 @@ function Lifts({ today }: { today: string }) {
       <div className="card" style={{ padding: '14px 12px 10px' }}>
         <p style={{ margin: '0 4px 10px', fontWeight: 700 }}>
           {gain > 0.5
-            ? `+${formatNumber(gain, 1)} kg de 1RM estimé en ${weeks} semaine${weeks > 1 ? 's' : ''}`
+            ? tn(weeks, '+{gain} kg de 1RM estimé en {n} semaine', '+{gain} kg de 1RM estimé en {n} semaines', { gain: formatNumber(gain, 1) })
             : gain < -0.5
-              ? `${formatNumber(gain, 1)} kg sur ${weeks} semaine${weeks > 1 ? 's' : ''} : fatigue ou décharge ?`
-              : 'Stable : tes prochaines séances diront la suite'}
+              ? tn(weeks, '{gain} kg sur {n} semaine : fatigue ou décharge ?', '{gain} kg sur {n} semaines : fatigue ou décharge ?', { gain: formatNumber(gain, 1) })
+              : tr('Stable : tes prochaines séances diront la suite')}
         </p>
         <LiftChart points={points} />
         <p className="small faint" style={{ margin: '6px 4px 0' }}>
-          1RM estimé de ta meilleure série à chaque séance (formule d’Epley). Les points marquent tes records.
+          {tr('1RM estimé de ta meilleure série à chaque séance (formule d’Epley). Les points marquent tes records.')}
         </p>
       </div>
     </section>

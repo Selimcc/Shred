@@ -7,6 +7,7 @@ import { Icon } from './Icon';
 import { fmtDistance, geocode, gymsAround, locate, type Place } from '../lib/places';
 import { DEMO } from '../lib/api';
 import { signedIn } from '../lib/session';
+import { tr } from '../../shared/i18n';
 
 type Status = { kind: 'idle' } | { kind: 'busy'; text: string } | { kind: 'list'; around: string } | { kind: 'error'; text: string };
 
@@ -20,7 +21,7 @@ export function GymFinder({ onPick }: { onPick: (p: GymPlace & { brand?: string 
 
   const search = async (p: { lat: number; lon: number }, around: string, q = '') => {
     center.current = p;
-    setStatus({ kind: 'busy', text: q ? `Recherche de « ${q} »…` : 'Recherche des salles autour…' });
+    setStatus({ kind: 'busy', text: q ? tr('Recherche de « {q} »…', { q }) : tr('Recherche des salles autour…') });
     try {
       const list = await gymsAround(p, q);
       setPlaces(list);
@@ -31,9 +32,9 @@ export function GymFinder({ onPick }: { onPick: (p: GymPlace & { brand?: string 
   };
 
   const nearMe = async () => {
-    setStatus({ kind: 'busy', text: 'Localisation…' });
+    setStatus({ kind: 'busy', text: tr('Localisation…') });
     try {
-      await search(await locate(), 'autour de toi');
+      await search(await locate(), tr('autour de toi'));
     } catch (e) {
       setStatus({ kind: 'error', text: errorText(e) });
     }
@@ -41,10 +42,10 @@ export function GymFinder({ onPick }: { onPick: (p: GymPlace & { brand?: string 
 
   const byCity = async () => {
     if (city.trim().length < 2) return;
-    setStatus({ kind: 'busy', text: 'Recherche de la ville…' });
+    setStatus({ kind: 'busy', text: tr('Recherche de la ville…') });
     try {
       const g = await geocode(city.trim());
-      await search(g, `autour de ${g.label.split(',')[0]}`);
+      await search(g, tr('autour de {split}', { split: g.label.split(',')[0] }));
     } catch (e) {
       setStatus({ kind: 'error', text: errorText(e) });
     }
@@ -62,7 +63,7 @@ export function GymFinder({ onPick }: { onPick: (p: GymPlace & { brand?: string 
   if (!online) {
     return (
       <p className="small muted" style={{ margin: 0 }}>
-        La recherche de salle sur la carte demande un compte. Tu peux écrire le nom de ta salle ci-dessous.
+        {tr('La recherche de salle sur la carte demande un compte. Tu peux écrire le nom de ta salle ci-dessous.')}
       </p>
     );
   }
@@ -72,7 +73,7 @@ export function GymFinder({ onPick }: { onPick: (p: GymPlace & { brand?: string 
   return (
     <div className="stack gym-finder" style={{ gap: 12 }}>
       <button className="btn primary block" onClick={nearMe} disabled={status.kind === 'busy'}>
-        <Icon name="pin" size={18} /> Trouver ma salle autour de moi
+        <Icon name="pin" size={18} />{' '}{tr('Trouver ma salle autour de moi')}
       </button>
       <form
         className="row-form"
@@ -81,9 +82,9 @@ export function GymFinder({ onPick }: { onPick: (p: GymPlace & { brand?: string 
           void byCity();
         }}
       >
-        <input className="input" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Ou tape une ville" aria-label="Ville" />
+        <input className="input" value={city} onChange={(e) => setCity(e.target.value)} placeholder={tr('Ou tape une ville')} aria-label={tr('Ville')} />
         <button className="btn" disabled={city.trim().length < 2 || status.kind === 'busy'}>
-          Chercher
+          {tr('Chercher')}
         </button>
       </form>
 
@@ -100,7 +101,7 @@ export function GymFinder({ onPick }: { onPick: (p: GymPlace & { brand?: string 
 
       {status.kind === 'list' && (
         <>
-          <input className="input" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filtrer par nom" aria-label="Filtrer les salles" />
+          <input className="input" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={tr('Filtrer par nom')} aria-label={tr('Filtrer les salles')} />
           {shown.length ? (
             <div className="group gym-results">
               {shown.slice(0, 12).map((p) => (
@@ -117,12 +118,12 @@ export function GymFinder({ onPick }: { onPick: (p: GymPlace & { brand?: string 
             </div>
           ) : (
             <p className="small muted" style={{ margin: 0 }}>
-              Aucune salle trouvée {status.around}
-              {filter.trim() ? ` avec « ${filter.trim()} »` : ''}.
+              {tr('Aucune salle trouvée {around}', { around: status.around })}
+              {filter.trim() ? tr(' avec « {filter} »', { filter: filter.trim() }) : ''}.
             </p>
           )}
           <p className="small faint" style={{ margin: 0 }}>
-            Carte : © contributeurs OpenStreetMap.
+            {tr('Carte : © contributeurs OpenStreetMap.')}
           </p>
         </>
       )}

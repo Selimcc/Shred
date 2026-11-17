@@ -16,24 +16,25 @@ import { getSession, signedIn } from '../lib/session';
 import { useApp } from '../lib/store';
 import { isNative } from '../lib/native';
 import { connectNativeHealth, syncNativeHealth } from '../lib/nativeHealth';
+import { tn, tr } from '../../shared/i18n';
 
 type LinkKey = 'health' | 'gymIn' | 'gymOut';
 
 const SHORTCUTS: { key: LinkKey; name: string; module: 'health' | 'gym'; what: string }[] = [
-  { key: 'health', name: 'Shred Santé', module: 'health', what: 'envoie pas, calories, sommeil, cœur et minutes d’exercice' },
-  { key: 'gymIn', name: 'Shred Arrivée', module: 'gym', what: 'signale ton arrivée à la salle' },
-  { key: 'gymOut', name: 'Shred Départ', module: 'gym', what: 'signale ton départ' },
+  { key: 'health', name: tr('Shred Santé'), module: 'health', what: tr('envoie pas, calories, sommeil, cœur et minutes d’exercice') },
+  { key: 'gymIn', name: tr('Shred Arrivée'), module: 'gym', what: tr('signale ton arrivée à la salle') },
+  { key: 'gymOut', name: tr('Shred Départ'), module: 'gym', what: tr('signale ton départ') },
 ];
 
 const HEALTH_FIELDS: [string, string][] = [
-  ['steps', 'Nombre de pas, total du jour'],
-  ['active_kcal', 'Énergie active, total du jour'],
-  ['resting_kcal', 'Énergie au repos, total du jour'],
-  ['sleep_min', 'Analyse du sommeil, somme des durées de la nuit (minutes, secondes ou 7:32:00) ; ou sleep_h en heures (7,5)'],
-  ['resting_hr', 'Fréquence cardiaque au repos (bpm)'],
-  ['hrv', 'Variabilité de la fréquence cardiaque (ms)'],
-  ['exercise_min', 'Minutes d’exercice, total du jour'],
-  ['distance_km', 'Distance de marche et de course (km)'],
+  ['steps', tr('Nombre de pas, total du jour')],
+  ['active_kcal', tr('Énergie active, total du jour')],
+  ['resting_kcal', tr('Énergie au repos, total du jour')],
+  ['sleep_min', tr('Analyse du sommeil, somme des durées de la nuit (minutes, secondes ou 7:32:00) ; ou sleep_h en heures (7,5)')],
+  ['resting_hr', tr('Fréquence cardiaque au repos (bpm)')],
+  ['hrv', tr('Variabilité de la fréquence cardiaque (ms)')],
+  ['exercise_min', tr('Minutes d’exercice, total du jour')],
+  ['distance_km', tr('Distance de marche et de course (km)')],
 ];
 
 export function HealthPage() {
@@ -67,8 +68,8 @@ export function HealthPage() {
     navigator.clipboard
       ?.writeText(key)
       .then(
-        () => toast(`Clé copiée. Dans Raccourcis, colle-la quand « ${name} » la demande.`),
-        () => toast('Copie impossible : copie la clé avec le bouton « Copier » puis réessaie', true),
+        () => toast(tr('Clé copiée. Dans Raccourcis, colle-la quand « {name} » la demande.', { name })),
+        () => toast(tr('Copie impossible : copie la clé avec le bouton « Copier » puis réessaie'), true),
       );
     window.open(link, '_blank', 'noopener');
   };
@@ -78,9 +79,9 @@ export function HealthPage() {
     <div className="stack" style={{ gap: 20 }}>
       {native ? (
         <section className="card stack" style={{ gap: 10 }}>
-          <div style={{ fontWeight: 800 }}>Apple Santé, en direct</div>
+          <div style={{ fontWeight: 800 }}>{tr('Apple Santé, en direct')}</div>
           <p className="small muted" style={{ margin: 0 }}>
-            L’app lit tes pas, ta distance, ton énergie, tes minutes d’exercice, ton sommeil, ton cœur au repos, ta VFC et les séances de ta montre. Rien à installer, rien à lancer : ça se met à jour à chaque ouverture.
+            {tr('L’app lit tes pas, ta distance, ton énergie, tes minutes d’exercice, ton sommeil, ton cœur au repos, ta VFC et les séances de ta montre. Rien à installer, rien à lancer : ça se met à jour à chaque ouverture.')}
           </p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
@@ -90,36 +91,36 @@ export function HealthPage() {
                 run('native', async () => {
                   await connectNativeHealth();
                   const r = await syncNativeHealth(true);
-                  toast(r?.added ? `Santé synchronisée, ${r.added} séance(s) de la montre importée(s)` : 'Santé synchronisée');
+                  toast(r?.added ? tn(r.added, 'Santé synchronisée, {n} séance de la montre importée', 'Santé synchronisée, {n} séances de la montre importées') : tr('Santé synchronisée'));
                 })
               }
             >
-              {busy === 'native' ? 'Lecture…' : 'Autoriser et synchroniser'}
+              {busy === 'native' ? tr('Lecture…') : tr('Autoriser et synchroniser')}
             </button>
           </div>
           <p className="small faint" style={{ margin: 0 }}>
-            Pour changer les autorisations plus tard : Réglages de l’iPhone, Santé, Accès aux données, Shred.
+            {tr('Pour changer les autorisations plus tard : Réglages de l’iPhone, Santé, Accès aux données, Shred.')}
           </p>
         </section>
       ) : (
         <section className="card stack" style={{ gap: 6 }}>
-          <div style={{ fontWeight: 800 }}>Sans raccourci : l’app iPhone</div>
+          <div style={{ fontWeight: 800 }}>{tr('Sans raccourci : l’app iPhone')}</div>
           <p className="small muted" style={{ margin: 0 }}>
-            Une app web ne peut pas lire Apple Santé (Apple le réserve aux apps installées). La version iPhone de Shred le fait directement, sans raccourci, et importe aussi les séances de ta montre. Pour les sorties, tu peux aussi relier Strava.
+            {tr('Une app web ne peut pas lire Apple Santé (Apple le réserve aux apps installées). La version iPhone de Shred le fait directement, sans raccourci, et importe aussi les séances de ta montre. Pour les sorties, tu peux aussi relier Strava.')}
           </p>
         </section>
       )}
       <section className="stack">
         <p className="small" style={{ margin: 0 }}>
           {today?.at
-            ? `Chiffres Santé enregistrés aujourd’hui à ${timeOf(today.at)}. Un petit changement (moins de 1 000 pas) attend le quart d’heure suivant pour être enregistré.`
+            ? tr('Chiffres Santé enregistrés aujourd’hui à {timeOf}. Un petit changement (moins de 1 000 pas) attend le quart d’heure suivant pour être enregistré.', { timeOf: timeOf(today.at) })
             : Object.keys(s.health).length
-              ? 'Pas encore de synchro aujourd’hui.'
-              : 'Jamais synchronisé.'}
+              ? tr('Pas encore de synchro aujourd’hui.')
+              : tr('Jamais synchronisé.')}
         </p>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn primary" style={{ flex: 1 }} disabled={DEMO} onClick={runShortcut}>
-            Synchroniser
+            {tr('Synchroniser')}
           </button>
           <button
             className="btn"
@@ -127,48 +128,47 @@ export function HealthPage() {
             onClick={() =>
               run('sync', async () => {
                 await syncHealth(true);
-                toast('Données Santé à jour');
+                toast(tr('Données Santé à jour'));
               })
             }
           >
-            Actualiser
+            {tr('Actualiser')}
           </button>
         </div>
       </section>
 
       {!DEMO && (
         <section className="stack">
-          <h2>Installer les raccourcis</h2>
+          <h2>{tr('Installer les raccourcis')}</h2>
           <p className="small muted" style={{ margin: 0 }}>
-            iPhone uniquement. 1. Crée ta clé. 2. Touche « Installer » : la clé est copiée et le raccourci s’ouvre ; touche « Obtenir le raccourci »,
-            colle la clé quand elle est demandée, puis « Ajouter ». 3. Crée les automatisations.
+            {tr('iPhone uniquement. 1. Crée ta clé. 2. Touche « Installer » : la clé est copiée et le raccourci s’ouvre ; touche « Obtenir le raccourci », colle la clé quand elle est demandée, puis « Ajouter ». 3. Crée les automatisations.')}
           </p>
           <div className="row" style={{ background: 'var(--surface)', borderRadius: 'var(--radius)' }}>
             <div className="grow">
-              <div className="small muted">Ta clé Raccourcis</div>
-              <div className="small num">{key ? `${key.slice(0, 10)}••••••` : 'Pas encore créée'}</div>
+              <div className="small muted">{tr('Ta clé Raccourcis')}</div>
+              <div className="small num">{key ? `${key.slice(0, 10)}••••••` : tr('Pas encore créée')}</div>
             </div>
             {key && (
-              <button className="btn small" onClick={async () => (await copyText(key)) && toast('Clé copiée')}>
-                Copier
+              <button className="btn small" onClick={async () => (await copyText(key)) && toast(tr('Clé copiée'))}>
+                {tr('Copier')}
               </button>
             )}
             <button
               className="btn small"
               disabled={!signedIn() || busy === 'key'}
               onClick={async () => {
-                if (key && !(await ask('Créer une nouvelle clé ? L’ancienne cesse de marcher : il faudra réinstaller tes raccourcis.', 'Nouvelle clé'))) return;
+                if (key && !(await ask(tr('Créer une nouvelle clé ? L’ancienne cesse de marcher : il faudra réinstaller tes raccourcis.'), tr('Nouvelle clé')))) return;
                 void run('key', async () => {
                   await createShortcutKey();
-                  toast('Clé créée');
+                  toast(tr('Clé créée'));
                 });
               }}
             >
-              {key ? 'Nouvelle' : 'Créer'}
+              {key ? tr('Nouvelle') : tr('Créer')}
             </button>
           </div>
           <p className="small faint" style={{ margin: 0 }}>
-            La clé ne sert qu’à envoyer tes chiffres Santé et tes passages à la salle. Elle ne donne accès à rien d’autre.
+            {tr('La clé ne sert qu’à envoyer tes chiffres Santé et tes passages à la salle. Elle ne donne accès à rien d’autre.')}
           </p>
 
           <div className="group">
@@ -179,11 +179,11 @@ export function HealthPage() {
                   <div className="grow">
                     <div className="title">{x.name}</div>
                     <div className="small muted">
-                      {!links ? 'Chargement…' : !link ? 'Lien pas encore ajouté par l’administrateur' : key ? x.what : 'Crée d’abord ta clé'}
+                      {!links ? tr('Chargement…') : !link ? tr('Lien pas encore ajouté par l’administrateur') : key ? x.what : tr('Crée d’abord ta clé')}
                     </div>
                   </div>
                   <button className="btn small primary" disabled={!link || !key} onClick={() => link && install(link, x.name)}>
-                    Installer
+                    {tr('Installer')}
                   </button>
                 </div>
               );
@@ -191,22 +191,20 @@ export function HealthPage() {
           </div>
           <div className="small muted stack" style={{ gap: 6 }}>
             <div>
-              <b>Pour que ça se fasse tout seul</b>, crée dans Raccourcis, onglet Automatisation :
+              <b>{tr('Pour que ça se fasse tout seul')}</b>{tr(', crée dans Raccourcis, onglet Automatisation :')}
             </div>
             <div>
-              · « App », choisis une app que tu ouvres souvent (WhatsApp, Instagram…), « Est ouverte », « Exécuter immédiatement », puis {SHORTCUTS[0].name}.
-              Coupe « Me notifier ». Tes pas suivent dans la journée, sans rien toucher.
+              {tr('· « App », choisis une app que tu ouvres souvent (WhatsApp, Instagram…), « Est ouverte », « Exécuter immédiatement », puis {name}. Coupe « Me notifier ». Tes pas suivent dans la journée, sans rien toucher.', { name: SHORTCUTS[0].name })}
             </div>
-            <div>· « Heure de la journée » à 21:00, pour le bilan du soir.</div>
-            {s.settings.modules.gym && <div>· « Arrivée » et « Départ » sur l’adresse de ta salle, avec Shred Arrivée et Shred Départ.</div>}
+            <div>{tr('· « Heure de la journée » à 21:00, pour le bilan du soir.')}</div>
+            {s.settings.modules.gym && <div>{tr('· « Arrivée » et « Départ » sur l’adresse de ta salle, avec Shred Arrivée et Shred Départ.')}</div>}
           </div>
 
           <details className="small">
-            <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Ajouter le sommeil, le cœur et l’exercice au raccourci</summary>
+            <summary style={{ cursor: 'pointer', fontWeight: 700 }}>{tr('Ajouter le sommeil, le cœur et l’exercice au raccourci')}</summary>
             <div className="stack" style={{ gap: 8, marginTop: 10 }}>
               <p className="muted" style={{ margin: 0 }}>
-                Dans le raccourci Shred Santé, ajoute une action « Rechercher des échantillons de santé » par donnée (période : aujourd’hui, ou la nuit
-                dernière pour le sommeil), puis ajoute la valeur au dictionnaire envoyé avec la clé indiquée. Chaque clé est facultative.
+                {tr('Dans le raccourci Shred Santé, ajoute une action « Rechercher des échantillons de santé » par donnée (période : aujourd’hui, ou la nuit dernière pour le sommeil), puis ajoute la valeur au dictionnaire envoyé avec la clé indiquée. Chaque clé est facultative.')}
               </p>
               <div className="group">
                 {HEALTH_FIELDS.map(([k, what]) => (
@@ -219,18 +217,18 @@ export function HealthPage() {
                 ))}
               </div>
               <p className="faint" style={{ margin: 0 }}>
-                Le sommeil sert aussi à la forme du jour : après une nuit courte ou une VFC basse, Pulse te propose le mode Fatigué.
+                {tr('Le sommeil sert aussi à la forme du jour : après une nuit courte ou une VFC basse, Pulse te propose le mode Fatigué.')}
               </p>
             </div>
           </details>
 
           <details className="small">
-            <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Configuration à la main</summary>
+            <summary style={{ cursor: 'pointer', fontWeight: 700 }}>{tr('Configuration à la main')}</summary>
             <div className="group" style={{ marginTop: 10 }}>
-              {s.settings.modules.health && <CopyRow label="Adresse Santé" value={`${location.origin}/api/health/ingest`} />}
-              {s.settings.modules.gym && <CopyRow label="Adresse arrivée salle" value={`${location.origin}/api/gym/checkin`} />}
-              {s.settings.modules.gym && <CopyRow label="Adresse départ salle" value={`${location.origin}/api/gym/checkout`} />}
-              {key && <CopyRow label="En-tête Authorization" value={`Bearer ${key}`} display={`Bearer ${key.slice(0, 8)}••••••`} />}
+              {s.settings.modules.health && <CopyRow label={tr('Adresse Santé')} value={`${location.origin}/api/health/ingest`} />}
+              {s.settings.modules.gym && <CopyRow label={tr('Adresse arrivée salle')} value={`${location.origin}/api/gym/checkin`} />}
+              {s.settings.modules.gym && <CopyRow label={tr('Adresse départ salle')} value={`${location.origin}/api/gym/checkout`} />}
+              {key && <CopyRow label={tr('En-tête Authorization')} value={`Bearer ${key}`} display={tr('Bearer {key}••••••', { key: key.slice(0, 8) })} />}
             </div>
           </details>
         </section>
@@ -252,10 +250,9 @@ function AdminLinks({ links, onSaved }: { links: NonNullable<Health['shortcuts']
   const missing = SHORTCUTS.some((x) => !links[x.key]);
   return (
     <details className="card stack" open={missing}>
-      <summary style={{ cursor: 'pointer', fontWeight: 850 }}>Liens de partage (administrateur)</summary>
+      <summary style={{ cursor: 'pointer', fontWeight: 850 }}>{tr('Liens de partage (administrateur)')}</summary>
       <p className="small muted" style={{ margin: '10px 0 0' }}>
-        Crée chaque raccourci une fois sur ton iPhone, avec une question d’importation sur la clé, puis Partager, « Copier le lien iCloud », et colle-le
-        ici. Le pas-à-pas est dans le guide, section Apple Santé.
+        {tr('Crée chaque raccourci une fois sur ton iPhone, avec une question d’importation sur la clé, puis Partager, « Copier le lien iCloud », et colle-le ici. Le pas-à-pas est dans le guide, section Apple Santé.')}
       </p>
       {SHORTCUTS.map((x) => (
         <label className="field" key={x.key} style={{ marginTop: 12 }}>
@@ -280,7 +277,7 @@ function AdminLinks({ links, onSaved }: { links: NonNullable<Health['shortcuts']
           try {
             const r = await api<{ shortcuts: Health['shortcuts'] }>('/api/admin/shortcuts', { method: 'PUT', body: draft });
             onSaved(r.shortcuts);
-            toast('Liens enregistrés : tes testeurs peuvent installer les raccourcis');
+            toast(tr('Liens enregistrés : tes testeurs peuvent installer les raccourcis'));
           } catch (e) {
             toast(errorText(e), true);
           } finally {
@@ -288,7 +285,7 @@ function AdminLinks({ links, onSaved }: { links: NonNullable<Health['shortcuts']
           }
         }}
       >
-        <Icon name="check" size={18} /> Enregistrer les liens
+        <Icon name="check" size={18} />{' '}{tr('Enregistrer les liens')}
       </button>
     </details>
   );

@@ -2,6 +2,7 @@
 // et adaptation de n'importe quel programme au matériel de la salle.
 import { type Athlete, type Equipment, type Experience, type Gym, has, type RaceDistance } from './athlete';
 import type { ExerciseSlot, Program, SessionDef } from './types';
+import { list, loc, lower, tn, tr } from './i18n';
 
 /* ---------- Dates ---------- */
 
@@ -15,7 +16,7 @@ export const mondayOf = (d: string) => addDays(d, -((weekday(d) + 6) % 7));
 /* ---------- Allures ---------- */
 
 export const RACE_KM: Record<RaceDistance, number> = { '5k': 5, '10k': 10, half: 21.0975, marathon: 42.195 };
-const RACE_NAME: Record<RaceDistance, string> = { '5k': '5 km', '10k': '10 km', half: 'Semi-marathon', marathon: 'Marathon' };
+const RACE_NAME: Record<RaceDistance, string> = { '5k': tr('5 km'), '10k': tr('10 km'), half: 'Semi-marathon', marathon: tr('Marathon') };
 export const isRoadRace = (d?: string): d is RaceDistance => d === '5k' || d === '10k' || d === 'half' || d === 'marathon';
 
 /** Prédiction de Riegel : temps sur une autre distance, à partir d'un temps de référence. */
@@ -25,7 +26,7 @@ export function riegel(sec: number, fromKm: number, toKm: number): number {
 
 export function fmtPace(secPerKm: number): string {
   const s = Math.round(secPerKm);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}/km`;
+  return tr('{floor}:{padStart}/km', { floor: Math.floor(s / 60), padStart: String(s % 60).padStart(2, '0') });
 }
 
 export function fmtDuration(sec: number): string {
@@ -81,7 +82,7 @@ export function weekPlans(n: number, taper: number): WeekPlan[] {
     const taperIdx = i - (n - taper);
     const build = n - taper;
     const progress = Math.min(1, i / Math.max(1, build - 1));
-    const phase = taperIdx >= 0 ? 'Affûtage' : progress < 0.35 ? 'Fondamental' : progress < 0.75 ? 'Développement' : 'Spécifique';
+    const phase = taperIdx >= 0 ? tr('Affûtage') : progress < 0.35 ? tr('Fondamental') : progress < 0.75 ? tr('Développement') : tr('Spécifique');
     // Une semaine allégée toutes les 4 semaines, pour assimiler.
     const recovery = taperIdx < 0 && i > 0 && (i + 1) % 4 === 0;
     return { phase, progress, recovery, taper: taperIdx >= 0 ? taperIdx + 1 : 0 };
@@ -90,8 +91,8 @@ export function weekPlans(n: number, taper: number): WeekPlan[] {
 
 const RENFO: SessionDef = {
   id: 'run-strength',
-  name: 'Renfo coureur',
-  focus: 'Jambes, hanches et gainage : protège tes genoux et tes tendons',
+  name: tr('Renfo coureur'),
+  focus: tr('Jambes, hanches et gainage : protège tes genoux et tes tendons'),
   type: 'lifting',
   exercises: [
     { key: 'squat', sets: 3, reps: '6–8' },
@@ -104,8 +105,8 @@ const RENFO: SessionDef = {
 
 const REST: SessionDef = {
   id: 'rest',
-  name: 'Repos actif',
-  focus: 'Marche et mobilité',
+  name: tr('Repos actif'),
+  focus: tr('Marche et mobilité'),
   type: 'rest',
   exercises: [{ key: 'walk' }, { key: 'mobility' }],
 };
@@ -142,7 +143,7 @@ export function runningPlan(input: RaceInput): Program {
   const start = addDays(raceMonday, -(n - 1) * 7);
   const days = runDays(athlete.days);
   const beginner = athlete.experience === 'beginner';
-  const easyText = `${fmtPace(p.easy[0]).replace('/km', '')} à ${fmtPace(p.easy[1])}`;
+  const easyText = tr('{replace} à {pace}', { replace: fmtPace(p.easy[0]).replace('/km', ''), pace: fmtPace(p.easy[1]) });
   const sessions: SessionDef[] = [RENFO, REST];
   const weeks: string[][] = [];
   const phases: string[] = [];
@@ -169,39 +170,39 @@ export function runningPlan(input: RaceInput): Program {
     if (w.taper) {
       quality = {
         id: `${k}-q`,
-        name: 'Rappel d’allure',
-        focus: `Garder les sensations, ${fmtPace(p.race)}`,
+        name: tr('Rappel d’allure'),
+        focus: tr('Garder les sensations, {pace}', { pace: fmtPace(p.race) }),
         type: 'cardio',
-        exercises: [{ key: 'run-race', sets: isRaceWeek ? 2 : 3, reps: isRaceWeek ? '1 km' : '2 km', rest: 120, note: `Allure course : ${fmtPace(p.race)}. Échauffement 15 min.` }],
+        exercises: [{ key: 'run-race', sets: isRaceWeek ? 2 : 3, reps: isRaceWeek ? tr('1 km') : tr('2 km'), rest: 120, note: tr('Allure course : {pace}. Échauffement 15 min.', { pace: fmtPace(p.race) }) }],
       };
     } else if (i % 2 === 0) {
       const reps = w.progress < 0.35 ? { sets: 8, reps: '400 m' } : w.progress < 0.75 ? { sets: 6, reps: '800 m' } : { sets: 5, reps: '1000 m' };
       quality = {
         id: `${k}-q`,
-        name: 'Fractionné',
-        focus: `${reps.sets} × ${reps.reps} à ${fmtPace(p.interval)}`,
+        name: tr('Fractionné'),
+        focus: tr('{sets} × {reps} à {pace}', { sets: reps.sets, reps: reps.reps, pace: fmtPace(p.interval) }),
         type: 'cardio',
         exercises: [
-          { key: 'run-intervals', sets: Math.round(reps.sets * scale), reps: reps.reps, rest: 90, note: `Allure : ${fmtPace(p.interval)}. 15 min d’échauffement, 10 min de retour au calme.` },
+          { key: 'run-intervals', sets: Math.round(reps.sets * scale), reps: reps.reps, rest: 90, note: tr('Allure : {pace}. 15 min d’échauffement, 10 min de retour au calme.', { pace: fmtPace(p.interval) }) },
         ],
       };
     } else if (w.progress >= 0.5 && distance !== '10k' && distance !== '5k') {
       const blocks = distance === 'marathon' ? { sets: 2, reps: `${Math.round(4 + 4 * w.progress)} km` } : { sets: 3, reps: `${w.progress > 0.8 ? 3 : 2} km` };
       quality = {
         id: `${k}-q`,
-        name: 'Allure course',
-        focus: `${blocks.sets} × ${blocks.reps} à ${fmtPace(p.race)}`,
+        name: tr('Allure course'),
+        focus: tr('{sets} × {reps} à {pace}', { sets: blocks.sets, reps: blocks.reps, pace: fmtPace(p.race) }),
         type: 'cardio',
-        exercises: [{ key: 'run-race', sets: blocks.sets, reps: blocks.reps, rest: 120, note: `Allure : ${fmtPace(p.race)}. Récupération 2 min en trottinant.` }],
+        exercises: [{ key: 'run-race', sets: blocks.sets, reps: blocks.reps, rest: 120, note: tr('Allure : {pace}. Récupération 2 min en trottinant.', { pace: fmtPace(p.race) }) }],
       };
     } else {
       const min = Math.round((15 + 15 * w.progress) * scale);
       quality = {
         id: `${k}-q`,
-        name: 'Seuil',
-        focus: `${min} min à ${fmtPace(p.tempo)}`,
+        name: tr('Seuil'),
+        focus: tr('{min} min à {pace}', { min, pace: fmtPace(p.tempo) }),
         type: 'cardio',
-        exercises: [{ key: 'run-tempo', sets: 1, reps: `${min} min`, note: `Allure : ${fmtPace(p.tempo)}. 15 min d’échauffement, 10 min de retour au calme.` }],
+        exercises: [{ key: 'run-tempo', sets: 1, reps: `${min} min`, note: tr('Allure : {pace}. 15 min d’échauffement, 10 min de retour au calme.', { pace: fmtPace(p.tempo) }) }],
       };
     }
 
@@ -209,14 +210,14 @@ export function runningPlan(input: RaceInput): Program {
       ? {
           id: `${k}-race`,
           name: RACE_NAME[distance],
-          focus: `Objectif : ${fmtDuration(p.predicted)}, ${fmtPace(p.race)}`,
+          focus: tr('Objectif : {duration}, {pace}', { duration: fmtDuration(p.predicted), pace: fmtPace(p.race) }),
           type: 'cardio',
-          exercises: [{ key: 'race-day', note: `Pars à ${fmtPace(p.race + 5)} les premiers kilomètres, puis ${fmtPace(p.race)}. Mange ton dernier repas 3 h avant.` }],
+          exercises: [{ key: 'race-day', note: tr('Pars à {pace} les premiers kilomètres, puis {pace2}. Mange ton dernier repas 3 h avant.', { pace: fmtPace(p.race + 5), pace2: fmtPace(p.race) }) }],
         }
       : {
           id: `${k}-long`,
-          name: 'Sortie longue',
-          focus: `${longKm} km en endurance, environ ${fmtDuration(longKm * (p.easy[0] + p.easy[1]) / 2)}`,
+          name: tr('Sortie longue'),
+          focus: tr('{longKm} km en endurance, environ {duration}', { longKm, duration: fmtDuration(longKm * (p.easy[0] + p.easy[1]) / 2) }),
           type: 'cardio',
           exercises: [
             {
@@ -225,19 +226,19 @@ export function runningPlan(input: RaceInput): Program {
               reps: `${longKm} km`,
               note:
                 distance === 'marathon' && w.progress > 0.6 && !w.taper
-                  ? `Endurance à ${easyText}, dont les ${Math.round(longKm / 3)} derniers km à ${fmtPace(p.race)}. Teste ton ravitaillement.`
-                  : `Allure : ${easyText}.`,
+                  ? tr('Endurance à {easyText}, dont les {n} derniers km à {pace}. Teste ton ravitaillement.', { easyText, n: Math.round(longKm / 3), pace: fmtPace(p.race) })
+                  : tr('Allure : {easyText}.', { easyText }),
             },
           ],
         };
 
     const easy: SessionDef = {
       id: `${k}-easy`,
-      name: 'Footing',
-      focus: `${easyMin} min à ${easyText}`,
+      name: tr('Footing'),
+      focus: tr('{easyMin} min à {easyText}', { easyMin, easyText }),
       type: 'cardio',
       exercises: [
-        { key: 'run-easy', sets: 1, reps: `${easyMin} min`, note: `Allure : ${easyText}.` },
+        { key: 'run-easy', sets: 1, reps: `${easyMin} min`, note: tr('Allure : {easyText}.', { easyText }) },
         ...(w.progress > 0.2 && !w.taper ? [{ key: 'strides', sets: 6, reps: '80 m', rest: 60 } as ExerciseSlot] : []),
       ],
     };
@@ -257,21 +258,21 @@ export function runningPlan(input: RaceInput): Program {
       }
     }
     weeks.push(week);
-    phases.push(w.recovery ? `${w.phase}, semaine allégée` : w.phase);
+    phases.push(w.recovery ? tr('{phase}, semaine allégée', { phase: w.phase }) : w.phase);
   });
 
   const easyBase = add({
     id: 'base-easy',
-    name: 'Footing',
-    focus: `40 min à ${easyText}`,
+    name: tr('Footing'),
+    focus: tr('40 min à {easyText}', { easyText }),
     type: 'cardio',
-    exercises: [{ key: 'run-easy', sets: 1, reps: '40 min', note: `Allure : ${easyText}.` }],
+    exercises: [{ key: 'run-easy', sets: 1, reps: tr('40 min'), note: tr('Allure : {easyText}.', { easyText }) }],
   });
   // Avant le début du plan et après la course : 3 footings et un renfo.
   const schedule = ['rest', 'rest', easyBase, RENFO.id, easyBase, 'rest', easyBase];
 
   return {
-    name: `${RACE_NAME[distance]} du ${new Date(parse(date)).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`,
+    name: tr('{RACE_NAME} du {toLocaleDateString}', { RACE_NAME: RACE_NAME[distance], toLocaleDateString: new Date(parse(date)).toLocaleDateString(loc(), { day: 'numeric', month: 'long' }) }),
     template: `run-${distance}`,
     sessions,
     schedule,
@@ -293,7 +294,7 @@ export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experie
   const n = Math.max(Math.min(6, available), Math.min(12, available));
   const start = addDays(raceMonday, -(n - 1) * 7);
   const runPace = fmtPace(p.tempo + 10);
-  const easyText = `${fmtPace(p.easy[0]).replace('/km', '')} à ${fmtPace(p.easy[1])}`;
+  const easyText = tr('{replace} à {pace}', { replace: fmtPace(p.easy[0]).replace('/km', ''), pace: fmtPace(p.easy[1]) });
   const sessions: SessionDef[] = [REST];
   const add = (def: SessionDef) => {
     sessions.push({ ...def, generated: true });
@@ -314,8 +315,8 @@ export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experie
     const v = vol[ph];
     const lower = once(`lower-${ph}`, () => ({
       id: `hx-lower-${ph}`,
-      name: 'Force bas du corps et traîneau',
-      focus: 'Squat, soulevé de terre, sled push et pull',
+      name: tr('Force bas du corps et traîneau'),
+      focus: tr('Squat, soulevé de terre, sled push et pull'),
       type: 'lifting',
       exercises: [
         { key: 'squat', sets: 4, reps: ph === 'base' ? '6–8' : '4–6' },
@@ -327,8 +328,8 @@ export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experie
     }));
     const upper = once(`upper-${ph}`, () => ({
       id: `hx-upper-${ph}`,
-      name: 'Force haut du corps et ergos',
-      focus: 'Tirage, poussée, SkiErg, rameur, wall balls',
+      name: tr('Force haut du corps et ergos'),
+      focus: tr('Tirage, poussée, SkiErg, rameur, wall balls'),
       type: 'lifting',
       exercises: [
         { key: 'pullup', sets: 4, reps: '6–10' },
@@ -341,31 +342,31 @@ export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experie
     }));
     const run = once(`run-${ph}`, () => ({
       id: `hx-run-${ph}`,
-      name: 'Course fractionnée',
-      focus: `Kilomètres à l’allure Hyrox, ${runPace}`,
+      name: tr('Course fractionnée'),
+      focus: tr('Kilomètres à l’allure Hyrox, {runPace}', { runPace }),
       type: 'cardio',
-      exercises: [{ key: 'run-intervals', sets: Math.round(5 * v), reps: '1 km', rest: 90, note: `Allure : ${runPace}. C’est l’allure à tenir entre les stations.` }],
+      exercises: [{ key: 'run-intervals', sets: Math.round(5 * v), reps: tr('1 km'), rest: 90, note: tr('Allure : {runPace}. C’est l’allure à tenir entre les stations.', { runPace }) }],
     }));
     const compromised = once(`comp-${ph}`, () => ({
       id: `hx-comp-${ph}`,
-      name: ph === 'peak' ? 'Simulation Hyrox' : 'Course et stations enchaînées',
-      focus: ph === 'peak' ? 'La moitié de la course, sans pause' : '1 km de course, une station, et on recommence',
+      name: ph === 'peak' ? tr('Simulation Hyrox') : tr('Course et stations enchaînées'),
+      focus: ph === 'peak' ? tr('La moitié de la course, sans pause') : tr('1 km de course, une station, et on recommence'),
       type: 'cardio',
       exercises:
         ph === 'peak'
-          ? [{ key: 'hyrox-sim', note: '4 × (1 km + station) : SkiErg 1000 m, sled push 50 m, sled pull 50 m, burpees 80 m. Note ton temps.' }]
+          ? [{ key: 'hyrox-sim', note: tr('4 × (1 km + station) : SkiErg 1000 m, sled push 50 m, sled pull 50 m, burpees 80 m. Note ton temps.') }]
           : [
-              { key: 'run-intervals', sets: Math.round(4 * v), reps: '1 km', rest: 0, note: `Allure ${runPace}, enchaîne directement la station.` },
+              { key: 'run-intervals', sets: Math.round(4 * v), reps: tr('1 km'), rest: 0, note: tr('Allure {runPace}, enchaîne directement la station.', { runPace }) },
               { key: 'burpee-broad-jump', sets: Math.round(4 * v), reps: '20 m', rest: 0 },
               { key: 'wall-ball', sets: Math.round(4 * v), reps: '20', rest: 60 },
             ],
     }));
     const long = once(`long-${ph}`, () => ({
       id: `hx-long-${ph}`,
-      name: 'Footing long',
-      focus: `${ph === 'taper' ? 30 : Math.round(40 + 15 * v)} min en endurance`,
+      name: tr('Footing long'),
+      focus: tr('{v} min en endurance', { v: ph === 'taper' ? 30 : Math.round(40 + 15 * v) }),
       type: 'cardio',
-      exercises: [{ key: 'run-easy', sets: 1, reps: `${ph === 'taper' ? 30 : Math.round(40 + 15 * v)} min`, note: `Allure : ${easyText}.` }],
+      exercises: [{ key: 'run-easy', sets: 1, reps: `${ph === 'taper' ? 30 : Math.round(40 + 15 * v)} min`, note: tr('Allure : {easyText}.', { easyText }) }],
     }));
 
     const week = Array(7).fill('rest');
@@ -378,26 +379,26 @@ export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experie
     if (i === n - 1) {
       week[weekday(date)] = add({
         id: 'hx-race',
-        name: 'Hyrox',
-        focus: '8 × 1 km et 8 stations',
+        name: tr('Hyrox'),
+        focus: tr('8 × 1 km et 8 stations'),
         type: 'cardio',
-        exercises: [{ key: 'race-day', note: `Pars à ${runPace} sur les premiers kilomètres. Respire avant chaque station plutôt que de t’y précipiter.` }],
+        exercises: [{ key: 'race-day', note: tr('Pars à {runPace} sur les premiers kilomètres. Respire avant chaque station plutôt que de t’y précipiter.', { runPace }) }],
       });
       for (const before of [1, 2]) week[(weekday(date) + 7 - before) % 7] = 'rest';
     }
     weeks.push(week);
-    phases.push({ base: 'Fondamental', build: 'Développement', peak: 'Spécifique', taper: 'Affûtage' }[ph]);
+    phases.push({ base: tr('Fondamental'), build: tr('Développement'), peak: tr('Spécifique'), taper: tr('Affûtage') }[ph]);
   }
 
   return {
-    name: `Hyrox du ${new Date(parse(date)).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`,
+    name: tr('Hyrox du {toLocaleDateString}', { toLocaleDateString: new Date(parse(date)).toLocaleDateString(loc(), { day: 'numeric', month: 'long' }) }),
     template: 'hyrox',
     sessions,
     schedule: ['rest', ids.get('lower-base')!, 'rest', ids.get('run-base')!, 'rest', ids.get('upper-base')!, 'rest'],
     start,
     weeks,
     phases,
-    event: { name: 'Hyrox', date },
+    event: { name: tr('Hyrox'), date },
   };
 }
 
@@ -443,8 +444,8 @@ const SWAPS: Record<string, string[]> = {
 };
 
 const EQUIP_NAME: Partial<Record<Equipment, string>> = {
-  barbell: 'barre', machines: 'machine', cables: 'poulie', dumbbells: 'haltères', pullup: 'barre de traction', rower: 'rameur', bike: 'vélo',
-  kettlebell: 'kettlebell', skierg: 'SkiErg', sled: 'traîneau', wallball: 'médecine-ball', sandbag: 'sandbag',
+  barbell: tr('barre'), machines: tr('machine'), cables: tr('poulie'), dumbbells: tr('haltères'), pullup: tr('barre de traction'), rower: tr('rameur'), bike: tr('vélo'),
+  kettlebell: tr('kettlebell'), skierg: 'SkiErg', sled: tr('traîneau'), wallball: tr('médecine-ball'), sandbag: tr('sandbag'),
 };
 
 /** Remplaçants conseillés d'un exercice, dans l'ordre. */
@@ -481,9 +482,9 @@ export function adaptToGym(program: Program, gym: Gym, names: (key: string) => s
       }
       // Deux exercices remplacés par le même : on garde un seul bloc, avec le plus de séries.
       if (seen.has(to)) continue;
-      const missing = (NEEDS[slot.key] ?? []).map((e) => EQUIP_NAME[e] ?? e).join(' ou ');
+      const missing = list((NEEDS[slot.key] ?? []).map((e) => EQUIP_NAME[e] ?? e), 'disjunction');
       swaps.push({ session: def.name, from: names(slot.key), to: names(to), missing });
-      exercises.push({ ...slot, key: to, note: `Remplace ${names(slot.key).toLowerCase()} (pas de ${missing} dans ta salle).${slot.note ? ` ${slot.note}` : ''}` });
+      exercises.push({ ...slot, key: to, note: tr('Remplace {names} (pas de {missing} dans ta salle).{v}', { names: lower(names(slot.key)), missing, v: slot.note ? ` ${slot.note}` : '' }) });
       seen.add(to);
     }
     return { ...def, exercises };
@@ -505,12 +506,12 @@ export function planSummary(program: Program, today: string): string | null {
     // Bloc de progression sans course : la semaine et la phase, puis l'invitation à enchaîner.
     if (d < 0) return null;
     const w = Math.floor(d / 7);
-    if (w >= program.weeks.length) return `Bloc de ${program.weeks.length} semaines terminé. Lance le suivant depuis Programme pour continuer à progresser.`;
-    return `Semaine ${w + 1} sur ${program.weeks.length} du bloc${program.phases?.[w] ? `, ${program.phases[w].toLowerCase()}` : ''}.`;
+    if (w >= program.weeks.length) return tr('Bloc de {length} semaines terminé. Lance le suivant depuis Programme pour continuer à progresser.', { length: program.weeks.length });
+    return tr('Semaine {n} sur {length} du bloc{v}.', { n: w + 1, length: program.weeks.length, v: program.phases?.[w] ? `, ${lower(program.phases[w])}` : '' });
   }
   const days = Math.round((parse(program.event.date) - parse(today)) / DAY);
-  if (d < 0) return `${program.event.name} : le plan commence le ${new Date(parse(program.start)).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`;
+  if (d < 0) return tr('{name} : le plan commence le {toLocaleDateString}', { name: program.event.name, toLocaleDateString: new Date(parse(program.start)).toLocaleDateString(loc(), { day: 'numeric', month: 'long' }) });
   const w = Math.floor(d / 7);
-  if (w >= program.weeks.length) return `${program.event.name} terminé. Semaine type en attendant le prochain objectif.`;
-  return `Semaine ${w + 1} sur ${program.weeks.length}${program.phases?.[w] ? `, ${program.phases[w].toLowerCase()}` : ''}. ${days > 0 ? `J-${days}` : 'C’est le jour J'}.`;
+  if (w >= program.weeks.length) return tr('{name} terminé. Semaine type en attendant le prochain objectif.', { name: program.event.name });
+  return tr('Semaine {n} sur {length}{v}. {v2}.', { n: w + 1, length: program.weeks.length, v: program.phases?.[w] ? `, ${lower(program.phases[w])}` : '', v2: days > 0 ? tn(days, 'J-{n}', 'J-{n}') : tr('C’est le jour J') });
 }

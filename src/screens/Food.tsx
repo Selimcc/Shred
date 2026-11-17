@@ -1,6 +1,6 @@
 import { ScanSheet } from '../components/ScanSheet';
 import { useEffect, useRef, useState } from 'react';
-import { type MealSlot, SLOTS } from '../../shared/program';
+import { ADD_TO_SLOT, type MealSlot, SLOTS } from '../../shared/program';
 import { mealPhotoPrompt, openInClaude } from '../lib/ai';
 import { Icon } from '../components/Icon';
 import { SuggestSheet } from '../components/SuggestSheet';
@@ -14,6 +14,7 @@ import { prepareImage } from '../lib/image';
 import { totals } from '../lib/logic';
 import { deletePhoto, savePhoto } from '../lib/photos';
 import { getState, type MealItem, readDay, uid, useApp, WEIGHT_GOALS } from '../lib/store';
+import { loc, tr } from '../../shared/i18n';
 
 function slotForNow(): MealSlot {
   const h = new Date().getHours() + new Date().getMinutes() / 60;
@@ -41,26 +42,26 @@ export function Food({ today, openCoach }: { today: string; openCoach: () => voi
     <>
       <header className="topbar">
         <div>
-          <div className="date">Nutrition du jour</div>
-          <h1>Repas</h1>
+          <div className="date">{tr('Nutrition du jour')}</div>
+          <h1>{tr('Repas')}</h1>
         </div>
       </header>
 
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-        <Ring value={t.kcal} max={target.kcal} color={t.kcal > target.kcal * 1.05 ? 'var(--red)' : 'var(--gold)'} size={116} stroke={12} label="Calories du jour">
+        <Ring value={t.kcal} max={target.kcal} color={t.kcal > target.kcal * 1.05 ? 'var(--red)' : 'var(--gold)'} size={116} stroke={12} label={tr('Calories du jour')}>
           <div>
             <div className="display num" style={{ fontSize: '1.45rem' }}>
               {formatNumber(Math.abs(target.kcal - t.kcal))}
             </div>
             <div className="faint" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
-              {t.kcal > target.kcal ? 'kcal en trop' : 'kcal restantes'}
+              {t.kcal > target.kcal ? tr('kcal en trop') : tr('kcal restantes')}
             </div>
           </div>
         </Ring>
         <div className="stack" style={{ flex: 1, gap: 10, minWidth: 0 }}>
-          <MacroLine label="Protéines" value={t.protein} max={target.protein} tone="blue" />
-          <MacroLine label="Glucides" value={t.carbs} max={target.carbs} />
-          <MacroLine label="Lipides" value={t.fat} max={target.fat} tone="yellow" />
+          <MacroLine label={tr('Protéines')} value={t.protein} max={target.protein} tone="blue" />
+          <MacroLine label={tr('Glucides')} value={t.carbs} max={target.carbs} />
+          <MacroLine label={tr('Lipides')} value={t.fat} max={target.fat} tone="yellow" />
         </div>
       </div>
 
@@ -70,14 +71,14 @@ export function Food({ today, openCoach }: { today: string; openCoach: () => voi
 
       <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
         <button className="btn primary" style={{ flex: 1.2, minHeight: 58 }} onClick={() => fileRef.current?.click()}>
-          <Icon name="camera" /> Photographier
+          <Icon name="camera" />{' '}{tr('Photographier')}
         </button>
         <button className="btn" style={{ flex: 1, minHeight: 58 }} onClick={() => setScan(true)}>
-          <Icon name="barcode" /> Scanner
+          <Icon name="barcode" />{' '}{tr('Scanner')}
         </button>
       </div>
       <button className="btn block" style={{ marginTop: 10 }} onClick={() => setSuggest(true)}>
-        <Icon name="bolt" size={18} /> Proposer un plat pour ce qu’il me reste
+        <Icon name="bolt" size={18} />{' '}{tr('Proposer un plat pour ce qu’il me reste')}
       </button>
       {scan && <ScanSheet today={today} slot={slotForNow()} onClose={() => setScan(false)} />}
       <input
@@ -115,17 +116,16 @@ export function Food({ today, openCoach }: { today: string; openCoach: () => voi
                   )}
                   <div className="grow">
                     <div className="title" style={{ fontWeight: 550 }}>
-                      {m.label}
+                      {tr(m.label)}
                     </div>
                     <div className="small muted num">
-                      {formatNumber(m.kcal)} kcal, {formatNumber(m.protein)} g P, {formatNumber(m.carbs)} g G,{' '}
-                      {formatNumber(m.fat)} g L
+                      {tr('{n} kcal, {n2} g P, {n3} g G, {n4} g L', { n: formatNumber(m.kcal), n2: formatNumber(m.protein), n3: formatNumber(m.carbs), n4: formatNumber(m.fat) })}
                     </div>
                   </div>
                   <button
                     className="icon-btn"
                     style={{ boxShadow: 'none', background: 'transparent' }}
-                    aria-label={`Supprimer ${m.label}`}
+                    aria-label={tr('Supprimer {label}', { label: m.label })}
                     onClick={() => {
                       removeMeal(today, m.id);
                       if (m.photoId) deletePhoto(m.photoId).catch(() => undefined);
@@ -144,7 +144,7 @@ export function Food({ today, openCoach }: { today: string; openCoach: () => voi
                     </button>
                   ))}
                 <button className="chip" onClick={() => setManual(slot.id)}>
-                  <Icon name="plus" size={16} /> Autre
+                  <Icon name="plus" size={16} />{' '}{tr('Autre')}
                 </button>
               </div>
             </div>
@@ -167,7 +167,7 @@ function Balance({ today, eaten }: { today: string; eaten: number }) {
   if (h.resting === undefined) {
     return (
       <p className="small muted" style={{ margin: '12px 2px 0' }}>
-        {formatNumber(h.active ?? 0)} kcal brûlées en activité aujourd’hui. Ajoute « Énergie au repos » au raccourci pour voir ton bilan complet.
+        {tr('{n} kcal brûlées en activité aujourd’hui. Ajoute « Énergie au repos » au raccourci pour voir ton bilan complet.', { n: formatNumber(h.active ?? 0) })}
       </p>
     );
   }
@@ -178,9 +178,9 @@ function Balance({ today, eaten }: { today: string; eaten: number }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, textAlign: 'center' }}>
         {(
           [
-            ['Mangé', eaten, 'var(--gold)'],
-            ['Dépensé', spent, 'var(--flame)'],
-            [gap <= 0 ? 'Déficit' : 'Excédent', Math.abs(gap), gap <= 0 ? 'var(--green)' : 'var(--red)'],
+            [tr('Mangé'), eaten, 'var(--gold)'],
+            [tr('Dépensé'), spent, 'var(--flame)'],
+            [gap <= 0 ? tr('Déficit') : tr('Excédent'), Math.abs(gap), gap <= 0 ? 'var(--green)' : 'var(--red)'],
           ] as const
         ).map(([label, v, color]) => (
           <div key={label}>
@@ -192,7 +192,12 @@ function Balance({ today, eaten }: { today: string; eaten: number }) {
         ))}
       </div>
       <p className="small faint" style={{ margin: '10px 0 0' }}>
-        D’après Apple Santé à {h.at ? new Date(h.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'la dernière synchro'} : {formatNumber(h.resting)} kcal au repos, {formatNumber(h.active ?? 0)} en activité. Ton objectif de {formatNumber(s.settings.targets.kcal)} kcal tient déjà compte d’une activité normale : pas besoin de remanger ce que tu brûles.
+        {tr('D’après Apple Santé ({time}) : {n} kcal au repos, {n2} en activité. Ton objectif de {n3} kcal tient déjà compte d’une activité normale : pas besoin de remanger ce que tu brûles.', {
+          time: h.at ? new Date(h.at).toLocaleTimeString(loc(), { hour: '2-digit', minute: '2-digit' }) : tr('dernière synchro'),
+          n: formatNumber(h.resting),
+          n2: formatNumber(h.active ?? 0),
+          n3: formatNumber(s.settings.targets.kcal),
+        })}
       </p>
     </div>
   );
@@ -235,7 +240,7 @@ function PhotoSheet({ file, today, onClose }: { file: File; today: string; onClo
         url = URL.createObjectURL(p.blob);
         setPreview(url);
       })
-      .catch(() => setError('Impossible de lire cette photo. Essaie en JPEG ou PNG.'));
+      .catch(() => setError(tr('Impossible de lire cette photo. Essaie en JPEG ou PNG.')));
     return () => {
       if (url) URL.revokeObjectURL(url);
     };
@@ -262,7 +267,7 @@ function PhotoSheet({ file, today, onClose }: { file: File; today: string; onClo
         },
       });
       if (!res.is_food) {
-        setError('Je ne vois pas de nourriture sur cette photo.');
+        setError(tr('Je ne vois pas de nourriture sur cette photo.'));
       } else {
         setResult(res);
         setItems(res.items.map((i) => ({ ...i, base: { ...i } })));
@@ -308,7 +313,7 @@ function PhotoSheet({ file, today, onClose }: { file: File; today: string; onClo
       photoId,
       items: items.map(({ base: _b, ...i }) => i),
     });
-    toast(`Ajouté : ${formatNumber(sum.kcal)} kcal`);
+    toast(tr('Ajouté : {n} kcal', { n: formatNumber(sum.kcal) }));
     onClose();
   };
 
@@ -316,18 +321,18 @@ function PhotoSheet({ file, today, onClose }: { file: File; today: string; onClo
     const photoId = uid();
     if (prepared) await savePhoto(photoId, prepared.thumb).catch(() => undefined);
     addMeal(today, { slot, ...m, source: 'photo', photoId: prepared ? photoId : undefined });
-    toast(`Ajouté : ${formatNumber(m.kcal)} kcal`);
+    toast(tr('Ajouté : {n} kcal', { n: formatNumber(m.kcal) }));
     onClose();
   };
 
-  const confidence = { high: 'Estimation fiable', medium: 'Estimation moyenne', low: 'Estimation approximative' };
+  const confidence = { high: tr('Estimation fiable'), medium: tr('Estimation moyenne'), low: tr('Estimation approximative') };
 
   return (
-    <Sheet title="Analyser un repas" onClose={onClose}>
+    <Sheet title={tr('Analyser un repas')} onClose={onClose}>
       {preview ? (
         <img
           src={preview}
-          alt="Ton repas"
+          alt={tr('Ton repas')}
           style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 14, display: 'block' }}
         />
       ) : (
@@ -354,27 +359,27 @@ function PhotoSheet({ file, today, onClose }: { file: File; today: string; onClo
                 className="btn block"
                 onClick={async () => {
                   const how = await openInClaude(mealPhotoPrompt(slotName(slot), note.trim() || undefined));
-                  if (how === 'copied') toast('Consigne copiée : colle-la dans Claude avec ta photo.');
+                  if (how === 'copied') toast(tr('Consigne copiée : colle-la dans Claude avec ta photo.'));
                 }}
               >
-                Analyser dans Claude
+                {tr('Analyser dans Claude')}
               </button>
               <p className="small muted" style={{ margin: 0 }}>
-                Joins ta photo dans Claude, puis reviens saisir le total qu’il te donne.
+                {tr('Joins ta photo dans Claude, puis reviens saisir le total qu’il te donne.')}
               </p>
             </>
           )}
-          <ManualForm cta={`Ajouter au ${slotName(slot).toLowerCase()}`} onSave={saveManual} />
+          <ManualForm cta={ADD_TO_SLOT[slot]} onSave={saveManual} />
         </div>
       )}
 
       {!result && ai === 'api' && (
         <div className="stack" style={{ marginTop: 14 }}>
           <label className="field">
-            <span>Précision (optionnel)</span>
+            <span>{tr('Précision (optionnel)')}</span>
             <input
               className="input"
-              placeholder="ex. box de 150 g de poulet, sauce soja"
+              placeholder={tr('ex. box de 150 g de poulet, sauce soja')}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
@@ -382,10 +387,10 @@ function PhotoSheet({ file, today, onClose }: { file: File; today: string; onClo
           <button className="btn primary block" onClick={analyze} disabled={!prepared || busy}>
             {busy ? (
               <>
-                <span className="spinner" style={{ borderTopColor: 'var(--on-accent)', width: 18, height: 18 }} /> Analyse en cours
+                <span className="spinner" style={{ borderTopColor: 'var(--on-accent)', width: 18, height: 18 }} />{' '}{tr('Analyse en cours')}
               </>
             ) : (
-              'Estimer les calories'
+              tr('Estimer les calories')
             )}
           </button>
         </div>
@@ -411,11 +416,11 @@ function PhotoSheet({ file, today, onClose }: { file: File; today: string; onClo
                     {it.name}
                   </div>
                   <div className="small muted num">
-                    {it.kcal} kcal, {it.protein} g P
+                    {tr('{kcal} kcal, {protein} g P', { kcal: it.kcal, protein: it.protein })}
                   </div>
                 </div>
                 <label style={{ width: 84 }}>
-                  <span className="visually-hidden">Grammes de {it.name}</span>
+                  <span className="visually-hidden">{tr('Grammes de {name}', { name: it.name })}</span>
                   <input
                     className="input center num"
                     style={{ minHeight: 40 }}
@@ -428,7 +433,7 @@ function PhotoSheet({ file, today, onClose }: { file: File; today: string; onClo
                 <button
                   className="icon-btn"
                   style={{ width: 36, height: 36, boxShadow: 'none', background: 'transparent' }}
-                  aria-label={`Retirer ${it.name}`}
+                  aria-label={tr('Retirer {name}', { name: it.name })}
                   onClick={() => setItems((l) => l.filter((_, j) => j !== i))}
                 >
                   <Icon name="x" size={18} />
@@ -437,11 +442,11 @@ function PhotoSheet({ file, today, onClose }: { file: File; today: string; onClo
             ))}
           </div>
           <p className="num" style={{ margin: '12px 2px 4px', fontWeight: 700 }}>
-            Total : {formatNumber(sum.kcal)} kcal, {sum.protein} g P, {sum.carbs} g G, {sum.fat} g L
+            {tr('Total : {n} kcal, {protein} g P, {carbs} g G, {fat} g L', { n: formatNumber(sum.kcal), protein: sum.protein, carbs: sum.carbs, fat: sum.fat })}
           </p>
           {result.advice && <p className="small muted" style={{ margin: '0 2px 14px' }}>{result.advice}</p>}
           <button className="btn primary block" onClick={save} disabled={!items.length}>
-            Ajouter au {slotName(slot).toLowerCase()}
+            {ADD_TO_SLOT[slot]}
           </button>
         </div>
       )}
@@ -460,7 +465,7 @@ function ManualForm({
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
   const save = () => {
     const kcal = parseDecimal(f.kcal);
-    if (!f.label.trim() || kcal === undefined) return toast('Indique au moins un nom et les calories', true);
+    if (!f.label.trim() || kcal === undefined) return toast(tr('Indique au moins un nom et les calories'), true);
     onSave({
       label: f.label.trim(),
       kcal: Math.round(kcal),
@@ -472,16 +477,16 @@ function ManualForm({
   return (
     <div className="stack">
       <label className="field">
-        <span>Nom</span>
-        <input className="input" value={f.label} onChange={set('label')} placeholder="ex. Wrap poulet" />
+        <span>{tr('Nom')}</span>
+        <input className="input" value={f.label} onChange={set('label')} placeholder={tr('ex. Wrap poulet')} />
       </label>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {(
           [
-            ['kcal', 'Calories'],
-            ['protein', 'Protéines (g)'],
-            ['carbs', 'Glucides (g)'],
-            ['fat', 'Lipides (g)'],
+            ['kcal', tr('Calories')],
+            ['protein', tr('Protéines (g)')],
+            ['carbs', tr('Glucides (g)')],
+            ['fat', tr('Lipides (g)')],
           ] as const
         ).map(([k, label]) => (
           <label className="field" key={k}>
@@ -515,29 +520,29 @@ function WaterCard({ today }: { today: string }) {
     <section className="card water-card" style={{ marginTop: 12 }}>
       <div className="water-head">
         <div>
-          <div className="small muted">Hydratation</div>
+          <div className="small muted">{tr('Hydratation')}</div>
           <div className="water-amount num">
             {formatNumber(ml / 1000, ml % 1000 ? 2 : 1)} <span>/ {formatNumber(goal / 1000, 1)} L</span>
           </div>
         </div>
         <div className="water-actions">
-          <button className="icon-btn" disabled={!ml} aria-label="Retirer un verre" onClick={() => addWater(today, -250)}>
+          <button className="icon-btn" disabled={!ml} aria-label={tr('Retirer un verre')} onClick={() => addWater(today, -250)}>
             <Icon name="minus" size={18} />
           </button>
           <button className="btn small primary" onClick={() => addWater(today, 250)}>
-            + 25 cl
+            {tr('+ 25 cl')}
           </button>
           <button className="btn small" onClick={() => addWater(today, 500)}>
-            + 50 cl
+            {tr('+ 50 cl')}
           </button>
         </div>
       </div>
-      <div className="water-glasses" role="img" aria-label={`${full} verres sur ${glasses}`}>
+      <div className="water-glasses" role="img" aria-label={tr('{full} verres sur {glasses}', { full, glasses })}>
         {Array.from({ length: glasses }, (_, i) => (
           <span key={i} className={i < full ? 'on' : ''} style={{ animationDelay: `${i * 30}ms` }} />
         ))}
       </div>
-      {ml >= goal && <div className="small water-done">Objectif atteint, bien hydraté.</div>}
+      {ml >= goal && <div className="small water-done">{tr('Objectif atteint, bien hydraté.')}</div>}
     </section>
   );
 }
@@ -569,19 +574,19 @@ function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; 
   }, [q, tab]);
 
   const done = (label: string) => {
-    toast(`${label} ajouté`);
+    toast(tr('{label} ajouté', { label }));
     onClose();
   };
   const g = parseDecimal(grams) ?? 0;
 
   return (
-    <Sheet title={`Ajouter au ${slotName(slot).toLowerCase()}`} onClose={onClose}>
+    <Sheet title={ADD_TO_SLOT[slot]} onClose={onClose}>
       <div className="seg" role="tablist" style={{ marginBottom: 14 }}>
         {(
           [
-            ['recent', 'Récents'],
-            ['search', 'Rechercher'],
-            ['manual', 'À la main'],
+            ['recent', tr('Récents')],
+            ['search', tr('Rechercher')],
+            ['manual', tr('À la main')],
           ] as const
         ).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
@@ -605,10 +610,10 @@ function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; 
               >
                 <span className="grow" style={{ textAlign: 'left', minWidth: 0 }}>
                   <span className="title ellipsis" style={{ display: 'block' }}>
-                    {m.label}
+                    {tr(m.label)}
                   </span>
                   <span className="small muted num">
-                    {formatNumber(m.kcal)} kcal, {formatNumber(m.protein)} g P
+                    {tr('{n} kcal, {n2} g P', { n: formatNumber(m.kcal), n2: formatNumber(m.protein) })}
                   </span>
                 </span>
                 <Icon name="plus" size={18} />
@@ -616,15 +621,15 @@ function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; 
             ))}
           </div>
         ) : (
-          <p className="muted">Tes repas notés apparaîtront ici pour les remettre en un geste.</p>
+          <p className="muted">{tr('Tes repas notés apparaîtront ici pour les remettre en un geste.')}</p>
         ))}
 
       {tab === 'search' && !pick && (
         <div className="stack" style={{ gap: 12 }}>
-          <input className="input" type="search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Skyr, pain complet, poulet…" aria-label="Chercher un aliment" />
+          <input className="input" type="search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Skyr, pain complet, poulet…')} aria-label={tr('Chercher un aliment')} />
           {error && <p className="small muted" style={{ margin: 0 }}>{error}</p>}
           {hits === null && q.trim().length >= 2 && <div className="spinner" />}
-          {hits && hits.length === 0 && !error && <p className="small muted" style={{ margin: 0 }}>Rien trouvé. Essaie un autre mot, ou saisis-le à la main.</p>}
+          {hits && hits.length === 0 && !error && <p className="small muted" style={{ margin: 0 }}>{tr('Rien trouvé. Essaie un autre mot, ou saisis-le à la main.')}</p>}
           {hits && hits.length > 0 && (
             <div className="group">
               {hits.map((h) => (
@@ -644,7 +649,7 @@ function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; 
                     </span>
                     <span className="small muted ellipsis" style={{ display: 'block' }}>
                       {h.brand ? `${h.brand}, ` : ''}
-                      {formatNumber(h.per100.kcal)} kcal pour 100 g
+                      {tr('{n} kcal pour 100 g', { n: formatNumber(h.per100.kcal) })}
                     </span>
                   </span>
                 </button>
@@ -652,7 +657,7 @@ function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; 
             </div>
           )}
           <p className="small faint" style={{ margin: 0 }}>
-            Données Open Food Facts, base collaborative : vérifie l’étiquette en cas de doute.
+            {tr('Données Open Food Facts, base collaborative : vérifie l’étiquette en cas de doute.')}
           </p>
         </div>
       )}
@@ -660,12 +665,12 @@ function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; 
       {tab === 'search' && pick && (
         <div className="stack" style={{ gap: 12 }}>
           <button className="link small" style={{ alignSelf: 'flex-start' }} onClick={() => setPick(null)}>
-            ‹ Résultats
+            {tr('‹ Résultats')}
           </button>
           <div style={{ fontWeight: 800 }}>{pick.name}</div>
           {pick.brand && <div className="small muted">{pick.brand}</div>}
           <label className="field">
-            <span>Quantité (g)</span>
+            <span>{tr('Quantité (g)')}</span>
             <input className="input num" inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} />
           </label>
           <div className="chips" style={{ gap: 6 }}>
@@ -679,7 +684,7 @@ function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; 
             <div className="small muted num">
               {(() => {
                 const m = forGrams(pick, g);
-                return `${formatNumber(m.kcal)} kcal, ${m.protein} g P, ${m.carbs} g G, ${m.fat} g L`;
+                return tr('{n} kcal, {protein} g P, {carbs} g G, {fat} g L', { n: formatNumber(m.kcal), protein: m.protein, carbs: m.carbs, fat: m.fat });
               })()}
             </div>
           )}
@@ -693,14 +698,14 @@ function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; 
               done(pick.name);
             }}
           >
-            Ajouter {g > 0 ? `${formatNumber(g)} g` : ''}
+            {tr('Ajouter')}{' '}{g > 0 ? `${formatNumber(g)} g` : ''}
           </button>
         </div>
       )}
 
       {tab === 'manual' && (
         <ManualForm
-          cta="Ajouter"
+          cta={tr('Ajouter')}
           onSave={(m) => {
             addMeal(today, { slot, ...m, source: 'manual' });
             done(m.label);

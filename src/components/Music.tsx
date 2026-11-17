@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { errorText, Sheet } from './ui';
 import { Icon } from './Icon';
 import { isSoundCloud, liveProgress, playable, searchMusic, seek, soundcloudTrack, SOURCE_NAME, stopIf, stopMusic, toggle, type Track, usePlayer, warm } from '../lib/music';
+import { tr } from '../../shared/i18n';
 
 function Artwork({ t, size }: { t: Track; size: number }) {
   return t.artwork ? (
@@ -78,7 +79,7 @@ function PlayButton({ t, playKey }: { t: Track; playKey: string }) {
       playing={playing}
       loading={loading}
       progress={progress}
-      label={playing ? 'Pause' : `Écouter ${t.title}`}
+      label={playing ? tr('Pause') : tr('Écouter {title}', { title: t.title })}
       onClick={() => toggle(t, playKey)}
       onPress={() => warm(t)}
     />
@@ -152,11 +153,11 @@ function Scrubber({ playKey, progress, duration, title }: { playKey: string; pro
         className="scrub-hit"
         role="slider"
         tabIndex={0}
-        aria-label={`Position dans ${title}`}
+        aria-label={tr('Position dans {title}', { title })}
         aria-valuemin={0}
         aria-valuemax={Math.round(duration)}
         aria-valuenow={Math.round(r * duration)}
-        aria-valuetext={`${clock(r * duration)} sur ${clock(duration)}`}
+        aria-valuetext={tr('{clock} sur {clock2}', { clock: clock(r * duration), clock2: clock(duration) })}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           move(ratioAt(e.clientX));
@@ -187,7 +188,7 @@ function Scrubber({ playKey, progress, duration, title }: { playKey: string; pro
 /** Lecteur de SoundCloud (morceau entier), chargé seulement quand on le demande. */
 function SoundCloudPlayer({ t }: { t: Track }) {
   const src = `https://w.soundcloud.com/player/?url=${encodeURIComponent(t.link)}&color=%23ffb547&auto_play=true&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false`;
-  return <iframe className="sc-player" title={`${t.title} sur SoundCloud`} src={src} allow="autoplay; encrypted-media" loading="lazy" />;
+  return <iframe className="sc-player" title={tr('{title} sur SoundCloud', { title: t.title })} src={src} allow="autoplay; encrypted-media" loading="lazy" />;
 }
 
 /** Dans une publication. */
@@ -221,7 +222,7 @@ export function MusicBar({ t, playKey, onRemove }: { t: Track; playKey: string; 
             {!onRemove && (
               <>
                 {', '}
-                <a className="music-link" href={t.link} target="_blank" rel="noopener noreferrer" aria-label={`Ouvrir ${t.title} dans ${SOURCE_NAME[source]}`}>
+                <a className="music-link" href={t.link} target="_blank" rel="noopener noreferrer" aria-label={tr('Ouvrir {title} dans {SOURCE_NAME}', { title: t.title, SOURCE_NAME: SOURCE_NAME[source] })}>
                   {SOURCE_NAME[source]}
                 </a>
               </>
@@ -231,7 +232,7 @@ export function MusicBar({ t, playKey, onRemove }: { t: Track; playKey: string; 
         {source === 'soundcloud' ? (
           <RoundButton
             playing={sc}
-            label={sc ? 'Fermer le lecteur SoundCloud' : `Écouter ${t.title} sur SoundCloud`}
+            label={sc ? tr('Fermer le lecteur SoundCloud') : tr('Écouter {title} sur SoundCloud', { title: t.title })}
             onClick={() => {
               stopMusic();
               setSc((v) => !v);
@@ -241,7 +242,7 @@ export function MusicBar({ t, playKey, onRemove }: { t: Track; playKey: string; 
           <PlayButton t={t} playKey={playKey} />
         )}
         {onRemove && (
-          <button type="button" className="icon-btn" onClick={onRemove} aria-label="Retirer la musique">
+          <button type="button" className="icon-btn" onClick={onRemove} aria-label={tr('Retirer la musique')}>
             <Icon name="x" size={16} />
           </button>
         )}
@@ -326,16 +327,16 @@ export function MusicPicker({ onPick, onClose }: { onPick: (t: Track) => void; o
   };
 
   return (
-    <Sheet title="Ajouter une musique" onClose={close}>
+    <Sheet title={tr('Ajouter une musique')} onClose={close}>
       <div className="stack" style={{ gap: 12 }}>
-        <input className="input" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Titre, artiste ou lien SoundCloud" aria-label="Chercher une musique" />
+        <input className="input" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Titre, artiste ou lien SoundCloud')} aria-label={tr('Chercher une musique')} />
         {error && (
           <p className="small" style={{ margin: 0, color: 'var(--red)' }}>
             {error}
           </p>
         )}
         {busy && list.length === 0 && <Ghosts />}
-        {!busy && q.trim().length >= 2 && list.length === 0 && !error && <p className="small muted">Rien trouvé pour « {q.trim()} ».</p>}
+        {!busy && q.trim().length >= 2 && list.length === 0 && !error && <p className="small muted">{tr('Rien trouvé pour « {q} ».', { q: q.trim() })}</p>}
         {list.length > 0 && (
           <div className={`music-list ${busy ? 'stale' : ''}`}>
             {list.map((t) => (
@@ -365,7 +366,7 @@ export function MusicPicker({ onPick, onClose }: { onPick: (t: Track) => void; o
           </div>
         )}
         <p className="small faint" style={{ margin: 0 }}>
-          Extraits de 30 secondes d’Apple Music et de Deezer. Pour un morceau entier, colle un lien SoundCloud.
+          {tr('Extraits de 30 secondes d’Apple Music et de Deezer. Pour un morceau entier, colle un lien SoundCloud.')}
         </p>
       </div>
     </Sheet>

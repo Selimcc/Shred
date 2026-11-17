@@ -3,6 +3,7 @@
 import { offImage, offText } from './barcode';
 import { addDays } from './date';
 import type { AppState, MealEntry } from './store';
+import { tr } from '../../shared/i18n';
 
 export interface FoodHit {
   code: string;
@@ -40,7 +41,7 @@ export async function searchFoods(query: string): Promise<FoodHit[]> {
   const timer = setTimeout(() => ctl.abort(), 9000);
   try {
     const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params}`, { signal: ctl.signal });
-    if (!res.ok) throw new Error('Open Food Facts ne répond pas, réessaie dans un instant');
+    if (!res.ok) throw new Error(tr('Open Food Facts ne répond pas, réessaie dans un instant'));
     const data = (await res.json()) as { products?: Record<string, unknown>[] };
     const out: FoodHit[] = [];
     for (const p of data.products ?? []) {
@@ -61,7 +62,7 @@ export async function searchFoods(query: string): Promise<FoodHit[]> {
     cache.set(key, out);
     return out;
   } catch (e) {
-    if ((e as Error).name === 'AbortError') throw new Error('Recherche trop longue, réessaie');
+    if ((e as Error).name === 'AbortError') throw new Error(tr('Recherche trop longue, réessaie'));
     throw e;
   } finally {
     clearTimeout(timer);

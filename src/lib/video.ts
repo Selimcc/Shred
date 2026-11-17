@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n';
 // Courtes vidéos du club : 15 secondes au plus, ramenées à 720p et environ 3 Mo avant l'envoi.
 //
 // Sur le téléphone, la vidéo est rejouée dans une image hors écran et réenregistrée (MediaRecorder) : on garde
@@ -31,9 +32,9 @@ export interface PreparedVideo {
 
 const wait = <T,>(el: HTMLVideoElement, event: string, ms: number) =>
   new Promise<T | void>((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error('La vidéo met trop de temps à s’ouvrir')), ms);
+    const t = setTimeout(() => reject(new Error(tr('La vidéo met trop de temps à s’ouvrir'))), ms);
     el.addEventListener(event, () => (clearTimeout(t), resolve()), { once: true });
-    el.addEventListener('error', () => (clearTimeout(t), reject(new Error('Ce téléphone ne sait pas lire cette vidéo'))), { once: true });
+    el.addEventListener('error', () => (clearTimeout(t), reject(new Error(tr('Ce téléphone ne sait pas lire cette vidéo')))), { once: true });
   });
 
 /** Taille réduite qui garde les proportions, en nombres pairs (exigé par les encodeurs). */
@@ -60,7 +61,7 @@ async function grabPoster(el: HTMLVideoElement): Promise<string> {
 
 /** Ouvrir la vidéo choisie : format, durée, image d'aperçu. */
 export async function pickVideo(file: File): Promise<PickedVideo> {
-  if (!file.type.startsWith('video/')) throw new Error('Choisis une vidéo');
+  if (!file.type.startsWith('video/')) throw new Error(tr('Choisis une vidéo'));
   const url = URL.createObjectURL(file);
   const el = document.createElement('video');
   el.muted = true;
@@ -105,7 +106,7 @@ export function prepareVideo(v: PickedVideo, sound: boolean, onProgress: (ratio:
   if (!type || !canvasStream) {
     // Pas de réenregistrement possible : la vidéo d'origine si elle passe, le son coupé à la lecture.
     if (v.file.size <= VIDEO_BYTES && v.dur <= VIDEO_SECONDS + 0.5) return Promise.resolve({ ...base, blob: v.file, type: v.file.type || 'video/mp4' });
-    return Promise.reject(new Error('Vidéo trop longue ou trop lourde pour ce navigateur : 15 secondes et 6 Mo au plus'));
+    return Promise.reject(new Error(tr('Vidéo trop longue ou trop lourde pour ce navigateur : 15 secondes et 6 Mo au plus')));
   }
 
   // Un lecteur neuf à chaque essai (Web Audio ne peut brancher un même lecteur qu'une fois).
@@ -150,13 +151,13 @@ export function prepareVideo(v: PickedVideo, sound: boolean, onProgress: (ratio:
       if (rec.state !== 'inactive') rec.stop();
     };
     rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-    rec.onerror = () => reject(new Error('La vidéo n’a pas pu être préparée'));
+    rec.onerror = () => reject(new Error(tr('La vidéo n’a pas pu être préparée')));
     rec.onstop = () => {
       stream.getTracks().forEach((t) => t.stop());
       void audio?.close();
       const blob = new Blob(chunks, { type: type.split(';')[0] });
-      if (!blob.size) return reject(new Error('La vidéo n’a pas pu être préparée'));
-      if (blob.size > VIDEO_BYTES) return reject(new Error('Vidéo trop lourde même compressée : raccourcis-la'));
+      if (!blob.size) return reject(new Error(tr('La vidéo n’a pas pu être préparée')));
+      if (blob.size > VIDEO_BYTES) return reject(new Error(tr('Vidéo trop lourde même compressée : raccourcis-la')));
       resolve({ ...base, blob, type: type.split(';')[0], w, h });
     };
     const draw = () => {
@@ -177,7 +178,7 @@ export function prepareVideo(v: PickedVideo, sound: boolean, onProgress: (ratio:
       },
       () => {
         done = true;
-        reject(new Error('Touche « Publier » à nouveau pour préparer la vidéo'));
+        reject(new Error(tr('Touche « Publier » à nouveau pour préparer la vidéo')));
       },
     );
   });

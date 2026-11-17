@@ -8,6 +8,7 @@ import { catalogEntry } from './catalog';
 import { usable } from './plans';
 import { estimateDuration, resolveExercise } from './program';
 import type { CatalogEntry, ExerciseSlot, MuscleGroup, Program, SessionDef } from './types';
+import { list, lower, tn, tr } from './i18n';
 
 /* ---------- Physiques et zones musculaires ---------- */
 
@@ -16,18 +17,18 @@ export type Physique = 'aesthetic' | 'v-taper' | 'mass' | 'strength' | 'athletic
 export type Region = 'chest' | 'back' | 'delts' | 'rear' | 'biceps' | 'triceps' | 'quads' | 'posterior' | 'calves' | 'abs' | 'traps' | 'neck';
 
 export const REGIONS: { id: Region; name: string; group: MuscleGroup; small?: boolean }[] = [
-  { id: 'chest', name: 'Pectoraux', group: 'chest' },
-  { id: 'back', name: 'Dos (largeur et épaisseur)', group: 'back' },
-  { id: 'delts', name: 'Épaules', group: 'shoulders' },
-  { id: 'rear', name: 'Arrière d’épaules', group: 'shoulders', small: true },
-  { id: 'biceps', name: 'Biceps', group: 'arms', small: true },
-  { id: 'triceps', name: 'Triceps', group: 'arms', small: true },
-  { id: 'quads', name: 'Quadriceps', group: 'legs' },
-  { id: 'posterior', name: 'Ischios et fessiers', group: 'legs' },
-  { id: 'calves', name: 'Mollets', group: 'legs', small: true },
-  { id: 'abs', name: 'Abdos et obliques', group: 'core', small: true },
-  { id: 'traps', name: 'Trapèzes', group: 'back', small: true },
-  { id: 'neck', name: 'Cou', group: 'neck', small: true },
+  { id: 'chest', name: tr('Pectoraux'), group: 'chest' },
+  { id: 'back', name: tr('Dos (largeur et épaisseur)'), group: 'back' },
+  { id: 'delts', name: tr('Épaules'), group: 'shoulders' },
+  { id: 'rear', name: tr('Arrière d’épaules'), group: 'shoulders', small: true },
+  { id: 'biceps', name: tr('Biceps'), group: 'arms', small: true },
+  { id: 'triceps', name: tr('Triceps'), group: 'arms', small: true },
+  { id: 'quads', name: tr('Quadriceps'), group: 'legs' },
+  { id: 'posterior', name: tr('Ischios et fessiers'), group: 'legs' },
+  { id: 'calves', name: tr('Mollets'), group: 'legs', small: true },
+  { id: 'abs', name: tr('Abdos et obliques'), group: 'core', small: true },
+  { id: 'traps', name: tr('Trapèzes'), group: 'back', small: true },
+  { id: 'neck', name: tr('Cou'), group: 'neck', small: true },
 ];
 
 export const regionName = (r: Region) => REGIONS.find((x) => x.id === r)?.name ?? r;
@@ -46,44 +47,44 @@ interface PhysiqueDef {
 
 export const PHYSIQUES: Record<Physique, PhysiqueDef> = {
   aesthetic: {
-    label: 'Esthétique et sec',
-    text: 'Abdos visibles, épaules rondes, proportions équilibrées. Le look « shredded ».',
+    label: tr('Esthétique et sec'),
+    text: tr('Abdos visibles, épaules rondes, proportions équilibrées. Le look « shredded ».'),
     emphasis: { delts: 1.3, rear: 1.2, chest: 1.1, back: 1.1, biceps: 1.1, triceps: 1.1, quads: 0.85, posterior: 0.85, calves: 0.8, abs: 1.4, traps: 0.8 },
     reps: { main: '6–10', compound: '8–12', iso: '12–15' },
     mainSets: 4,
   },
   'v-taper': {
-    label: 'Dos en V, épaules larges',
-    text: 'Grand dorsal, épaules larges, taille fine. La silhouette en V.',
+    label: tr('Dos en V, épaules larges'),
+    text: tr('Grand dorsal, épaules larges, taille fine. La silhouette en V.'),
     emphasis: { back: 1.4, delts: 1.5, rear: 1.3, chest: 0.9, biceps: 1, triceps: 0.9, quads: 0.8, posterior: 0.8, calves: 0.7, abs: 1.1, traps: 0.9 },
     reps: { main: '6–10', compound: '8–12', iso: '12–20' },
     mainSets: 4,
   },
   mass: {
-    label: 'Masse et gabarit',
-    text: 'Prendre du muscle partout, gros volume, charges lourdes.',
+    label: tr('Masse et gabarit'),
+    text: tr('Prendre du muscle partout, gros volume, charges lourdes.'),
     emphasis: { chest: 1.2, back: 1.2, delts: 1.1, quads: 1.2, posterior: 1.1, biceps: 1.1, triceps: 1.1, traps: 1.1 },
     reps: { main: '6–8', compound: '8–10', iso: '10–15' },
     mainSets: 4,
   },
   strength: {
-    label: 'Force (powerbuilding)',
-    text: 'Monter tes charges sur les gros mouvements, avec assez de volume pour le physique.',
+    label: tr('Force (powerbuilding)'),
+    text: tr('Monter tes charges sur les gros mouvements, avec assez de volume pour le physique.'),
     emphasis: { chest: 1.1, back: 1.1, quads: 1.1, posterior: 1.2, delts: 0.9, rear: 0.9, biceps: 0.8, triceps: 0.9, calves: 0.7, abs: 1 },
     reps: { main: '3–5', compound: '6–8', iso: '10–12' },
     mainSets: 5,
   },
   athletic: {
-    label: 'Athlète hybride',
-    text: 'Fort, explosif et endurant : muscu, puissance et cardio dans la même semaine.',
+    label: tr('Athlète hybride'),
+    text: tr('Fort, explosif et endurant : muscu, puissance et cardio dans la même semaine.'),
     emphasis: { posterior: 1.2, quads: 1.1, back: 1.1, abs: 1.3, biceps: 0.8, triceps: 0.8, calves: 1, traps: 0.9 },
     reps: { main: '4–6', compound: '6–10', iso: '10–15' },
     mainSets: 4,
     athletic: true,
   },
   lower: {
-    label: 'Bas du corps et fessiers',
-    text: 'Jambes et fessiers en priorité, le haut du corps entretenu.',
+    label: tr('Bas du corps et fessiers'),
+    text: tr('Jambes et fessiers en priorité, le haut du corps entretenu.'),
     emphasis: { quads: 1.3, posterior: 1.6, calves: 1.1, chest: 0.75, back: 0.9, delts: 0.9, biceps: 0.7, triceps: 0.7, abs: 1.1, traps: 0.6 },
     reps: { main: '6–10', compound: '8–12', iso: '12–15' },
     mainSets: 4,
@@ -173,13 +174,13 @@ interface DayType {
 }
 
 const DAYS: Record<string, DayType> = {
-  full: { name: 'Full body', focus: 'Tout le corps', core: ['squat', 'hpush', 'hpull', 'vpush', 'hinge', 'abs'], optional: ['lateral', 'biceps', 'triceps', 'vpull', 'rear', 'calves', 'obliques', 'neck', 'glute'] },
-  fullB: { name: 'Full body', focus: 'Tout le corps', core: ['hinge', 'ipush', 'vpull', 'quad2', 'lateral', 'obliques'], optional: ['rear', 'biceps', 'triceps', 'hpull', 'calves', 'abs', 'neck', 'glute'] },
-  upper: { name: 'Haut du corps', focus: 'Pecs, dos, épaules, bras', core: ['hpush', 'hpull', 'vpush', 'vpull', 'lateral', 'biceps', 'triceps'], optional: ['rear', 'chestIso', 'latIso', 'traps', 'neck', 'abs'] },
-  lower: { name: 'Bas du corps', focus: 'Quadris, ischios, fessiers, mollets, abdos', core: ['squat', 'hinge', 'quad2', 'hamIso', 'calves', 'abs'], optional: ['glute', 'quadIso', 'obliques'] },
-  push: { name: 'Push', focus: 'Pecs, épaules, triceps', core: ['hpush', 'vpush', 'ipush', 'lateral', 'triceps'], optional: ['chestIso', 'lateral', 'abs'] },
-  pull: { name: 'Pull', focus: 'Dos, arrière d’épaules, biceps', core: ['vpull', 'hpull', 'rear', 'biceps'], optional: ['latIso', 'traps', 'biceps', 'neck', 'abs'] },
-  legs: { name: 'Legs', focus: 'Quadris, ischios, fessiers, mollets', core: ['squat', 'hinge', 'quad2', 'hamIso', 'calves'], optional: ['glute', 'quadIso', 'abs', 'obliques'] },
+  full: { name: tr('Full body'), focus: tr('Tout le corps'), core: ['squat', 'hpush', 'hpull', 'vpush', 'hinge', 'abs'], optional: ['lateral', 'biceps', 'triceps', 'vpull', 'rear', 'calves', 'obliques', 'neck', 'glute'] },
+  fullB: { name: tr('Full body'), focus: tr('Tout le corps'), core: ['hinge', 'ipush', 'vpull', 'quad2', 'lateral', 'obliques'], optional: ['rear', 'biceps', 'triceps', 'hpull', 'calves', 'abs', 'neck', 'glute'] },
+  upper: { name: tr('Haut du corps'), focus: tr('Pecs, dos, épaules, bras'), core: ['hpush', 'hpull', 'vpush', 'vpull', 'lateral', 'biceps', 'triceps'], optional: ['rear', 'chestIso', 'latIso', 'traps', 'neck', 'abs'] },
+  lower: { name: tr('Bas du corps'), focus: tr('Quadris, ischios, fessiers, mollets, abdos'), core: ['squat', 'hinge', 'quad2', 'hamIso', 'calves', 'abs'], optional: ['glute', 'quadIso', 'obliques'] },
+  push: { name: tr('Push'), focus: tr('Pecs, épaules, triceps'), core: ['hpush', 'vpush', 'ipush', 'lateral', 'triceps'], optional: ['chestIso', 'lateral', 'abs'] },
+  pull: { name: tr('Pull'), focus: tr('Dos, arrière d’épaules, biceps'), core: ['vpull', 'hpull', 'rear', 'biceps'], optional: ['latIso', 'traps', 'biceps', 'neck', 'abs'] },
+  legs: { name: tr('Legs'), focus: tr('Quadris, ischios, fessiers, mollets'), core: ['squat', 'hinge', 'quad2', 'hamIso', 'calves'], optional: ['glute', 'quadIso', 'abs', 'obliques'] },
 };
 
 /** Split selon le nombre de jours de muscu. Jours de la semaine : 0 = dimanche. */
@@ -272,7 +273,7 @@ interface Day {
   slots: Slot[];
 }
 
-const WEEKDAY = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const WEEKDAY = [tr('Dimanche'), tr('Lundi'), tr('Mardi'), tr('Mercredi'), tr('Jeudi'), tr('Vendredi'), tr('Samedi')];
 
 function targetsFor(a: Athlete): Record<Region, number> {
   const physique = PHYSIQUES[a.physique ?? 'aesthetic'];
@@ -308,7 +309,7 @@ function repsFor(role: Role, key: string, physique: Physique): string {
   if (role === 'compound') return p.reps.compound;
   if (role === 'iso') return p.reps.iso;
   if (role === 'power') return key === 'kettlebell-swing' ? '12–15' : '5';
-  if (role === 'finisher') return '10 min';
+  if (role === 'finisher') return tr('10 min');
   // Petits muscles, gainage : on garde les reps de la bibliothèque si ce sont des durées.
   const def = catalogEntry(key)?.defaults.reps ?? '12–15';
   if (/s|min/.test(def)) return def;
@@ -360,7 +361,7 @@ export function generateProgram(input: GenInput): GenResult {
   }
   liftDays = Math.max(2, Math.min(6, liftDays));
   if (sport === 'combat') {
-    notes.push(`${liftDays} séances de force et ${cardioDays} de cardio combat. Tes entraînements au club comptent à part : place-les sur les autres jours, ou remplace un cardio par un entraînement.`);
+    notes.push(tr('{liftDays} séances de force et {cardioDays} de cardio combat. Tes entraînements au club comptent à part : place-les sur les autres jours, ou remplace un cardio par un entraînement.', { liftDays, cardioDays }));
   }
 
   const split = sport === 'combat' ? splitFor(Math.min(liftDays, 3), 'athletic').slice(0, liftDays) : splitFor(liftDays, physique);
@@ -470,7 +471,7 @@ export function generateProgram(input: GenInput): GenResult {
     // Finisher cardio s'il reste du temps (hybride, combat) ou si la séance est courte.
     if ((def.athletic || sport === 'combat' || sport === 'mixed') && slotMinutes(d.slots) + 10 <= budget + 3) {
       const key = pick('finisher', d.variant, new Set(d.slots.map((s) => s.key)), input);
-      if (key) d.slots.push({ pattern: 'finisher', key, role: 'finisher', region: 'abs', sets: 1, reps: '10 min', rest: 0 });
+      if (key) d.slots.push({ pattern: 'finisher', key, role: 'finisher', region: 'abs', sets: 1, reps: tr('10 min'), rest: 0 });
     }
   }
 
@@ -484,15 +485,15 @@ export function generateProgram(input: GenInput): GenResult {
     return {
       id: d.id,
       name: `${t.name}${letter}`,
-      focus: prio.length ? `${t.focus}. Priorité : ${prio.map((r) => regionName(r).toLowerCase()).join(', ')}` : t.focus,
+      focus: prio.length ? tr('{focus}. Priorité : {list}', { focus: t.focus, list: prio.map((r) => lower(regionName(r))).join(', ') }) : t.focus,
       type: 'lifting',
       exercises: d.slots.map<ExerciseSlot>((s) => ({
         key: s.key,
         sets: s.sets,
         reps: s.reps,
         rest: s.rest,
-        ...(s.role === 'main' ? { note: physique === 'strength' ? 'Mouvement principal : charge lourde, technique parfaite.' : 'Mouvement principal de la séance : c’est lui qui doit progresser.' } : {}),
-        ...(s.role === 'finisher' ? { note: '10 min : 30 s fort, 30 s facile.' } : {}),
+        ...(s.role === 'main' ? { note: physique === 'strength' ? tr('Mouvement principal : charge lourde, technique parfaite.') : tr('Mouvement principal de la séance : c’est lui qui doit progresser.') } : {}),
+        ...(s.role === 'finisher' ? { note: tr('10 min : 30 s fort, 30 s facile.') } : {}),
       })),
     };
   });
@@ -503,12 +504,12 @@ export function generateProgram(input: GenInput): GenResult {
     if (sport === 'combat') {
       cardio.push({
         id: 'gen-fight-cardio',
-        name: 'Cardio combat',
-        focus: 'Rounds de 3 min, 1 min de repos : le cardio du combat',
+        name: tr('Cardio combat'),
+        focus: tr('Rounds de 3 min, 1 min de repos : le cardio du combat'),
         type: 'cardio',
         exercises: [
-          { key: 'rope-shadow', sets: 5, reps: '3 min', rest: 60 },
-          { key: usable('intervals', input.gym) ? 'intervals' : 'mountain-climber', sets: 1, reps: '10 min', note: '30 s à fond, 30 s facile.' },
+          { key: 'rope-shadow', sets: 5, reps: tr('3 min'), rest: 60 },
+          { key: usable('intervals', input.gym) ? 'intervals' : 'mountain-climber', sets: 1, reps: tr('10 min'), note: tr('30 s à fond, 30 s facile.') },
           { key: 'burpee-broad-jump', sets: 3, reps: '10', rest: 60 },
           { key: 'neck-flexion', sets: 2, reps: '15', rest: 45 },
           { key: 'neck-extension', sets: 2, reps: '15', rest: 45 },
@@ -517,18 +518,18 @@ export function generateProgram(input: GenInput): GenResult {
     } else {
       cardio.push({
         id: 'gen-zone2',
-        name: 'Cardio zone 2',
-        focus: '30 à 45 min à allure facile : tu peux parler en courtes phrases',
+        name: tr('Cardio zone 2'),
+        focus: tr('30 à 45 min à allure facile : tu peux parler en courtes phrases'),
         type: 'cardio',
-        exercises: [{ key: 'zone2', reps: '40 min' }, { key: 'mobility' }],
+        exercises: [{ key: 'zone2', reps: tr('40 min') }, { key: 'mobility' }],
       });
       if (cardioDays > 1)
         cardio.push({
           id: 'gen-intervals',
-          name: 'Cardio intervalles',
-          focus: 'Fractionné court : le moteur',
+          name: tr('Cardio intervalles'),
+          focus: tr('Fractionné court : le moteur'),
           type: 'cardio',
-          exercises: [{ key: usable('intervals', input.gym) ? 'intervals' : 'running', sets: 1, reps: '20 min', note: '8 × (1 min fort, 1 min facile), échauffement et retour au calme compris.' }, { key: 'plank', sets: 3 }],
+          exercises: [{ key: usable('intervals', input.gym) ? 'intervals' : 'running', sets: 1, reps: tr('20 min'), note: tr('8 × (1 min fort, 1 min facile), échauffement et retour au calme compris.') }, { key: 'plank', sets: 3 }],
         });
     }
   }
@@ -541,8 +542,8 @@ export function generateProgram(input: GenInput): GenResult {
 
   const rest: SessionDef = {
     id: 'rest',
-    name: 'Repos',
-    focus: 'Marche et récupération',
+    name: tr('Repos'),
+    focus: tr('Marche et récupération'),
     type: 'rest',
     exercises: [{ key: 'walk' }, { key: 'mobility' }],
   };
@@ -555,15 +556,15 @@ export function generateProgram(input: GenInput): GenResult {
   const short = volumeOut.filter((x) => x.sets < x.target - 2);
   if (short.length)
     notes.push(
-      `Avec ${liftDays} séances de ${budget} min, ${short.map((x) => regionName(x.region).toLowerCase()).join(', ')} ${short.length > 1 ? 'restent' : 'reste'} un peu sous la cible. Ajoute du temps ou un jour si tu veux tout couvrir.`,
+      tn(short.length, 'Avec {liftDays} séances de {budget} min, {join} reste un peu sous la cible. Ajoute du temps ou un jour si tu veux tout couvrir.', 'Avec {liftDays} séances de {budget} min, {join} restent un peu sous la cible. Ajoute du temps ou un jour si tu veux tout couvrir.', { liftDays, budget, join: list(short.map((x) => lower(regionName(x.region)))) }),
     );
   const missing = (Object.keys(PATTERNS) as PatternId[]).filter((p) => !['power', 'finisher', 'neck'].includes(p) && !(PATTERNS[p] as Pattern).keys.some((k) => usable(k, input.gym)));
-  if (missing.length) notes.push('Ta salle manque de matériel pour certains mouvements : ils sont remplacés au mieux.');
+  if (missing.length) notes.push(tr('Ta salle manque de matériel pour certains mouvements : ils sont remplacés au mieux.'));
   notes.unshift(splitNote(liftDays, physique, sport));
 
   return {
     program: {
-      name: `${def.label}${sport === 'combat' ? ' + combat' : sport === 'mixed' ? ' + cardio' : ''}`,
+      name: `${def.label}${sport === 'combat' ? tr(' + combat') : sport === 'mixed' ? tr(' + cardio') : ''}`,
       template: `gen-${physique}`,
       sessions: [...sessions, ...cardio, rest],
       schedule,
@@ -577,13 +578,13 @@ export function generateProgram(input: GenInput): GenResult {
 
 function splitNote(days: number, physique: Physique, sport: Athlete['sport']): string {
   const why: Record<number, string> = {
-    2: '2 full body : chaque muscle travaillé 2 fois par semaine, le minimum efficace.',
-    3: '3 full body : chaque muscle 3 fois par semaine, idéal pour progresser vite avec peu de jours.',
-    4: 'Haut / bas deux fois : chaque muscle 2 fois par semaine, avec le temps de récupérer.',
-    5: physique === 'lower' ? 'Bas, haut, jambes, haut, bas : 3 séances jambes pour tes fessiers.' : 'Push, pull, legs puis haut et bas : chaque muscle 2 fois par semaine sur 5 jours.',
-    6: 'Push, pull, legs deux fois : volume maximal, pour qui récupère bien.',
+    2: tr('2 full body : chaque muscle travaillé 2 fois par semaine, le minimum efficace.'),
+    3: tr('3 full body : chaque muscle 3 fois par semaine, idéal pour progresser vite avec peu de jours.'),
+    4: tr('Haut / bas deux fois : chaque muscle 2 fois par semaine, avec le temps de récupérer.'),
+    5: physique === 'lower' ? tr('Bas, haut, jambes, haut, bas : 3 séances jambes pour tes fessiers.') : tr('Push, pull, legs puis haut et bas : chaque muscle 2 fois par semaine sur 5 jours.'),
+    6: tr('Push, pull, legs deux fois : volume maximal, pour qui récupère bien.'),
   };
-  return sport === 'combat' ? 'Full body de force et de puissance : ce qui sert sur le tapis, sans te cramer pour le club.' : why[days] ?? why[4];
+  return sport === 'combat' ? tr('Full body de force et de puissance : ce qui sert sur le tapis, sans te cramer pour le club.') : why[days] ?? why[4];
 }
 
 /** Séance de renfo pour les plans de course et Hyrox, selon le physique visé. */
@@ -612,7 +613,7 @@ export function runnerStrength(input: GenInput): SessionDef {
   for (const pid of upper.slice(0, 2)) add(pid, 3);
   add('calves', 3, '12–15');
   add('obliques', 2);
-  return { id: 'run-strength', name: 'Renfo', focus: 'Jambes, hanches et gainage, plus le haut du corps que tu veux développer', type: 'lifting', exercises };
+  return { id: 'run-strength', name: tr('Renfo'), focus: tr('Jambes, hanches et gainage, plus le haut du corps que tu veux développer'), type: 'lifting', exercises };
 }
 
 /**
@@ -642,7 +643,7 @@ export function enduranceStrength(input: GenInput, kind: 'run' | 'swim' | 'bike'
     add('squat', 3, '8–10');
     add('obliques', 2);
     add('abs', 2);
-    return { id: 'swim-strength', name: 'Renfo nageur', focus: 'Dos, épaules protégées et gainage : plus de puissance dans l’eau', type: 'lifting', exercises };
+    return { id: 'swim-strength', name: tr('Renfo nageur'), focus: tr('Dos, épaules protégées et gainage : plus de puissance dans l’eau'), type: 'lifting', exercises };
   }
   if (kind === 'bike') {
     add('squat', 3, '6–8');
@@ -652,14 +653,14 @@ export function enduranceStrength(input: GenInput, kind: 'run' | 'swim' | 'bike'
     add('hpull', 2, '10–12');
     add('calves', 2, '12–15');
     add('obliques', 2);
-    return { id: 'bike-strength', name: 'Renfo cycliste', focus: 'Jambes une par une, fessiers et gainage : plus de watts, moins de douleurs de dos', type: 'lifting', exercises };
+    return { id: 'bike-strength', name: tr('Renfo cycliste'), focus: tr('Jambes une par une, fessiers et gainage : plus de watts, moins de douleurs de dos'), type: 'lifting', exercises };
   }
   const tri = runnerStrength(input);
   if (!tri.exercises.some((x) => (PATTERNS.vpull as Pattern).keys.includes(x.key))) {
     const key = pick('vpull', 0, new Set(tri.exercises.map((x) => x.key)), input);
     if (key) tri.exercises.splice(3, 0, { key, sets: 3, reps: '6–10', rest: 120 });
   }
-  return { ...tri, id: 'tri-strength', name: 'Renfo triathlète', focus: 'Jambes, hanches, dos et gainage : tenir la position sur les trois sports' };
+  return { ...tri, id: 'tri-strength', name: tr('Renfo triathlète'), focus: tr('Jambes, hanches, dos et gainage : tenir la position sur les trois sports') };
 }
 
 /** Le volume hebdomadaire par zone d'un programme quelconque (semaine type). */

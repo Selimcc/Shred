@@ -1,6 +1,6 @@
 // Ce que tu as vraiment fait : minutes d'entraînement par sport, distances, séances, progression des charges.
 // Calculé à partir des séries cochées (et des distances et durées notées pour l'endurance).
-import { catalogEntry } from '../../shared/catalog';
+import { catalogEntry, exerciseName } from '../../shared/catalog';
 import { repMeters, repSeconds } from '../../shared/effort';
 import { resolveExercise, scheduleFor, findSession } from '../../shared/program';
 import type { Discipline, Exercise } from '../../shared/types';
@@ -8,10 +8,11 @@ import { addDays, mondayOf } from './date';
 import { sessionFor } from './logic';
 import type { AppState } from './state';
 import { e1rm } from './strength';
+import { tr } from '../../shared/i18n';
 
 export type Bucket = 'lift' | 'run' | 'bike' | 'swim' | 'other';
 export const BUCKETS: Bucket[] = ['lift', 'run', 'bike', 'swim', 'other'];
-export const BUCKET_NAMES: Record<Bucket, string> = { lift: 'Muscu', run: 'Course', bike: 'Vélo', swim: 'Natation', other: 'Autre cardio' };
+export const BUCKET_NAMES: Record<Bucket, string> = { lift: tr('Muscu'), run: tr('Course'), bike: tr('Vélo'), swim: tr('Natation'), other: tr('Autre cardio') };
 
 export interface Training {
   /** Minutes par sport. */
@@ -163,7 +164,7 @@ export function trackedLifts(s: AppState, today: string, max = 5): { key: string
     .filter(([key, n]) => n >= 2 && !catalogEntry(key, s.customExercises)?.noLoad && catalogEntry(key, s.customExercises)?.kind !== 'neck')
     .sort((a, b) => rank(a[0]) - rank(b[0]) || b[1] - a[1])
     .slice(0, max)
-    .map(([key, points]) => ({ key, name: catalogEntry(key, s.customExercises)?.name ?? key, points }));
+    .map(([key, points]) => ({ key, name: exerciseName(key, s.customExercises), points }));
 }
 
 /** Records des 14 derniers jours, tous exercices confondus. */
@@ -173,7 +174,7 @@ export function recentRecords(s: AppState, today: string): { key: string; name: 
   for (const key of keys) {
     const pts = liftSeries(s, key, today, 14).filter((p) => p.pr);
     const last = pts[pts.length - 1];
-    if (last) out.push({ key, name: catalogEntry(key, s.customExercises)?.name ?? key, date: last.date, w: last.w, r: last.r });
+    if (last) out.push({ key, name: exerciseName(key, s.customExercises), date: last.date, w: last.w, r: last.r });
   }
   return out.sort((a, b) => b.date.localeCompare(a.date));
 }

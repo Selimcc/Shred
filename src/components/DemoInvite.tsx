@@ -2,9 +2,10 @@
 // à la vraie app, sur invitation ; au bout de quelques minutes, la démo propose d'en demander une.
 import { useEffect, useState } from 'react';
 import { Sheet } from './ui';
+import { tr } from '../../shared/i18n';
 
-const INVITE_URL = `mailto:selimjabnoun039@gmail.com?subject=${encodeURIComponent('Invitation Shred')}&body=${encodeURIComponent(
-  'Salut Selim, j’ai testé la démo de Shred et j’aimerais une invitation pour la vraie app.',
+const INVITE_URL = `mailto:selimjabnoun039@gmail.com?subject=${encodeURIComponent(tr('Invitation Shred'))}&body=${encodeURIComponent(
+  tr('Salut Selim, j’ai testé la démo de Shred et j’aimerais une invitation pour la vraie app.'),
 )}`;
 const AFTER_MS = 3 * 60_000;
 const SEEN = 'shred-demo-invite-seen';
@@ -27,7 +28,7 @@ export function DemoInviteHost() {
       if (t instanceof HTMLInputElement && t.type === 'file') {
         e.preventDefault();
         e.stopPropagation();
-        setReason('Les photos ne sont pas disponibles dans la démo.');
+        setReason(tr('Les photos ne sont pas disponibles dans la démo.'));
       }
     };
     document.addEventListener('click', onClick, true);
@@ -54,19 +55,18 @@ export function DemoInviteHost() {
     setReason(null);
   };
   return (
-    <Sheet title="Envie de l’utiliser pour de vrai ?" onClose={close}>
+    <Sheet title={tr('Envie de l’utiliser pour de vrai ?')} onClose={close}>
       <div className="stack">
         {reason && <p className="title">{reason}</p>}
-        <p>Ici, c’est une démo avec des données d’exemple : rien n’est enregistré ni envoyé à un serveur.</p>
+        <p>{tr('Ici, c’est une démo avec des données d’exemple : rien n’est enregistré ni envoyé à un serveur.')}</p>
         <p className="muted">
-          La vraie app garde ta série, tes séances et tes repas, t’envoie des rappels, et son coach connaît ton programme. Elle est privée, sur
-          invitation.
+          {tr('La vraie app garde ta série, tes séances et tes repas, t’envoie des rappels, et son coach connaît ton programme. Elle est privée, sur invitation.')}
         </p>
         <a className="btn primary" href={INVITE_URL}>
-          Demander une invitation
+          {tr('Demander une invitation')}
         </a>
         <button className="btn" onClick={close}>
-          Continuer la démo
+          {tr('Continuer la démo')}
         </button>
       </div>
     </Sheet>

@@ -5,7 +5,7 @@ import { TEMPLATES } from '../../shared/templates';
 import type { ExerciseKind, MuscleGroup, SessionDef, SessionType } from '../../shared/types';
 import { Icon } from '../components/Icon';
 import { ask, toast } from '../components/ui';
-import { WEEKDAY_NAMES } from '../lib/date';
+import { WEEKDAY_LOWER, WEEKDAY_NAMES, WEEKDAY_SHORT } from '../lib/date';
 import { exerciseFrames } from '../lib/exercise-info';
 import {
   addExercise,
@@ -31,10 +31,11 @@ import { Pulse } from '../components/Pulse';
 import { ProgramBuilder } from './ProgramBuilder';
 import { applyTweak, dismissTweak, programTweaks } from '../lib/tweaks';
 import { addDays, dayKey, formatShort } from '../lib/date';
+import { loc, lower, tn, tr } from '../../shared/i18n';
 
-const TYPE_NAMES: Record<SessionType, string> = { lifting: 'Muscu', cardio: 'Cardio', rest: 'Repos' };
+const TYPE_NAMES: Record<SessionType, string> = { lifting: tr('Muscu'), cardio: tr('Cardio'), rest: tr('Repos') };
 const REST_OPTIONS = [0, 30, 45, 60, 75, 90, 120, 150, 180, 240];
-const fmtRest = (sec: number) => (sec === 0 ? 'aucun' : sec >= 60 ? `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60}` : ''}` : `${sec} s`);
+const fmtRest = (sec: number) => (sec === 0 ? tr('aucun') : sec >= 60 ? `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60}` : ''}` : `${sec} s`);
 
 /** Éditeur du split : planning de la semaine, séances, exercices. */
 export function ProgramEditor() {
@@ -50,13 +51,13 @@ export function ProgramEditor() {
   if (builder) return <ProgramBuilder onDone={() => setBuilder(false)} />;
 
   if (picker) {
-    return <ExercisePicker onBack={() => setPicker(null)} onPick={(key) => { addExercise(picker, key); setPicker(null); toast('Exercice ajouté'); }} />;
+    return <ExercisePicker onBack={() => setPicker(null)} onPick={(key) => { addExercise(picker, key); setPicker(null); toast(tr('Exercice ajouté')); }} />;
   }
 
   return (
     <div className="stack" style={{ gap: 22 }}>
       <label className="field">
-        <span>Nom du programme</span>
+        <span>{tr('Nom du programme')}</span>
         <input className="input" value={p.name} onChange={(e) => renameProgram(e.target.value)} id="program-name" />
       </label>
 
@@ -66,38 +67,38 @@ export function ProgramEditor() {
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <Pulse mood="happy" size={52} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 850 }}>{s.settings.athlete.physique ? PHYSIQUES[s.settings.athlete.physique].label : 'Programme sur mesure'}</div>
+            <div style={{ fontWeight: 850 }}>{s.settings.athlete.physique ? PHYSIQUES[s.settings.athlete.physique].label : tr('Programme sur mesure')}</div>
             <div className="small muted">
-              {sportLabel(s.settings.athlete)}, {s.settings.athlete.days} séances de {s.settings.athlete.minutes} min
-              {s.settings.athlete.priorities?.length ? `. Priorités : ${s.settings.athlete.priorities.map((r) => regionName(r).toLowerCase()).join(', ')}` : ''}
+              {tr('{sportLabel}, {days} séances de {minutes} min', { sportLabel: sportLabel(s.settings.athlete), days: s.settings.athlete.days, minutes: s.settings.athlete.minutes })}
+              {s.settings.athlete.priorities?.length ? tr('. Priorités : {list}', { list: s.settings.athlete.priorities.map((r) => lower(regionName(r))).join(', ') }) : ''}
             </div>
           </div>
         </div>
         <button className="btn primary block" onClick={() => setBuilder(true)}>
-          <Icon name="sparkle" size={18} /> Construire mon programme
+          <Icon name="sparkle" size={18} />{' '}{tr('Construire mon programme')}
         </button>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             className="btn small"
             onClick={() => {
               const swaps = adaptCurrentProgram();
-              toast(swaps.length ? `${swaps.length} exercice(s) remplacé(s) selon ta salle` : 'Tout se fait déjà dans ta salle');
+              toast(swaps.length ? tn(swaps.length, '{n} exercice remplacé selon ta salle', '{n} exercices remplacés selon ta salle') : tr('Tout se fait déjà dans ta salle'));
             }}
           >
-            Adapter à ma salle
+            {tr('Adapter à ma salle')}
           </button>
           {s.programHistory?.[0] && (
             <button
               className="btn small"
               onClick={async () => {
                 const prev = s.programHistory![0];
-                if (await ask(`Revenir à « ${prev.program.name} » (remplacé le ${formatShort(prev.replacedAt)}) ?`, 'Revenir')) {
+                if (await ask(tr('Revenir à « {name} » (remplacé le {date}) ?', { name: prev.program.name, date: formatShort(prev.replacedAt) }), tr('Revenir'))) {
                   restorePreviousProgram();
-                  toast(`Programme « ${prev.program.name} » rétabli`);
+                  toast(tr('Programme « {name} » rétabli', { name: prev.program.name }));
                 }
               }}
             >
-              <Icon name="undo" size={15} /> Programme précédent
+              <Icon name="undo" size={15} />{' '}{tr('Programme précédent')}
             </button>
           )}
         </div>
@@ -105,7 +106,7 @@ export function ProgramEditor() {
 
       {tweaks.length > 0 && (
         <section className="stack" style={{ gap: 10 }}>
-          <h2>Propositions de Pulse</h2>
+          <h2>{tr('Propositions de Pulse')}</h2>
           {tweaks.map((t) => (
             <div key={t.id} className="card tweak">
               <div style={{ fontWeight: 800 }}>{t.title}</div>
@@ -115,7 +116,7 @@ export function ProgramEditor() {
                   {t.cta}
                 </button>
                 <button className="btn small" onClick={() => dismissTweak(t.id, dayKey())}>
-                  Plus tard
+                  {tr('Plus tard')}
                 </button>
               </div>
             </div>
@@ -125,9 +126,9 @@ export function ProgramEditor() {
 
       <section>
         <div className="section-head">
-          <h2>Partir d’un modèle</h2>
+          <h2>{tr('Partir d’un modèle')}</h2>
           <button className="link small" onClick={() => setTemplates((v) => !v)}>
-            {templates ? 'Masquer' : 'Voir les modèles'}
+            {templates ? tr('Masquer') : tr('Voir les modèles')}
           </button>
         </div>
         {templates && (
@@ -138,19 +139,19 @@ export function ProgramEditor() {
                 className="row"
                 style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }}
                 onClick={async () => {
-                  if (await ask(`Remplacer ton programme par « ${t.name} » ? Ton historique de séances est conservé.`, 'Remplacer', true)) {
+                  if (await ask(tr('Remplacer ton programme par « {name} » ? Ton historique de séances est conservé.', { name: tr(t.name) }), tr('Remplacer'), true)) {
                     applyTemplate(t.id);
                     adaptCurrentProgram();
                     setTemplates(false);
-                    toast(`Programme « ${t.name} » chargé`);
+                    toast(tr('Programme « {name} » chargé', { name: tr(t.name) }));
                   }
                 }}
               >
                 <div className="grow">
                   <div className="title">
-                    {t.name} <span className="tag">{t.days}</span>
+                    {tr(t.name)} <span className="tag">{tr(t.days)}</span>
                   </div>
-                  <div className="small muted">{t.description}</div>
+                  <div className="small muted">{tr(t.description)}</div>
                 </div>
                 {p.template === t.id && <Icon name="check" />}
               </button>
@@ -161,7 +162,7 @@ export function ProgramEditor() {
 
       <section>
         <div className="section-head">
-          <h2>Ma semaine</h2>
+          <h2>{tr('Ma semaine')}</h2>
         </div>
         <div className="group">
           {[1, 2, 3, 4, 5, 6, 0].map((wd) => (
@@ -172,7 +173,7 @@ export function ProgramEditor() {
                 style={{ width: 180, minHeight: 40 }}
                 value={p.schedule[wd]}
                 onChange={(e) => setScheduleDay(wd, e.target.value)}
-                aria-label={`Séance du ${WEEKDAY_NAMES[wd].toLowerCase()}`}
+                aria-label={tr('Séance du {day}', { day: WEEKDAY_LOWER[wd] })}
               >
                 {own.map((x) => (
                   <option key={x.id} value={x.id}>
@@ -187,7 +188,7 @@ export function ProgramEditor() {
 
       <section>
         <div className="section-head">
-          <h2>Mes séances</h2>
+          <h2>{tr('Mes séances')}</h2>
           <span className="small muted">{own.length}</span>
         </div>
         <div className="stack">
@@ -205,25 +206,25 @@ export function ProgramEditor() {
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
           <button className="btn small" onClick={() => setOpen(addSession('lifting'))}>
-            <Icon name="plus" size={16} /> Séance de muscu
+            <Icon name="plus" size={16} />{' '}{tr('Séance de muscu')}
           </button>
           <button className="btn small" onClick={() => setOpen(addSession('cardio'))}>
-            <Icon name="plus" size={16} /> Cardio
+            <Icon name="plus" size={16} />{' '}{tr('Cardio')}
           </button>
           <button className="btn small" onClick={() => setOpen(addSession('rest'))}>
-            <Icon name="plus" size={16} /> Repos
+            <Icon name="plus" size={16} />{' '}{tr('Repos')}
           </button>
         </div>
       </section>
 
       <section>
         <div className="section-head">
-          <h2>Avant chaque séance</h2>
+          <h2>{tr('Avant chaque séance')}</h2>
         </div>
         <div className="group">
           <Toggle
-            title="Échauffement"
-            text="5 à 10 minutes choisies d’après la séance du jour : muscles travaillés, sport, séries d’approche. Tu peux toujours le passer."
+            title={tr('Échauffement')}
+            text={tr('5 à 10 minutes choisies d’après la séance du jour : muscles travaillés, sport, séries d’approche. Tu peux toujours le passer.')}
             on={s.settings.warmup !== false}
             onChange={(v) => setState((d) => void (d.settings.warmup = v))}
           />
@@ -262,8 +263,8 @@ function SessionCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 850, fontStretch: '115%' }}>{def.name}</div>
           <div className="small muted">
-            {TYPE_NAMES[def.type]}, {def.exercises.length} exercice{def.exercises.length > 1 ? 's' : ''}, ~{session.duration}
-            {usedDays ? `, ${usedDays} j/sem` : ', pas au planning'}
+            {tn(def.exercises.length, '{type}, {n} exercice', '{type}, {n} exercices', { type: TYPE_NAMES[def.type] })}, ~{session.duration}
+            {usedDays ? tr(', {usedDays} j/sem', { usedDays }) : tr(', pas au planning')}
           </div>
         </div>
         <span style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>
@@ -273,13 +274,13 @@ function SessionCard({
 
       {open && (
         <div style={{ padding: '0 16px 16px' }} className="stack">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr minmax(110px, max-content)', gap: 8 }}>
             <label className="field">
-              <span>Nom</span>
+              <span>{tr('Nom')}</span>
               <input className="input" value={def.name} onChange={(e) => updateSession(def.id, { name: e.target.value.slice(0, 30) })} />
             </label>
             <label className="field">
-              <span>Type</span>
+              <span>{tr('Type')}</span>
               <select className="input" value={def.type} onChange={(e) => updateSession(def.id, { type: e.target.value as SessionType })}>
                 {(Object.keys(TYPE_NAMES) as SessionType[]).map((t) => (
                   <option key={t} value={t}>
@@ -290,12 +291,12 @@ function SessionCard({
             </label>
           </div>
           <label className="field">
-            <span>Muscles visés</span>
-            <input className="input" value={def.focus} placeholder="ex. Pecs, épaules, triceps" onChange={(e) => updateSession(def.id, { focus: e.target.value.slice(0, 60) })} />
+            <span>{tr('Muscles visés')}</span>
+            <input className="input" value={def.focus} placeholder={tr('ex. Pecs, épaules, triceps')} onChange={(e) => updateSession(def.id, { focus: e.target.value.slice(0, 60) })} />
           </label>
 
           <div className="group" style={{ background: 'var(--surface-2)' }}>
-            {def.exercises.length === 0 && <div className="empty small">Aucun exercice pour l’instant.</div>}
+            {def.exercises.length === 0 && <div className="empty small">{tr('Aucun exercice pour l’instant.')}</div>}
             {def.exercises.map((slot, i) => {
               const ex = session.exercises[i];
               const frames = exerciseFrames(slot.key);
@@ -316,7 +317,7 @@ function SessionCard({
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: 'block', fontWeight: 700, lineHeight: 1.25 }}>{ex.name}</span>
                       <span className="small muted num">
-                        {ex.sets} × {ex.reps}, repos {fmtRest(ex.rest)}
+                        {tr('{sets} × {reps}, repos {rest}', { sets: ex.sets, reps: ex.reps, rest: fmtRest(ex.rest) })}
                       </span>
                     </span>
                   </button>
@@ -324,7 +325,7 @@ function SessionCard({
                     <div style={{ padding: '0 12px 12px' }} className="stack">
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                         <label className="field">
-                          <span>Séries</span>
+                          <span>{tr('Séries')}</span>
                           <select className="input" value={ex.sets} onChange={(e) => updateSlot(def.id, i, { sets: Number(e.target.value) })}>
                             {Array.from({ length: 10 }, (_, k) => k + 1).map((n) => (
                               <option key={n} value={n}>
@@ -334,11 +335,11 @@ function SessionCard({
                           </select>
                         </label>
                         <label className="field">
-                          <span>Reps</span>
+                          <span>{tr('Reps')}</span>
                           <input className="input" defaultValue={ex.reps} onBlur={(e) => e.target.value.trim() && updateSlot(def.id, i, { reps: e.target.value.trim().slice(0, 20) })} />
                         </label>
                         <label className="field">
-                          <span>Repos</span>
+                          <span>{tr('Repos')}</span>
                           <select className="input" value={ex.rest} onChange={(e) => updateSlot(def.id, i, { rest: Number(e.target.value) })}>
                             {[...new Set([...REST_OPTIONS, ex.rest])].sort((a, b) => a - b).map((r) => (
                               <option key={r} value={r}>
@@ -349,18 +350,18 @@ function SessionCard({
                         </label>
                       </div>
                       <label className="field">
-                        <span>Note (optionnel)</span>
-                        <input className="input" defaultValue={slot.note ?? ''} placeholder="ex. dernière série en dégressive" onBlur={(e) => updateSlot(def.id, i, { note: e.target.value.trim() || undefined })} />
+                        <span>{tr('Note (optionnel)')}</span>
+                        <input className="input" defaultValue={slot.note ?? ''} placeholder={tr('ex. dernière série en dégressive')} onBlur={(e) => updateSlot(def.id, i, { note: e.target.value.trim() || undefined })} />
                       </label>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn small" disabled={i === 0} onClick={() => { moveSlot(def.id, i, -1); setEditing(i - 1); }} aria-label="Monter">
-                          ↑ Monter
+                        <button className="btn small" disabled={i === 0} onClick={() => { moveSlot(def.id, i, -1); setEditing(i - 1); }} aria-label={tr('Monter')}>
+                          {tr('↑ Monter')}
                         </button>
-                        <button className="btn small" disabled={i === def.exercises.length - 1} onClick={() => { moveSlot(def.id, i, 1); setEditing(i + 1); }} aria-label="Descendre">
-                          ↓ Descendre
+                        <button className="btn small" disabled={i === def.exercises.length - 1} onClick={() => { moveSlot(def.id, i, 1); setEditing(i + 1); }} aria-label={tr('Descendre')}>
+                          {tr('↓ Descendre')}
                         </button>
                         <button className="btn small danger" style={{ marginLeft: 'auto' }} onClick={() => { removeSlot(def.id, i); setEditing(null); }}>
-                          Retirer
+                          {tr('Retirer')}
                         </button>
                       </div>
                     </div>
@@ -371,17 +372,17 @@ function SessionCard({
           </div>
 
           <button className="btn primary block" onClick={onAdd}>
-            <Icon name="plus" size={18} /> Ajouter un exercice
+            <Icon name="plus" size={18} />{' '}{tr('Ajouter un exercice')}
           </button>
           {canDelete && (
             <button
               className="link small"
               style={{ color: 'var(--red)', alignSelf: 'flex-start' }}
               onClick={async () => {
-                if (await ask(`Supprimer la séance « ${def.name} » ?${usedDays ? ' Les jours qui l’utilisent passeront en repos.' : ''}`, 'Supprimer', true)) deleteSession(def.id);
+                if (await ask(tr('Supprimer la séance « {name} » ?{v}', { name: def.name, v: usedDays ? tr(' Les jours qui l’utilisent passeront en repos.') : '' }), tr('Supprimer'), true)) deleteSession(def.id);
               }}
             >
-              Supprimer cette séance
+              {tr('Supprimer cette séance')}
             </button>
           )}
         </div>
@@ -401,7 +402,7 @@ export function ExercisePicker({ onBack, onPick }: { onBack: () => void; onPick:
   const all = useMemo(() => [...Object.values(s.customExercises), ...CATALOG], [s.customExercises]);
   const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const list = all.filter(
-    (e) => (group === 'all' || e.group === group) && (!q || norm(`${e.name} ${e.muscles.join(' ')}`).includes(norm(q))),
+    (e) => (group === 'all' || e.group === group) && (!q || norm(`${e.name} ${tr(e.name)} ${e.muscles.join(' ')} ${e.muscles.map((m) => tr(m)).join(' ')}`).includes(norm(q))),
   );
 
   if (creating) return <CustomExerciseForm onBack={() => setCreating(false)} onCreated={onPick} initialName={q} />;
@@ -409,13 +410,13 @@ export function ExercisePicker({ onBack, onPick }: { onBack: () => void; onPick:
   return (
     <div className="stack">
       <button className="link small" style={{ alignSelf: 'flex-start' }} onClick={onBack}>
-        ← Retour au programme
+        {tr('← Retour au programme')}
       </button>
-      <input className="input" placeholder="Rechercher : développé, dos, mollets…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Rechercher un exercice" />
+      <input className="input" placeholder={tr('Rechercher : développé, dos, mollets…')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('Rechercher un exercice')} />
       <div className="chips" style={{ gap: 6 }}>
         {(['all', ...GROUP_ORDER] as const).map((g) => (
           <button key={g} className={`chip ${group === g ? 'on' : ''}`} style={{ minHeight: 34, padding: '0 12px' }} onClick={() => setGroup(g)}>
-            {g === 'all' ? 'Tout' : GROUP_NAMES[g]}
+            {g === 'all' ? tr('Tout') : GROUP_NAMES[g]}
           </button>
         ))}
       </div>
@@ -433,28 +434,28 @@ export function ExercisePicker({ onBack, onPick }: { onBack: () => void; onPick:
               )}
               <div className="grow">
                 <div className="title" style={{ lineHeight: 1.25 }}>
-                  {e.name}
-                  {e.custom && <span className="tag" style={{ marginLeft: 6 }}>perso</span>}
+                  {e.custom ? e.name : tr(e.name)}
+                  {e.custom && <span className="tag" style={{ marginLeft: 6 }}>{tr('perso')}</span>}
                 </div>
-                <div className="small muted">{e.muscles.join(', ')}</div>
+                <div className="small muted">{(e.custom ? e.muscles : e.muscles.map((m) => tr(m))).join(', ')}</div>
               </div>
               <Icon name="plus" size={20} />
             </button>
           );
         })}
-        {list.length === 0 && <div className="empty small">Aucun exercice ne correspond.</div>}
+        {list.length === 0 && <div className="empty small">{tr('Aucun exercice ne correspond.')}</div>}
       </div>
       <button className="btn block" onClick={() => setCreating(true)}>
-        <Icon name="plus" size={18} /> Créer un exercice
+        <Icon name="plus" size={18} />{' '}{tr('Créer un exercice')}
       </button>
     </div>
   );
 }
 
 const KINDS: { id: ExerciseKind; label: string }[] = [
-  { id: 'compound', label: 'Avec charge' },
-  { id: 'core', label: 'Poids du corps' },
-  { id: 'cardio', label: 'Cardio ou chrono' },
+  { id: 'compound', label: tr('Avec charge') },
+  { id: 'core', label: tr('Poids du corps') },
+  { id: 'cardio', label: tr('Cardio ou chrono') },
 ];
 
 function CustomExerciseForm({ onBack, onCreated, initialName }: { onBack: () => void; onCreated: (key: string) => void; initialName: string }) {
@@ -464,7 +465,7 @@ function CustomExerciseForm({ onBack, onCreated, initialName }: { onBack: () => 
   const [sets, setSets] = useState(3);
   const [reps, setReps] = useState('8–12');
   const save = () => {
-    if (!name.trim()) return toast('Donne un nom à l’exercice', true);
+    if (!name.trim()) return toast(tr('Donne un nom à l’exercice'), true);
     const key = createCustomExercise({
       name: name.trim().slice(0, 50),
       kind,
@@ -479,15 +480,15 @@ function CustomExerciseForm({ onBack, onCreated, initialName }: { onBack: () => 
   return (
     <div className="stack">
       <button className="link small" style={{ alignSelf: 'flex-start' }} onClick={onBack}>
-        ← Retour à la bibliothèque
+        {tr('← Retour à la bibliothèque')}
       </button>
       <label className="field">
-        <span>Nom</span>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="ex. Rowing machine convergente" />
+        <span>{tr('Nom')}</span>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('ex. Rowing machine convergente')} />
       </label>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <label className="field">
-          <span>Muscle principal</span>
+          <span>{tr('Muscle principal')}</span>
           <select className="input" value={group} onChange={(e) => setGroup(e.target.value as MuscleGroup)}>
             {GROUP_ORDER.map((g) => (
               <option key={g} value={g}>
@@ -497,7 +498,7 @@ function CustomExerciseForm({ onBack, onCreated, initialName }: { onBack: () => 
           </select>
         </label>
         <label className="field">
-          <span>Type</span>
+          <span>{tr('Type')}</span>
           <select className="input" value={kind} onChange={(e) => setKind(e.target.value as ExerciseKind)}>
             {KINDS.map((k) => (
               <option key={k.id} value={k.id}>
@@ -507,7 +508,7 @@ function CustomExerciseForm({ onBack, onCreated, initialName }: { onBack: () => 
           </select>
         </label>
         <label className="field">
-          <span>Séries par défaut</span>
+          <span>{tr('Séries par défaut')}</span>
           <select className="input" value={sets} onChange={(e) => setSets(Number(e.target.value))}>
             {Array.from({ length: 10 }, (_, k) => k + 1).map((n) => (
               <option key={n} value={n}>
@@ -517,12 +518,12 @@ function CustomExerciseForm({ onBack, onCreated, initialName }: { onBack: () => 
           </select>
         </label>
         <label className="field">
-          <span>Reps par défaut</span>
+          <span>{tr('Reps par défaut')}</span>
           <input className="input" value={reps} onChange={(e) => setReps(e.target.value)} />
         </label>
       </div>
       <button className="btn primary block" onClick={save}>
-        Créer et ajouter
+        {tr('Créer et ajouter')}
       </button>
     </div>
   );
@@ -539,23 +540,23 @@ function PlanWeeks() {
   return (
     <section className="stack">
       <div className="section-head" style={{ marginBottom: 0 }}>
-        <h2>{p.event ? p.event.name : `Bloc de ${p.weeks!.length} semaines`}</h2>
+        <h2>{p.event ? p.event.name : tr('Bloc de {length} semaines', { length: p.weeks!.length })}</h2>
         <span className="small muted">
           {p.event
-            ? new Date(`${p.event.date}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
-            : `jusqu’au ${formatShort(addDays(p.start!, p.weeks!.length * 7 - 1))}`}
+            ? new Date(`${p.event.date}T12:00:00`).toLocaleDateString(loc(), { day: 'numeric', month: 'long' })
+            : tr('jusqu’au {date}', { date: formatShort(addDays(p.start!, p.weeks!.length * 7 - 1)) })}
         </span>
       </div>
       <p className="small muted" style={{ margin: 0 }}>
-        {planSummary(p, today)} Le plan change chaque semaine ; la semaine type ci-dessous sert avant et après.
+        {tr('{planSummary} Le plan change chaque semaine ; la semaine type ci-dessous sert avant et après.', { planSummary: planSummary(p, today) })}
       </p>
       <div className="group">
         {weeks.map(({ w, i }) => (
           <div key={i} className="row" style={{ alignItems: 'flex-start' }}>
             <div className="grow">
               <div className="title">
-                Semaine {i + 1} <span className="small muted">· {formatShort(addDays(p.start!, i * 7))}</span>
-                {i === current && <span className="tag blue" style={{ marginLeft: 6 }}>en cours</span>}
+                {tr('Semaine {n}', { n: i + 1 })}{' '}<span className="small muted">· {formatShort(addDays(p.start!, i * 7))}</span>
+                {i === current && <span className="tag blue" style={{ marginLeft: 6 }}>{tr('en cours')}</span>}
               </div>
               <div className="small muted">{p.phases?.[i]}</div>
               <div className="small" style={{ marginTop: 4, lineHeight: 1.5 }}>
@@ -563,7 +564,7 @@ function PlanWeeks() {
                   .filter((d) => w[d] !== 'rest')
                   .map((d) => {
                     const def = findSession(p, w[d]);
-                    return `${WEEKDAY_NAMES[d].slice(0, 3)}. ${def.name}${def.type === 'cardio' ? ` (${def.focus})` : ''}`;
+                    return `${WEEKDAY_SHORT[d]} ${tr(def.name)}${def.type === 'cardio' ? ` (${tr(def.focus)})` : ''}`;
                   })
                   .join(' · ')}
               </div>
@@ -573,7 +574,7 @@ function PlanWeeks() {
       </div>
       {current !== null && p.weeks!.length > 3 && (
         <button className="link small" style={{ alignSelf: 'flex-start' }} onClick={() => setAll(!all)}>
-          {all ? 'Masquer' : `Voir les ${p.weeks!.length} semaines`}
+          {all ? tr('Masquer') : tr('Voir les {length} semaines', { length: p.weeks!.length })}
         </button>
       )}
     </section>

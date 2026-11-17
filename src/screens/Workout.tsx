@@ -15,7 +15,7 @@ import { formHint, isDeload } from '../lib/recovery';
 import { alternatives, BROKEN_DAYS, isBroken, SWAP_REASONS, type SwapReason } from '../lib/dynamic';
 import { addExtra, markRepaired, removeExtra, setExpress, setForm, skipExercise, stopDeload, swapExercise, undoSwap } from '../lib/workoutActions';
 import { applyTweak, dismissTweak, programTweaks } from '../lib/tweaks';
-import { catalogEntry } from '../../shared/catalog';
+import { catalogEntry, exerciseName } from '../../shared/catalog';
 import { planWeek } from '../../shared/program';
 import { repMeters } from '../../shared/effort';
 import { hasProfile, SessionProfile } from '../components/SessionProfile';
@@ -29,6 +29,7 @@ import { FocusMode } from '../components/FocusMode';
 import { isRecord, moment } from '../lib/moments';
 import { dayWarmup } from '../lib/warmupDay';
 import { WarmupCard } from '../components/Warmup';
+import { loc, lower, tn, tr } from '../../shared/i18n';
 
 const fmtRest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60}` : ''}` : `${sec} s`);
 
@@ -59,11 +60,11 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
     const done = toggleSet(today, ex, i);
     // Nouveau record sur cette série : Pulse le salue.
     const rec = done && !ex.noLoad ? isRecord(getState(), ex.key, today, i) : null;
-    if (rec) moment('record', `Record : ${ex.name.replace(/ \(.*\)$/, '')}`, `${fmtKg(rec.w)} × ${rec.r}, ton meilleur 1RM estimé`);
+    if (rec) moment('record', tr('Record : {replace}', { replace: ex.name.replace(/ \(.*\)$/, '') }), tr('{kg} × {r}, ton meilleur 1RM estimé', { kg: fmtKg(rec.w), r: rec.r }));
     if (done && ex.rest > 0) {
       setTimer({ end: Date.now() + ex.rest * 1000, total: ex.rest });
       const logs = (getState().days[today]?.sets[ex.key] ?? []).filter((l) => l.done).length;
-      const next = logs < ex.sets ? `${ex.name}, série ${logs + 1}` : session.exercises[session.exercises.indexOf(ex) + 1]?.name;
+      const next = logs < ex.sets ? tr('{name}, série {n}', { name: ex.name, n: logs + 1 }) : session.exercises[session.exercises.indexOf(ex) + 1]?.name;
       scheduleRestPush(ex.rest, next);
     }
   };
@@ -71,7 +72,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
   const finish = async () => {
     const ratio = prog.total ? prog.done / prog.total : 1;
     if (session.lifting && ratio < 0.6) {
-      const ok = await ask(`Tu as fait ${prog.done} séries sur ${prog.total}. Valider la séance quand même ?`, 'Valider');
+      const ok = await ask(tr('Tu as fait {done} séries sur {total}. Valider la séance quand même ?', { done: prog.done, total: prog.total }), tr('Valider'));
       if (!ok) return;
     }
     // Pulse fête la séance (moments.ts) dès que l'état change.
@@ -83,7 +84,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
       <header className="workout-head">
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="date">
-            {day.session && day.session !== planned ? `À la place de ${findSession(s.program, planned).name}` : WEEKDAY_NAMES[weekdayOf(today)]}
+            {day.session && day.session !== planned ? tr('À la place de {name}', { name: findSession(s.program, planned).name }) : WEEKDAY_NAMES[weekdayOf(today)]}
           </div>
           <h1 className="display workout-title">{session.name}</h1>
           <p className="muted" style={{ margin: '8px 0 0' }}>
@@ -91,13 +92,13 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
           </p>
         </div>
         {session.type !== 'rest' && prog.total > 0 && (
-          <Ring value={day.mainDone ? 1 : prog.done} max={day.mainDone ? 1 : prog.total} color={day.mainDone ? 'var(--mint)' : 'var(--ink)'} size={76} stroke={6} label={session.lifting ? 'Séries faites' : 'Blocs faits'}>
+          <Ring value={day.mainDone ? 1 : prog.done} max={day.mainDone ? 1 : prog.total} color={day.mainDone ? 'var(--mint)' : 'var(--ink)'} size={76} stroke={6} label={session.lifting ? tr('Séries faites') : tr('Blocs faits')}>
             <div>
               <div className="num" style={{ fontWeight: 760, fontStretch: '72%', fontSize: '1.35rem', lineHeight: 1 }}>
                 <RollingNumber value={prog.done} />
               </div>
               <div className="faint" style={{ fontSize: '0.7rem', fontWeight: 600 }}>
-                sur {prog.total}
+                {tr('sur {total}', { total: prog.total })}
               </div>
             </div>
           </Ring>
@@ -107,12 +108,12 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
         <p className="small flame-hint">
           <Icon name="flame" size={15} />
           {workoutOk(s, today)
-            ? 'Flamme du jour assurée côté sport. Le reste de la séance, c’est du bonus.'
+            ? tr('Flamme du jour assurée côté sport. Le reste de la séance, c’est du bonus.')
             : ruleOf(s).level === 'half'
               ? session.lifting
-                ? `Encore ${Math.max(1, Math.ceil(prog.total * HALF_SESSION) - prog.done)} série${Math.ceil(prog.total * HALF_SESSION) - prog.done > 1 ? 's' : ''} pour ta flamme du jour (la moitié de la séance suffit).`
-                : 'Commence la séance et ta flamme du jour est assurée.'
-              : 'Termine la séance pour ta flamme du jour.'}
+                ? tn(Math.ceil(prog.total * HALF_SESSION) - prog.done, 'Encore {max} série pour ta flamme du jour (la moitié de la séance suffit).', 'Encore {max} séries pour ta flamme du jour (la moitié de la séance suffit).', { max: Math.max(1, Math.ceil(prog.total * HALF_SESSION) - prog.done) })
+                : tr('Commence la séance et ta flamme du jour est assurée.')
+              : tr('Termine la séance pour ta flamme du jour.')}
         </p>
       )}
       {endurance && (
@@ -126,19 +127,19 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
             <Icon name="play" size={18} filled />
           </span>
           <span className="grow" style={{ minWidth: 0 }}>
-            <b>{prog.done > 0 ? 'Reprendre en mode séance' : 'Lancer le mode séance'}</b>
+            <b>{prog.done > 0 ? tr('Reprendre en mode séance') : tr('Lancer le mode séance')}</b>
             <span className="small">
-              {warm && !day.warmup && prog.done === 0 ? 'Échauffement guidé, puis une série à la fois.' : 'Une série à la fois, en grand. Écran allumé, bip à la fin du repos.'}
+              {warm && !day.warmup && prog.done === 0 ? tr('Échauffement guidé, puis une série à la fois.') : tr('Une série à la fois, en grand. Écran allumé, bip à la fin du repos.')}
             </span>
           </span>
         </button>
       )}
       <div className="workout-actions">
         <button className="btn small" onClick={() => setPicker(true)}>
-          <Icon name="swap" size={16} /> Changer de séance
+          <Icon name="swap" size={16} />{' '}{tr('Changer de séance')}
         </button>
         <button className="btn small" onClick={editProgram}>
-          <Icon name="list" size={16} /> Mon programme
+          <Icon name="list" size={16} />{' '}{tr('Mon programme')}
         </button>
       </div>
 
@@ -146,10 +147,10 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
         <div className="card notice" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <Icon name="moon" size={18} />
           <div className="grow small">
-            <b>Semaine de décharge</b> jusqu’à dimanche : un tiers de séries en moins, charges −10 %.
+            <b>{tr('Semaine de décharge')}</b>{' '}{tr('jusqu’à dimanche : un tiers de séries en moins, charges −10 %.')}
           </div>
           <button className="link small" onClick={stopDeload}>
-            Arrêter
+            {tr('Arrêter')}
           </button>
         </div>
       )}
@@ -159,22 +160,22 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
           <Icon name="moon" size={16} />
           <p className="small grow" style={{ margin: 0 }}>
             {hint.reasons.join(', ')}.{' '}
-            {hint.form === 'low' ? 'Pulse te conseille le mode Fatigué aujourd’hui.' : 'Bonne récup : profites-en pour pousser.'}
+            {hint.form === 'low' ? tr('Pulse te conseille le mode Fatigué aujourd’hui.') : tr('Bonne récup : profites-en pour pousser.')}
           </p>
           <button className="btn small" onClick={() => setForm(today, hint.form)}>
-            {hint.form === 'low' ? 'Fatigué' : 'En forme'}
+            {hint.form === 'low' ? tr('Fatigué') : tr('En forme')}
           </button>
         </div>
       )}
 
       {session.lifting && !day.mainDone && (
         <div className="day-controls">
-          <div className="seg" role="group" aria-label="Forme du jour">
+          <div className="seg" role="group" aria-label={tr('Forme du jour')}>
             {(
               [
-                ['low', 'Fatigué'],
-                [undefined, 'Normal'],
-                ['high', 'En forme'],
+                ['low', tr('Fatigué')],
+                [undefined, tr('Normal')],
+                ['high', tr('En forme')],
               ] as [Form | undefined, string][]
             ).map(([f, label]) => (
               <button key={label} type="button" className={(day.form ?? undefined) === f ? 'on' : ''} onClick={() => setForm(today, f)}>
@@ -182,18 +183,18 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
               </button>
             ))}
           </div>
-          <div className="seg" role="group" aria-label="Temps disponible">
+          <div className="seg" role="group" aria-label={tr('Temps disponible')}>
             {([undefined, 45, 30] as (number | undefined)[]).map((m) => (
               <button key={m ?? 'full'} type="button" className={day.express === m ? 'on' : ''} onClick={() => setExpress(today, m)}>
-                {m ? `${m} min` : 'Complet'}
+                {m ? `${m} min` : tr('Complet')}
               </button>
             ))}
           </div>
           {(day.form || day.express) && (
             <p className="small muted" style={{ margin: 0 }}>
-              {day.form === 'low' && 'Fatigué : une série de moins sur les exercices secondaires, charges allégées. '}
-              {day.form === 'high' && 'En forme : charges normales, pousse la dernière série. '}
-              {day.express && `Express ${day.express} min : repos raccourcis, l’essentiel d’abord (environ ${session.duration}).`}
+              {day.form === 'low' && tr('Fatigué : une série de moins sur les exercices secondaires, charges allégées. ')}
+              {day.form === 'high' && tr('En forme : charges normales, pousse la dernière série. ')}
+              {day.express && tr('Express {express} min : repos raccourcis, l’essentiel d’abord (environ {duration}).', { express: day.express, duration: session.duration })}
             </p>
           )}
         </div>
@@ -205,10 +206,10 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
             <div key={key} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <Icon name="wrench" size={18} />
               <div className="grow small">
-                <b>{catalogEntry(key, s.customExercises)?.name ?? key}</b> en panne : remplacé automatiquement jusqu’au {formatShort(b.until)}.
+                <b>{exerciseName(key, s.customExercises)}</b>{' '}{tr('en panne : remplacé automatiquement jusqu’au {date}.', { date: formatShort(b.until) })}
               </div>
               <button className="link small" onClick={() => markRepaired(key)}>
-                Réparée
+                {tr('Réparée')}
               </button>
             </div>
           ))}
@@ -220,7 +221,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
           {tweaks.slice(0, 1).map((t) => (
             <div key={t.id} className="card tweak">
               <div className="tweak-head">
-                <Icon name="sparkle" size={16} /> Pulse te propose
+                <Icon name="sparkle" size={16} />{' '}{tr('Pulse te propose')}
               </div>
               <div style={{ fontWeight: 800 }}>{t.title}</div>
               <div className="small muted">{t.text}</div>
@@ -229,7 +230,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
                   {t.cta}
                 </button>
                 <button className="btn small" onClick={() => dismissTweak(t.id, today)}>
-                  Plus tard
+                  {tr('Plus tard')}
                 </button>
               </div>
             </div>
@@ -239,10 +240,10 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
 
       {session.exercises.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '28px 18px' }}>
-          <p style={{ marginTop: 0, fontWeight: 700 }}>Cette séance est vide.</p>
-          <p className="small muted">Ajoute tes exercices depuis la bibliothèque, avec leurs séries et leurs reps.</p>
+          <p style={{ marginTop: 0, fontWeight: 700 }}>{tr('Cette séance est vide.')}</p>
+          <p className="small muted">{tr('Ajoute tes exercices depuis la bibliothèque, avec leurs séries et leurs reps.')}</p>
           <button className="btn primary" onClick={editProgram}>
-            Composer la séance
+            {tr('Composer la séance')}
           </button>
         </div>
       )}
@@ -256,18 +257,18 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
       </div>
       {session.type !== 'rest' && !day.mainDone && (
         <button className="btn block dashed" style={{ marginTop: 12 }} onClick={() => setAdding(true)}>
-          <Icon name="plus" size={18} /> Ajouter un exercice
+          <Icon name="plus" size={18} />{' '}{tr('Ajouter un exercice')}
         </button>
       )}
       {(day.skipped?.length ?? 0) > 0 && (
         <p className="small muted" style={{ margin: '10px 2px 0' }}>
-          Sauté aujourd’hui :{' '}
+          {tr('Sauté aujourd’hui :')}{' '}
           {day.skipped!.map((k, i) => (
             <span key={k}>
               {i > 0 && ', '}
-              {catalogEntry(k, s.customExercises)?.name ?? k}{' '}
+              {exerciseName(k, s.customExercises)}{' '}
               <button className="link small" onClick={() => skipExercise(today, k, false)}>
-                remettre
+                {tr('remettre')}
               </button>
             </span>
           ))}
@@ -281,19 +282,19 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
               <Icon name="check" size={20} />
             </span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800 }}>Séance terminée</div>
-              <div className="small muted">Note tes repas pour valider la journée.</div>
+              <div style={{ fontWeight: 800 }}>{tr('Séance terminée')}</div>
+              <div className="small muted">{tr('Note tes repas pour valider la journée.')}</div>
             </div>
             <button className="btn small primary" onClick={() => setStory(true)}>
-              <Icon name="share" size={15} /> Partager
+              <Icon name="share" size={15} />{' '}{tr('Partager')}
             </button>
             <button className="link small" onClick={() => finishSession(today, false)}>
-              Annuler
+              {tr('Annuler')}
             </button>
           </div>
         ) : (
           <button className="btn go block" onClick={finish}>
-            <Icon name="check" size={20} /> Terminer la séance
+            <Icon name="check" size={20} />{' '}{tr('Terminer la séance')}
           </button>
         )}
       </div>
@@ -335,22 +336,22 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
       {swap && <SwapSheet ex={swap} date={today} sessionId={session.id} taken={session.exercises.map((x) => x.key)} onClose={() => setSwap(null)} />}
 
       {adding && (
-        <Sheet title="Ajouter à la séance" onClose={() => setAdding(false)}>
+        <Sheet title={tr('Ajouter à la séance')} onClose={() => setAdding(false)}>
           <ExercisePicker
             onBack={() => setAdding(false)}
             onPick={(key) => {
               addExtra(today, key);
               setAdding(false);
-              toast('Ajouté à la séance du jour');
+              toast(tr('Ajouté à la séance du jour'));
             }}
           />
         </Sheet>
       )}
 
       {picker && (
-        <Sheet title="Séance du jour" onClose={() => setPicker(false)}>
+        <Sheet title={tr('Séance du jour')} onClose={() => setPicker(false)}>
           <p className="small muted" style={{ marginTop: -6 }}>
-            Ton emploi du temps a bougé ? Garde l’ordre Push, Pull, Legs, Upper, Lower.
+            {tr('Ton emploi du temps a bougé ? Garde l’ordre Push, Pull, Legs, Upper, Lower.')}
           </p>
           <div className="group">
             {choices.map(({ id, name, focus }) => (
@@ -366,7 +367,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
                 <div className="grow">
                   <div className="title">
                     {name}
-                    {id === planned ? <span className="faint small"> (prévue)</span> : null}
+                    {id === planned ? <span className="faint small">{' '}{tr('(prévue)')}</span> : null}
                   </div>
                   <div className="small muted">{focus}</div>
                 </div>
@@ -414,7 +415,7 @@ function ExerciseCard({
   return (
     <article className={`ex-card ${complete ? 'complete' : ''}`}>
       <div className="ex-head">
-        <button className="thumb" onClick={onDemo} aria-label={`Voir la démo : ${ex.name}`}>
+        <button className="thumb" onClick={onDemo} aria-label={tr('Voir la démo : {name}', { name: ex.name })}>
           {frames ? <img src={frames[0]} alt="" loading="lazy" /> : <Icon name={ex.discipline ? DISCIPLINE_ICON[ex.discipline] : 'dumbbell'} size={28} />}
           <span className="play">
             <Icon name="play" size={12} filled />
@@ -425,19 +426,21 @@ function ExerciseCard({
             <div className="change-badge">
               {ex.change === 'extra' ? (
                 <>
-                  Ajouté aujourd’hui{' '}
+                  {tr('Ajouté aujourd’hui')}{' '}
                   <button className="link" onClick={() => removeExtra(date, ex.key)}>
-                    retirer
+                    {tr('retirer')}
                   </button>
                 </>
               ) : (
                 <>
-                  {ex.change === 'broken' ? 'Machine en panne : ' : ''}remplace {catalogEntry(ex.slotKey!, s.customExercises)?.name.toLowerCase() ?? ex.slotKey}
+                  {ex.change === 'broken'
+                    ? tr('Machine en panne : remplace {name}', { name: exerciseName(ex.slotKey!, s.customExercises) })
+                    : tr('remplace {name}', { name: exerciseName(ex.slotKey!, s.customExercises) })}
                   {ex.change === 'swap' && (
                     <>
                       {' '}
                       <button className="link" onClick={() => undoSwap(date, ex.slotKey!)}>
-                        annuler
+                        {tr('annuler')}
                       </button>
                     </>
                   )}
@@ -464,17 +467,17 @@ function ExerciseCard({
                   {fmtKg(aim.weight)}
                 </span>
               )}
-              {complete && <span className="tag up">Fait</span>}
+              {complete && <span className="tag up">{tr('Fait')}</span>}
             </div>
           )}
           {isTask && complete && (
             <span className="tag up" style={{ marginTop: 6 }}>
-              Fait
+              {tr('Fait')}
             </span>
           )}
         </div>
         {!isTask && ex.change !== 'extra' && (
-          <button className="icon-btn swap-btn" onClick={onSwap} aria-label={`Remplacer ${ex.name}`} title="Remplacer ou sauter">
+          <button className="icon-btn swap-btn" onClick={onSwap} aria-label={tr('Remplacer {name}', { name: ex.name })} title={tr('Remplacer ou sauter')}>
             <Icon name="swap" size={18} />
           </button>
         )}
@@ -482,8 +485,8 @@ function ExerciseCard({
 
       {last && !isTask && (
         <p className="small faint num" style={{ margin: '10px 0 0' }}>
-          Dernière fois ({formatShort(last.date)}) : {ex.noLoad ? last.sets.map((l) => l.r ?? '?').join(', ') : formatSets(last.sets)}
-          {!advice && target.up ? '. Toutes les reps au max : on monte.' : ''}
+          {tr('Dernière fois ({date}) :', { date: formatShort(last.date) })}{' '}{ex.noLoad ? last.sets.map((l) => l.r ?? '?').join(', ') : formatSets(last.sets)}
+          {!advice && target.up ? tr('. Toutes les reps au max : on monte.') : ''}
         </p>
       )}
       {advice && !complete && (
@@ -493,7 +496,7 @@ function ExerciseCard({
       )}
       {!last && ex.change && loaded && !complete && (
         <p className="small advice" style={{ margin: '8px 0 0' }}>
-          <Icon name="bolt" size={13} /> Nouvel exercice pour toi : commence léger, garde 2 à 3 reps en réserve sur la 1re série, puis ajuste. La prochaine fois, Pulse aura tes chiffres.
+          <Icon name="bolt" size={13} />{' '}{tr('Nouvel exercice pour toi : commence léger, garde 2 à 3 reps en réserve sur la 1re série, puis ajuste. La prochaine fois, Pulse aura tes chiffres.')}
         </p>
       )}
 
@@ -501,20 +504,20 @@ function ExerciseCard({
         <div className="cardio-row" style={{ marginTop: 10 }}>
           <NumInput
             value={logs[0]?.km !== undefined ? (swim ? Math.round(logs[0].km! * 1000) : logs[0].km) : undefined}
-            placeholder={planned ? (swim ? `${Math.round(planned)} m` : `${(Math.round(planned / 100) / 10).toLocaleString('fr-FR')} km`) : swim ? 'mètres' : 'km'}
-            label={swim ? 'Distance nagée en mètres' : 'Distance en km'}
+            placeholder={planned ? (swim ? `${Math.round(planned)} m` : `${(Math.round(planned / 100) / 10).toLocaleString(loc())} km`) : swim ? tr('mètres') : 'km'}
+            label={swim ? tr('Distance nagée en mètres') : tr('Distance en km')}
             decimals={swim ? 0 : 2}
             onCommit={(v) => updateSet(date, ex.key, 0, { km: v === undefined ? undefined : swim ? v / 1000 : v, ...(v ? { done: true } : {}) }, 1)}
           />
           <NumInput
             value={logs[0]?.min}
             placeholder={`${ex.reps.match(/min|h/) ? ex.reps : 'min'}`}
-            label="Durée en minutes"
+            label={tr('Durée en minutes')}
             onCommit={(v) => updateSet(date, ex.key, 0, { min: v, ...(v ? { done: true } : {}) }, 1)}
           />
-          <Check on={!!logs[0]?.done} onClick={() => onSet(ex, 0)} label="Bloc fait" tone="blue" />
-          <span className="small faint cardio-units">{swim ? 'mètres' : 'km'}</span>
-          <span className="small faint cardio-units">minutes</span>
+          <Check on={!!logs[0]?.done} onClick={() => onSet(ex, 0)} label={tr('Bloc fait')} tone="blue" />
+          <span className="small faint cardio-units">{swim ? tr('mètres') : 'km'}</span>
+          <span className="small faint cardio-units">{tr('minutes')}</span>
         </div>
       )}
 
@@ -532,21 +535,22 @@ function ExerciseCard({
                   value={log.w}
                   fallback={prevW}
                   step={ex.step ?? 2.5}
-                  label={`Charge série ${i + 1}`}
+                  label={tr('Charge série {n}', { n: i + 1 })}
                   onCommit={(w) => updateSet(date, ex.key, i, { w }, ex.sets)}
                 />
               )}
               {!isTask && !rounds ? (
                 <NumInput
                   value={log.r}
-                  placeholder={ex.repMin !== undefined ? `${ex.reps} reps`.replace('–', '-') : ex.reps.replace(/ .*/, '')}
-                  label={`Répétitions série ${i + 1}`}
+                  // La fourchette seule : « 6-10 reps » ne tient pas dans le champ sur un petit écran, quelle que soit la langue.
+                  placeholder={ex.repMin !== undefined ? ex.reps.replace('–', '-') : ex.reps.replace(/ .*/, '')}
+                  label={tr('Répétitions série {n}', { n: i + 1 })}
                   onCommit={(r) => updateSet(date, ex.key, i, { r }, ex.sets)}
                 />
               ) : (
-                <span className="small muted">{isTask ? 'Marquer comme fait' : ex.reps}</span>
+                <span className="small muted">{isTask ? tr('Marquer comme fait') : ex.reps}</span>
               )}
-              <Check on={log.done} onClick={() => onSet(ex, i)} label={`Série ${i + 1} faite`} tone="blue" />
+              <Check on={log.done} onClick={() => onSet(ex, i)} label={tr('Série {n} faite', { n: i + 1 })} tone="blue" />
             </div>
           );
         })}
@@ -563,9 +567,9 @@ function SwapSheet({ ex, date, sessionId, taken, onClose }: { ex: Exercise; date
   const alts = alternatives(s, slotKey, date, taken.filter((k) => k !== ex.key)).filter((a) => a.key !== ex.key).slice(0, 8);
   const original = catalogEntry(slotKey, s.customExercises);
   return (
-    <Sheet title={`Remplacer : ${original?.name ?? ex.name}`} onClose={onClose}>
+    <Sheet title={tr('Remplacer : {n}', { n: original?.name ?? ex.name })} onClose={onClose}>
       <div className="stack" style={{ gap: 14 }}>
-        <div className="chips" role="group" aria-label="Pourquoi">
+        <div className="chips" role="group" aria-label={tr('Pourquoi')}>
           {SWAP_REASONS.map((r) => (
             <button key={r.id} type="button" className={`chip ${reason === r.id ? 'on' : ''}`} onClick={() => setReason(r.id)}>
               {r.label}
@@ -573,10 +577,10 @@ function SwapSheet({ ex, date, sessionId, taken, onClose }: { ex: Exercise; date
           ))}
         </div>
         <p className="small muted" style={{ margin: 0 }}>
-          {reason === 'broken' && `Pulse le remplacera automatiquement pendant ${BROKEN_DAYS} jours, puis te reproposera la machine.`}
-          {reason === 'busy' && 'Juste pour aujourd’hui : ton programme ne change pas.'}
-          {reason === 'pain' && 'Choisis un mouvement qui ne fait pas mal, charge modérée. Si la douleur dure, montre-la à un pro.'}
-          {reason === 'vary' && 'Varier de temps en temps relance la progression. Coche « garder » pour l’adopter.'}
+          {reason === 'broken' && tr('Pulse le remplacera automatiquement pendant {BROKEN_DAYS} jours, puis te reproposera la machine.', { BROKEN_DAYS })}
+          {reason === 'busy' && tr('Juste pour aujourd’hui : ton programme ne change pas.')}
+          {reason === 'pain' && tr('Choisis un mouvement qui ne fait pas mal, charge modérée. Si la douleur dure, montre-la à un pro.')}
+          {reason === 'vary' && tr('Varier de temps en temps relance la progression. Coche « garder » pour l’adopter.')}
         </p>
         <div className="group">
           {alts.map((a) => {
@@ -588,7 +592,7 @@ function SwapSheet({ ex, date, sessionId, taken, onClose }: { ex: Exercise; date
                 style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }}
                 onClick={() => {
                   swapExercise(date, slotKey, a.key, { reason, always, sessionId });
-                  toast(always ? `${a.name} remplace ${original?.name.toLowerCase()} dans ton programme` : `${a.name} pour aujourd’hui`);
+                  toast(always ? tr('{name} remplace {name2} dans ton programme', { name: a.name, name2: lower(original?.name) }) : tr('{name} pour aujourd’hui', { name: a.name }));
                   onClose();
                 }}
               >
@@ -596,28 +600,28 @@ function SwapSheet({ ex, date, sessionId, taken, onClose }: { ex: Exercise; date
                   <div className="title">{a.name}</div>
                   <div className="small muted">
                     {a.why} · {a.muscles.slice(0, 3).join(', ')}
-                    {last && !ex.noLoad ? ` · dernière fois ${formatSets(last.sets)}` : ''}
+                    {last && !ex.noLoad ? tr(' · dernière fois {formatSets}', { formatSets: formatSets(last.sets) }) : ''}
                   </div>
                 </div>
                 <Icon name="chevron" />
               </button>
             );
           })}
-          {!alts.length && <p className="small muted" style={{ padding: 12, margin: 0 }}>Aucun remplaçant avec le matériel de ta salle. Ajoute un exercice libre plus bas.</p>}
+          {!alts.length && <p className="small muted" style={{ padding: 12, margin: 0 }}>{tr('Aucun remplaçant avec le matériel de ta salle. Ajoute un exercice libre plus bas.')}</p>}
         </div>
         <label className="check-line">
-          <input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} /> Garder ce changement dans mon programme
+          <input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} />{' '}{tr('Garder ce changement dans mon programme')}
         </label>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             className="btn small"
             onClick={() => {
               skipExercise(date, slotKey);
-              toast(`${original?.name ?? ex.name} sauté aujourd’hui`);
+              toast(tr('{n} sauté aujourd’hui', { n: original?.name ?? ex.name }));
               onClose();
             }}
           >
-            <Icon name="skip" size={15} /> Sauter aujourd’hui
+            <Icon name="skip" size={15} />{' '}{tr('Sauter aujourd’hui')}
           </button>
           {ex.change === 'swap' && (
             <button
@@ -627,7 +631,7 @@ function SwapSheet({ ex, date, sessionId, taken, onClose }: { ex: Exercise; date
                 onClose();
               }}
             >
-              <Icon name="undo" size={15} /> Revenir à {original?.name.toLowerCase()}
+              <Icon name="undo" size={15} />{' '}{tr('Revenir à {name}', { name: lower(original?.name) })}
             </button>
           )}
         </div>
@@ -643,8 +647,8 @@ function DemoSheet({ ex, onClose }: { ex: Exercise; onClose: () => void }) {
     <Sheet title={ex.name} onClose={onClose}>
       {frames ? (
         <div className="demo">
-          <img src={frames[0]} alt={`${ex.name}, position de départ`} />
-          <img className="b" src={frames[1]} alt={`${ex.name}, position d’arrivée`} />
+          <img src={frames[0]} alt={tr('{name}, position de départ', { name: ex.name })} />
+          <img className="b" src={frames[1]} alt={tr('{name}, position d’arrivée', { name: ex.name })} />
         </div>
       ) : (
         <div className="demo" style={{ display: 'grid', placeItems: 'center', color: 'var(--ink-3)' }}>
@@ -664,14 +668,14 @@ function DemoSheet({ ex, onClose }: { ex: Exercise; onClose: () => void }) {
       {ex.note && <p className="small muted" style={{ margin: '8px 2px 0' }}>{ex.note}</p>}
       {ex.kind !== 'task' && (
         <p className="small muted num" style={{ margin: '8px 2px 0' }}>
-          {ex.sets} séries de {ex.reps}
-          {ex.rest > 0 ? `, ${fmtRest(ex.rest)} de repos` : ''}.
+          {tr('{sets} séries de {reps}', { sets: ex.sets, reps: ex.reps })}
+          {ex.rest > 0 ? tr(', {rest} de repos', { rest: fmtRest(ex.rest) }) : ''}.
         </p>
       )}
       <ExerciseInsights ex={ex} />
       <LoadCalculator ex={ex} />
       <a className="btn block" style={{ marginTop: 18, textDecoration: 'none' }} href={videoUrl(ex.name)} target="_blank" rel="noreferrer">
-        <Icon name="play" size={16} filled /> Voir des vidéos de l’exercice
+        <Icon name="play" size={16} filled />{' '}{tr('Voir des vidéos de l’exercice')}
       </a>
     </Sheet>
   );
@@ -685,7 +689,7 @@ function ExerciseInsights({ ex }: { ex: Exercise }) {
   const loaded = !ex.noLoad && ex.kind !== 'task' && ex.kind !== 'cardio';
   const advice = loaded ? adviseLoad(s, ex, '9999-12-31') : null;
   const work = advice?.weight ?? stats.sessions[0]?.best?.w ?? 0;
-  const barbell = isBarbell(ex.key, ex.name);
+  const barbell = isBarbell(ex.key, catalogEntry(ex.key, s.customExercises)?.name ?? ex.name);
   const [plateW, setPlateW] = useState<number | undefined>(work || undefined);
   const series = liftSeries(s, ex.key, '9999-12-31', 3650);
   if (!stats.sessions.length) return null;
@@ -698,17 +702,17 @@ function ExerciseInsights({ ex }: { ex: Exercise }) {
         <div className="ex-records">
           <div>
             <b className="num">{fmtKg(Math.round(stats.bestE1rm.e1rm * 2) / 2)}</b>
-            <span className="small muted">1RM estimé</span>
+            <span className="small muted">{tr('1RM estimé')}</span>
           </div>
           {stats.heaviest && (
             <div>
               <b className="num">{fmtKg(stats.heaviest.w)}</b>
-              <span className="small muted">plus lourd × {stats.heaviest.r}</span>
+              <span className="small muted">{tr('plus lourd × {r}', { r: stats.heaviest.r })}</span>
             </div>
           )}
           <div>
             <b className="num">{stats.totalVolume >= 1000 ? `${formatNumber(stats.totalVolume / 1000, 1)} t` : `${stats.totalVolume} kg`}</b>
-            <span className="small muted">soulevés en tout</span>
+            <span className="small muted">{tr('soulevés en tout')}</span>
           </div>
         </div>
       )}
@@ -716,9 +720,9 @@ function ExerciseInsights({ ex }: { ex: Exercise }) {
 
       <section className="stack" style={{ gap: 8 }}>
         <div className="section-head" style={{ margin: 0 }}>
-          <h2 style={{ fontSize: '1rem' }}>Historique</h2>
+          <h2 style={{ fontSize: '1rem' }}>{tr('Historique')}</h2>
           <span className="small faint">
-            {stats.sessions.length} séance{stats.sessions.length > 1 ? 's' : ''}, {stats.totalSets} séries
+            {tn(stats.sessions.length, '{n} séance', '{n} séances')}{tn(stats.totalSets, ', {n} série', ', {n} séries')}
           </span>
         </div>
         <div className="group">
@@ -731,7 +735,7 @@ function ExerciseInsights({ ex }: { ex: Exercise }) {
                 {x.sets.map((l, i) => (
                   <span key={i} className={x.best && l.w === x.best.w && l.r === x.best.r ? 'ex-top' : ''}>
                     {i > 0 && ', '}
-                    {l.w ? `${fmtKg(l.w)} × ${l.r ?? '?'}` : l.r ? `${l.r} reps` : l.km ? `${formatNumber(l.km, 1)} km` : l.min ? `${l.min} min` : '✓'}
+                    {l.w ? `${fmtKg(l.w)} × ${l.r ?? '?'}` : l.r ? tr('{r} reps', { r: l.r }) : l.km ? `${formatNumber(l.km, 1)} km` : l.min ? `${l.min} min` : '✓'}
                   </span>
                 ))}
               </div>
@@ -740,14 +744,14 @@ function ExerciseInsights({ ex }: { ex: Exercise }) {
         </div>
         {stats.sessions.length > 4 && (
           <button className="link small" style={{ alignSelf: 'flex-start' }} onClick={() => setAll((v) => !v)}>
-            {all ? 'Voir moins' : `Voir les ${Math.min(30, stats.sessions.length)} dernières`}
+            {all ? tr('Voir moins') : tr('Voir les {min} dernières', { min: Math.min(30, stats.sessions.length) })}
           </button>
         )}
       </section>
 
       {warm.length > 0 && (
         <section className="card stack" style={{ gap: 8, background: 'var(--surface-2)' }}>
-          <div style={{ fontWeight: 800 }}>Échauffement avant {fmtKg(work)}</div>
+          <div style={{ fontWeight: 800 }}>{tr('Échauffement avant {kg}', { kg: fmtKg(work) })}</div>
           <div className="chips" style={{ gap: 6 }}>
             {warm.map((w, i) => (
               <span key={i} className="tag num">
@@ -756,7 +760,7 @@ function ExerciseInsights({ ex }: { ex: Exercise }) {
             ))}
           </div>
           <p className="small faint" style={{ margin: 0 }}>
-            Repos court entre ces séries. Elles ne comptent pas dans la séance.
+            {tr('Repos court entre ces séries. Elles ne comptent pas dans la séance.')}
           </p>
         </section>
       )}
@@ -764,13 +768,13 @@ function ExerciseInsights({ ex }: { ex: Exercise }) {
       {barbell && loaded && (
         <section className="card stack" style={{ gap: 10, background: 'var(--surface-2)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ fontWeight: 800, flex: 1 }}>Disques à charger</div>
-            <NumInput value={plateW} placeholder="kg" label="Charge totale" onCommit={setPlateW} />
+            <div style={{ fontWeight: 800, flex: 1 }}>{tr('Disques à charger')}</div>
+            <NumInput value={plateW} placeholder="kg" label={tr('Charge totale')} onCommit={setPlateW} />
           </div>
           {plates &&
             (plates.plates.length ? (
               <>
-                <div className="plate-bar" aria-label={`Par côté : ${plates.plates.map((p) => `${formatNumber(p, 2)} kg`).join(', ')}`}>
+                <div className="plate-bar" aria-label={tr('Par côté : {join}', { join: plates.plates.map((p) => `${formatNumber(p, 2)} kg`).join(', ') })}>
                   <span className="plate-sleeve" />
                   {plates.plates.map((p, i) => (
                     <span key={i} className={`plate p${String(p).replace('.', '_')}`} style={{ height: `${44 + p * 2.4}px` }}>
@@ -779,12 +783,12 @@ function ExerciseInsights({ ex }: { ex: Exercise }) {
                   ))}
                 </div>
                 <p className="small muted" style={{ margin: 0 }}>
-                  Par côté, barre de 20 kg comprise.{plates.rest > 0 ? ` Il reste ${formatNumber(plates.rest, 2)} kg qui ne tombent pas juste.` : ''}
+                  {tr('Par côté, barre de 20 kg comprise.')}{plates.rest > 0 ? tr(' Il reste {n} kg qui ne tombent pas juste.', { n: formatNumber(plates.rest, 2) }) : ''}
                 </p>
               </>
             ) : (
               <p className="small muted" style={{ margin: 0 }}>
-                {plateW && plateW <= 20 ? 'La barre seule suffit (20 kg).' : 'Saisis la charge totale.'}
+                {plateW && plateW <= 20 ? tr('La barre seule suffit (20 kg).') : tr('Saisis la charge totale.')}
               </p>
             ))}
         </section>
@@ -805,34 +809,34 @@ function LoadCalculator({ ex }: { ex: Exercise }) {
   const table = oneRm ? [3, 5, 6, 8, 10, 12, 15].map((n) => ({ reps: n, weight: Math.max(step, Math.floor(loadFor(oneRm, n) / step) * step) })) : [];
   return (
     <div className="card stack" style={{ marginTop: 16, gap: 10, background: 'var(--surface-2)' }}>
-      <div style={{ fontWeight: 800 }}>Combien mettre ?</div>
+      <div style={{ fontWeight: 800 }}>{tr('Combien mettre ?')}</div>
       <p className="small muted" style={{ margin: 0 }}>
         {manual
-          ? 'D’après la série que tu viens de saisir.'
+          ? tr('D’après la série que tu viens de saisir.')
           : advice
-            ? 'D’après tes dernières séances. Saisis une série pour recalculer.'
-            : 'Saisis une série que tu as faite (charge et reps) pour estimer tes charges.'}
+            ? tr('D’après tes dernières séances. Saisis une série pour recalculer.')
+            : tr('Saisis une série que tu as faite (charge et reps) pour estimer tes charges.')}
       </p>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <NumInput value={w} placeholder="kg" label="Charge" onCommit={setW} />
+        <NumInput value={w} placeholder="kg" label={tr('Charge')} onCommit={setW} />
         <span className="muted">×</span>
-        <NumInput value={r} placeholder="reps" label="Répétitions" onCommit={setR} />
+        <NumInput value={r} placeholder={tr('reps')} label={tr('Répétitions')} onCommit={setR} />
       </div>
       {oneRm && (
         <>
           <div className="small">
-            1RM estimé : <b className="num">{fmtKg(Math.round(oneRm * 2) / 2)}</b>
+            {tr('1RM estimé :')}{' '}<b className="num">{fmtKg(Math.round(oneRm * 2) / 2)}</b>
           </div>
           <div className="calc-grid">
             {table.map((t) => (
               <div key={t.reps} className={`calc-cell ${advice && advice.reps.split('–').map(Number).includes(t.reps) ? 'on' : ''}`}>
                 <div className="num" style={{ fontWeight: 800 }}>{fmtKg(t.weight)}</div>
-                <div className="small faint">{t.reps} reps</div>
+                <div className="small faint">{tr('{reps} reps', { reps: t.reps })}</div>
               </div>
             ))}
           </div>
           <p className="small faint" style={{ margin: 0 }}>
-            Charges qui laissent environ 2 reps en réserve. Pour progresser : 3 à 5 séries dans ta fourchette, et +1 rep par séance jusqu’au haut de la fourchette avant de monter.
+            {tr('Charges qui laissent environ 2 reps en réserve. Pour progresser : 3 à 5 séries dans ta fourchette, et +1 rep par séance jusqu’au haut de la fourchette avant de monter.')}
           </p>
         </>
       )}
@@ -869,7 +873,7 @@ function WeightStepper({
   };
   return (
     <div className="stepper">
-      <button type="button" onClick={() => bump(-1)} aria-label={`${label} : moins ${step} kg`}>
+      <button type="button" onClick={() => bump(-1)} aria-label={tr('{label} : moins {step} kg', { label, step })}>
         −
       </button>
       <label style={{ position: 'relative' }}>
@@ -888,7 +892,7 @@ function WeightStepper({
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         />
       </label>
-      <button type="button" onClick={() => bump(1)} aria-label={`${label} : plus ${step} kg`}>
+      <button type="button" onClick={() => bump(1)} aria-label={tr('{label} : plus {step} kg', { label, step })}>
         +
       </button>
     </div>
@@ -968,7 +972,7 @@ function RestTimer({ end, total, onAdd, onClose }: { end: number; total: number;
   return (
     <div className={`rest-timer ${left === 0 ? 'over' : ''}`} role="timer" aria-live="polite">
       {left === 0 ? (
-        <strong style={{ flex: 1 }}>Série suivante</strong>
+        <strong style={{ flex: 1 }}>{tr('Série suivante')}</strong>
       ) : (
         <>
           <span className="time">
@@ -981,7 +985,7 @@ function RestTimer({ end, total, onAdd, onClose }: { end: number; total: number;
         </>
       )}
       <button className="btn small" onClick={onClose}>
-        {left === 0 ? 'OK' : 'Passer'}
+        {left === 0 ? 'OK' : tr('Passer')}
       </button>
     </div>
   );

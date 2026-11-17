@@ -5,6 +5,7 @@ import { type Hit, programText } from './knowledge';
 import { mealsCount, sessionFor, setProgress, streakInfo, totals, weeklyChange } from './logic';
 import { type AppState, readDay } from './store';
 import { strengthProfile } from './strength';
+import { lower, tn, tr } from '../../shared/i18n';
 
 export { programText };
 
@@ -16,27 +17,27 @@ export function compactContext(s: AppState, today: string): string {
   const st = streakInfo(s, today);
   const p = s.settings;
   const lines: string[] = [];
-  const profile = [p.name, p.age ? `${p.age} ans` : '', p.height ? `${p.height} cm` : ''].filter(Boolean).join(', ');
-  if (profile) lines.push(`Moi : ${profile}.`);
+  const profile = [p.name, p.age ? tr('{n} ans', { n: p.age }) : '', p.height ? `${p.height} cm` : ''].filter(Boolean).join(', ');
+  if (profile) lines.push(tr('Moi : {profile}.', { profile }));
   if (p.coachNotes.trim()) lines.push(p.coachNotes.trim().slice(0, 400));
-  lines.push(`Objectif : ${WEIGHT_GOALS[p.weightGoal].label.toLowerCase()}. ${athleteSummary(p.athlete, p.gym)}`.slice(0, 500));
-  lines.push(`Aujourd'hui (${formatLong(today)}) : séance ${session.name} (${session.focus}), ${prog.done}/${prog.total} séries faites.`);
+  lines.push(tr('Objectif : {goal}. {summary}', { goal: lower(WEIGHT_GOALS[p.weightGoal].label), summary: athleteSummary(p.athlete, p.gym) }).slice(0, 500));
+  lines.push(tr('Aujourd’hui ({date}) : séance {name} ({focus}), {done}/{total} séries faites.', { date: formatLong(today), name: session.name, focus: session.focus, done: prog.done, total: prog.total }));
   if (p.modules.nutrition) {
     const t = totals(day);
-    lines.push(`Mangé : ${t.kcal}/${p.targets.kcal} kcal, ${t.protein}/${p.targets.protein} g de protéines, ${mealsCount(day)} repas.`);
+    lines.push(tr('Mangé : {kcal}/{kcalTarget} kcal, {protein}/{proteinTarget} g de protéines, {meals} repas.', { kcal: t.kcal, kcalTarget: p.targets.kcal, protein: t.protein, proteinTarget: p.targets.protein, meals: mealsCount(day) }));
   }
   const h = s.health[today];
-  if (h?.steps !== undefined) lines.push(`Pas : ${h.steps}.`);
+  if (h?.steps !== undefined) lines.push(tr('Pas : {n}.', { n: h.steps }));
   const kg = Object.entries(s.body.weight).sort(([a], [b]) => b.localeCompare(a))[0];
   if (kg) {
     const wc = weeklyChange(s, today);
-    lines.push(`Poids : ${formatNumber(kg[1], 1)} kg${wc !== null ? ` (${wc > 0 ? '+' : ''}${formatNumber(wc, 2)} kg/sem)` : ''}.`);
+    lines.push(wc !== null ? tr('Poids : {n} kg ({change} kg/sem).', { n: formatNumber(kg[1], 1), change: `${wc > 0 ? '+' : ''}${formatNumber(wc, 2)}` }) : tr('Poids : {n} kg.', { n: formatNumber(kg[1], 1) }));
   }
   if (p.modules.strength) {
     const sp = strengthProfile(s, today);
-    if (sp.weakest) lines.push(`Point faible : ${sp.weakest.name.toLowerCase()} (${sp.weakest.grade}).`);
+    if (sp.weakest) lines.push(tr('Point faible : {name} ({grade}).', { name: lower(sp.weakest.name), grade: sp.weakest.grade }));
   }
-  lines.push(`Série : ${st.current} jours.`);
+  lines.push(tn(st.current, 'Série : {n} jour.', 'Série : {n} jours.'));
   return lines.join('\n');
 }
 
@@ -49,19 +50,20 @@ const linkLength = (text: string) => `https://claude.ai/new?q=${encodeURICompone
  * (choisis par la recherche locale) que le lien peut en porter.
  */
 export function claudePrompt(s: AppState, today: string, question: string, memory: Hit[] = []): string {
-  const head = `Tu es mon coach muscu et nutrition. Réponds en français, court et concret.\n\n${compactContext(s, today)}`;
-  const tail = `\n\nMa question : ${question}`;
+  const head = `${tr('Tu es mon coach muscu et nutrition. Réponds en français, court et concret.')}\n\n${compactContext(s, today)}`;
+  const tail = `\n\n${tr('Ma question : {question}', { question })}`;
+  const extracts = tr('Extraits de mon historique :');
   const blocks: string[] = [];
   for (const h of memory) {
     const block = `[${h.doc.title}]\n${h.doc.text}`;
-    const candidate = `${head}\n\nExtraits de mon historique :\n${[...blocks, block].join('\n\n')}${tail}`;
+    const candidate = `${head}\n\n${extracts}\n${[...blocks, block].join('\n\n')}${tail}`;
     if (linkLength(candidate) <= LINK_BUDGET) blocks.push(block);
   }
-  return blocks.length ? `${head}\n\nExtraits de mon historique :\n${blocks.join('\n\n')}${tail}` : `${head}${tail}`;
+  return blocks.length ? `${head}\n\n${extracts}\n${blocks.join('\n\n')}${tail}` : `${head}${tail}`;
 }
 
 export function mealPhotoPrompt(slotName: string, note?: string): string {
-  return `Estime les calories et les macros du repas sur la photo que je t'envoie (${slotName.toLowerCase()}${note ? `, ${note}` : ''}). Donne une ligne par aliment avec le poids estimé, puis le total au format : kcal / protéines g / glucides g / lipides g.`;
+  return tr('Estime les calories et les macros du repas sur la photo que je t’envoie ({what}). Donne une ligne par aliment avec le poids estimé, puis le total au format : kcal / protéines g / glucides g / lipides g.', { what: `${lower(slotName)}${note ? `, ${note}` : ''}` });
 }
 
 /**

@@ -5,7 +5,7 @@
 
 A training and nutrition companion that installs on the phone like a native app: today's workout with load tracking, meals logged in one tap or from a photo, a Duolingo-style daily streak, push reminders and an AI coach that knows your program.
 
-**[Try the live demo](https://selimcc.github.io/Shred/)**: sample data, simulated AI. Open it on a phone for the real feel. The interface is in French.
+**[Try the live demo](https://selimcc.github.io/Shred/)**: sample data, simulated AI. Open it on a phone for the real feel. The interface follows the phone's language: French, English, Spanish, Portuguese, German or Italian.
 
 ![Today, workout, nutrition and progress screens](docs/screenshots/overview.png)
 
@@ -24,6 +24,7 @@ A training and nutrition companion that installs on the phone like a native app:
 - **A club.** Members share a session with photos, tag each other with @, send sparks (each one earns the author 5 XP), comment and follow one another; notifications arrive in the app and as push. One Durable Object holds the feed, KV holds the photos.
 - **Strava and Apple Health without Shortcuts.** Strava activities are imported over OAuth and tick off the matching session; the iPhone app (Capacitor) reads HealthKit directly, Apple Watch workouts included.
 - **Endurance plans.** Running, swimming, cycling and triathlon (sprint to Ironman), dated to race day or as renewable 8-week blocks: every week has its own sessions, intensities from your own paces, CSS or FTP, recovery weeks and a taper.
+- **Six languages, detected from the phone.** French, English, Spanish, Portuguese, German and Italian, taken from the phone's preferred languages (English for any other) or chosen in Settings. The French text is the key, so nothing is lost when a string changes; plurals go through `Intl.PluralRules`, dates, numbers, lists and percentages through `Intl`, and the dictionary of the language is a separate chunk loaded before the screens. Push notifications, emails, Strava pages and server errors follow each member's language. The test suite fails on a missing key, a stale one or a placeholder that does not match.
 - **One-command deploy** to Cloudflare's free tier, about 20 active users before needing the $5 plan.
 - **980+ test assertions** (encryption, reminders over simulated days, auth, retrieval, streak rules, generator, endurance plans, club, challenges with stakes over a simulated clock, Strava OAuth, activity import, backup merge, deload, health parsing, prompt injection, readiness, muscle recovery, workout mode, warm-ups for every session of every plan, monthly recap, weekly leaderboard, Claude connector (OAuth, MCP, key at rest), seasonal calendar, holiday scenes, animation names) plus strict TypeScript on both front and back.
 - **Continuous deployment.** Every push is type-checked, tested and built; a green push to `main` is deployed to Cloudflare and smoke-tested.
@@ -44,6 +45,7 @@ A training and nutrition companion that installs on the phone like a native app:
 | **Plans** | 5K, 10K, half, marathon, triathlon (S, M, 70.3, Ironman), 1,500 m and 5 km open-water swims, 100 and 160 km sportives and Hyrox, dated to race day; or an 8-week block that Pulse renews one notch harder |
 | **Integrations** | Strava (OAuth, activities imported and matched to the day's session, see [docs/STRAVA.md](docs/STRAVA.md)); iPhone app reading Apple Health directly ([docs/IOS.md](docs/IOS.md)); or, in the web app, Apple Health through iOS Shortcuts: steps, energy, sleep, resting heart rate, HRV, exercise minutes, distance (sleep and HRV suggest the day's readiness), gym check-ins, weekly report by email (Resend) |
 | **Accounts** | Invite-only, multiple users per server, admin page and CLI, opt-in public profiles |
+| **Languages** | French, English, Spanish, Portuguese, German, Italian; automatic from the phone or set in Settings, Language; workouts, meals and program names stay as the member wrote them |
 
 ## Architecture
 

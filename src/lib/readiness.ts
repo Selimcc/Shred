@@ -9,6 +9,7 @@
 import { catalogEntry } from '../../shared/catalog';
 import { addDays, diffDays } from './date';
 import type { AppState } from './state';
+import { tr } from '../../shared/i18n';
 
 export type Tone = 'go' | 'ok' | 'low';
 
@@ -57,20 +58,20 @@ export function readiness(s: AppState, today: string): Readiness | null {
       id: 'hrv',
       label: 'VFC',
       score: Math.round(clamp(75 + (r - 1) * 250)),
-      detail: `${Math.round(h.hrv)} ms, ${r >= 1 ? '+' : ''}${Math.round((r - 1) * 100)} % sur ta moyenne`,
+      detail: tr('{n} ms, {v}{n2} % sur ta moyenne', { n: Math.round(h.hrv), v: r >= 1 ? '+' : '', n2: Math.round((r - 1) * 100) }),
     });
   }
   if (h?.sleepMin !== undefined && h.sleepMin > 0) {
-    parts.push({ id: 'sleep', label: 'Sommeil', score: Math.round(clamp((h.sleepMin / 60 - 4) * 25)), detail: fmtH(h.sleepMin) });
+    parts.push({ id: 'sleep', label: tr('Sommeil'), score: Math.round(clamp((h.sleepMin / 60 - 4) * 25)), detail: fmtH(h.sleepMin) });
   }
   const hr0 = baseline(s, today, 'restingHr');
   if (h?.restingHr && hr0) {
     const d = h.restingHr - hr0;
     parts.push({
       id: 'rhr',
-      label: 'Cœur au repos',
+      label: tr('Cœur au repos'),
       score: Math.round(clamp(75 - d * 7)),
-      detail: `${Math.round(h.restingHr)} bpm, ${d >= 0 ? '+' : ''}${Math.round(d)} sur ta moyenne`,
+      detail: tr('{n} bpm, {v}{n2} sur ta moyenne', { n: Math.round(h.restingHr), v: d >= 0 ? '+' : '', n2: Math.round(d) }),
     });
   }
 
@@ -87,12 +88,12 @@ export function readiness(s: AppState, today: string): Readiness | null {
     const score = ratio <= 1 ? 85 + (1 - ratio) * 10 : clamp(85 - (ratio - 1) * 70);
     parts.push({
       id: 'load',
-      label: 'Charge',
+      label: tr('Charge'),
       score: Math.round(clamp(score)),
       detail:
         acute === 0
-          ? 'repos ces 3 derniers jours'
-          : `${acute} séries en 3 jours${chronic >= 3 ? `, ${ratio > 1.15 ? 'au-dessus de' : ratio < 0.7 ? 'sous' : 'dans'} ton rythme` : ''}`,
+          ? tr('repos ces 3 derniers jours')
+          : tr('{acute} séries en 3 jours{v}', { acute, v: chronic >= 3 ? (ratio > 1.15 ? tr(', au-dessus de ton rythme') : ratio < 0.7 ? tr(', sous ton rythme') : tr(', dans ton rythme')) : '' }),
     });
   }
   if (!parts.length) return null;
@@ -107,13 +108,13 @@ export function readiness(s: AppState, today: string): Readiness | null {
     tone,
     partial,
     parts,
-    title: tone === 'go' ? 'Prêt à pousser' : tone === 'ok' ? 'Séance normale' : 'Récupère',
+    title: tone === 'go' ? tr('Prêt à pousser') : tone === 'ok' ? tr('Séance normale') : tr('Récupère'),
     advice:
       tone === 'go'
-        ? 'Bon jour pour viser une rep ou 2,5 kg de plus sur ton premier exercice.'
+        ? tr('Bon jour pour viser une rep ou 2,5 kg de plus sur ton premier exercice.')
         : tone === 'ok'
-          ? `Fais ta séance comme prévue, sans chercher le record.${weakest.score < 55 ? ` ${weakest.label} un peu bas.` : ''}`
-          : `${weakest.label} en retrait : garde tes charges, fais une série de moins par exercice, ou passe en mode Fatigué.`,
+          ? tr('Fais ta séance comme prévue, sans chercher le record.{v}', { v: weakest.score < 55 ? tr(' {label} un peu bas.', { label: weakest.label }) : '' })
+          : tr('{label} en retrait : garde tes charges, fais une série de moins par exercice, ou passe en mode Fatigué.', { label: weakest.label }),
   };
 }
 
@@ -138,22 +139,22 @@ export type Region =
   | 'neck';
 
 export const REGION_NAMES: Record<Region, string> = {
-  chest: 'Pectoraux',
-  delts: 'Épaules',
-  biceps: 'Biceps',
+  chest: tr('Pectoraux'),
+  delts: tr('Épaules'),
+  biceps: tr('Biceps'),
   forearms: 'Avant-bras',
-  abs: 'Abdos',
-  obliques: 'Obliques',
-  quads: 'Quadriceps',
-  calves: 'Mollets',
-  traps: 'Trapèzes',
-  reardelts: 'Arrière d’épaules',
-  lats: 'Dos',
-  lowerback: 'Bas du dos',
-  triceps: 'Triceps',
-  glutes: 'Fessiers',
-  hamstrings: 'Ischios',
-  neck: 'Cou',
+  abs: tr('Abdos'),
+  obliques: tr('Obliques'),
+  quads: tr('Quadriceps'),
+  calves: tr('Mollets'),
+  traps: tr('Trapèzes'),
+  reardelts: tr('Arrière d’épaules'),
+  lats: tr('Dos'),
+  lowerback: tr('Bas du dos'),
+  triceps: tr('Triceps'),
+  glutes: tr('Fessiers'),
+  hamstrings: tr('Ischios'),
+  neck: tr('Cou'),
 };
 
 /** Les noms de muscles du catalogue, ramenés aux zones de la silhouette. */
@@ -165,7 +166,7 @@ const MUSCLE_REGIONS: [RegExp, Region[]][] = [
   [/triceps/i, ['triceps']],
   [/grip|avant-bras/i, ['forearms']],
   [/obliques|rotation/i, ['obliques']],
-  [/abdos|gainage/i, ['abs']],
+  [/abdos|gainage|sangle abdominale/i, ['abs']],
   [/quadriceps|adducteurs/i, ['quads']],
   [/^jambes$/i, ['quads', 'glutes']],
   [/mollets/i, ['calves']],

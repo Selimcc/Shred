@@ -1,8 +1,9 @@
 // Les chiffres d'Apple Santé sur 7 jours : sommeil, pas, minutes d'exercice, cœur au repos, VFC.
 import { useState } from 'react';
-import { addDays, formatNumber, WEEKDAY_LETTERS, WEEKDAY_NAMES, weekdayOf } from '../lib/date';
+import { addDays, formatNumber, WEEKDAY_LETTERS, WEEKDAY_LOWER, WEEKDAY_NAMES, weekdayOf } from '../lib/date';
 import { RollingNumber } from './RollingNumber';
 import type { AppState, HealthDay } from '../lib/store';
+import { tr } from '../../shared/i18n';
 
 type Key = 'sleepMin' | 'steps' | 'exerciseMin' | 'restingHr' | 'hrv' | 'distanceKm';
 
@@ -21,12 +22,12 @@ interface Metric {
 const sleep = (min: number) => `${Math.floor(min / 60)} h ${String(Math.round(min % 60)).padStart(2, '0')}`;
 
 const METRICS: Metric[] = [
-  { key: 'sleepMin', name: 'Sommeil', unit: '', color: 'var(--glacier)', goal: 7.5 * 60, format: sleep, higherIsBetter: true },
-  { key: 'steps', name: 'Pas', unit: 'pas', color: 'var(--amber)', goal: 8000, format: (v) => formatNumber(v), higherIsBetter: true },
-  { key: 'exerciseMin', name: 'Exercice', unit: 'min', color: 'var(--mint)', goal: 30, format: (v) => `${Math.round(v)}`, higherIsBetter: true },
-  { key: 'distanceKm', name: 'Distance', unit: 'km', color: 'var(--ink-2)', format: (v) => formatNumber(v, 1), higherIsBetter: true },
-  { key: 'restingHr', name: 'Cœur au repos', unit: 'bpm', color: 'var(--rose)', format: (v) => `${Math.round(v)}`, higherIsBetter: false },
-  { key: 'hrv', name: 'VFC', unit: 'ms', color: 'var(--purple)', format: (v) => `${Math.round(v)}`, higherIsBetter: true },
+  { key: 'sleepMin', name: tr('Sommeil'), unit: '', color: 'var(--glacier)', goal: 7.5 * 60, format: sleep, higherIsBetter: true },
+  { key: 'steps', name: tr('Pas'), unit: tr('pas'), color: 'var(--amber)', goal: 8000, format: (v) => formatNumber(v), higherIsBetter: true },
+  { key: 'exerciseMin', name: tr('Exercice'), unit: 'min', color: 'var(--mint)', goal: 30, format: (v) => `${Math.round(v)}`, higherIsBetter: true },
+  { key: 'distanceKm', name: tr('Distance'), unit: 'km', color: 'var(--ink-2)', format: (v) => formatNumber(v, 1), higherIsBetter: true },
+  { key: 'restingHr', name: tr('Cœur au repos'), unit: 'bpm', color: 'var(--rose)', format: (v) => `${Math.round(v)}`, higherIsBetter: false },
+  { key: 'hrv', name: tr('VFC'), unit: 'ms', color: 'var(--purple)', format: (v) => `${Math.round(v)}`, higherIsBetter: true },
 ];
 
 function avg(v: number[]): number | null {
@@ -83,7 +84,7 @@ function HealthCard({ m, days, values, now, trend, good }: { m: Metric; days: st
   const latestIdx = values.map((v, i) => (v !== undefined ? i : -1)).filter((i) => i >= 0).pop() ?? -1;
   const idx = pick ?? latestIdx;
   const value = idx >= 0 ? values[idx] : undefined;
-  const label = pick === null ? (idx === days.length - 1 ? 'aujourd’hui' : WEEKDAY_NAMES[weekdayOf(days[idx] ?? days[0])].toLowerCase()) : WEEKDAY_NAMES[weekdayOf(days[idx])].toLowerCase();
+  const label = pick === null ? (idx === days.length - 1 ? tr('aujourd’hui') : WEEKDAY_LOWER[weekdayOf(days[idx] ?? days[0])]) : WEEKDAY_LOWER[weekdayOf(days[idx])];
   return (
     <div className="card health-card">
       <div className="small muted">
@@ -96,7 +97,7 @@ function HealthCard({ m, days, values, now, trend, good }: { m: Metric; days: st
       </div>
       <MiniBars days={days} values={values} color={m.color} goal={m.goal} pick={pick} onPick={setPick} />
       <div className={`small ${good === null ? 'faint' : good ? 'trend-good' : 'trend-bad'}`}>
-        {now !== null ? `Moy. ${m.format(now)}${m.unit ? ` ${m.unit}` : ''}, ${trend}` : 'Pas assez de données'}
+        {now !== null ? tr('Moy. {format}{v}, {trend}', { format: m.format(now), v: m.unit ? ` ${m.unit}` : '', trend }) : tr('Pas assez de données')}
       </div>
     </div>
   );
@@ -117,8 +118,8 @@ export function HealthStats({ s, today }: { s: AppState; today: string }) {
         const delta = now !== null && before !== null && before > 0 ? (now - before) / before : null;
         const trend =
           delta === null || Math.abs(delta) < 0.05
-            ? 'stable sur 2 semaines'
-            : `${delta > 0 ? 'en hausse' : 'en baisse'} (${delta > 0 ? '+' : ''}${Math.round(delta * 100)} %)`;
+            ? tr('stable sur 2 semaines')
+            : `${delta > 0 ? tr('en hausse') : tr('en baisse')} (${delta > 0 ? '+' : ''}${Math.round(delta * 100)} %)`;
         const good = delta === null || Math.abs(delta) < 0.05 ? null : (delta > 0) === m.higherIsBetter;
         return <HealthCard key={m.key} m={m} days={days} values={values} now={now} trend={trend} good={good} />;
       })}

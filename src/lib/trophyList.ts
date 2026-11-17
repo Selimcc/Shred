@@ -6,6 +6,7 @@ import { dayKey, parseKey, weekdayOf } from './date';
 import { dayValidated, mealsCount } from './logic';
 import type { AppState } from './state';
 import { e1rm } from './strength';
+import { tr } from '../../shared/i18n';
 
 export type Tier = 'bronze' | 'silver' | 'gold' | 'legend';
 
@@ -115,35 +116,35 @@ const t = (id: string, family: string, tier: Tier, icon: string, title: string, 
 });
 
 export const TROPHIES: Trophy[] = [
-  t('s1', 'Séances', 'bronze', 'dumbbell', 'Premier pas', 'Ta première séance validée.', (x) => x.sessions, 1),
-  t('s10', 'Séances', 'bronze', 'dumbbell', 'Régulier', '10 séances validées.', (x) => x.sessions, 10),
-  t('s50', 'Séances', 'silver', 'dumbbell', 'Habitué', '50 séances validées.', (x) => x.sessions, 50),
-  t('s100', 'Séances', 'gold', 'dumbbell', 'Centurion', '100 séances validées.', (x) => x.sessions, 100),
-  t('s250', 'Séances', 'legend', 'dumbbell', 'Machine', '250 séances validées.', (x) => x.sessions, 250),
-  t('t10', 'Tonnage', 'bronze', 'bolt', '10 tonnes', '10 000 kg soulevés au total.', (x) => x.tonnage, 10_000),
-  t('t100', 'Tonnage', 'silver', 'bolt', '100 tonnes', 'Le poids d’une baleine bleue.', (x) => x.tonnage, 100_000),
-  t('t500', 'Tonnage', 'gold', 'bolt', '500 tonnes', 'Un Airbus A380 chargé, à la main.', (x) => x.tonnage, 500_000),
-  t('t1000', 'Tonnage', 'legend', 'bolt', 'Mille tonnes', '1 000 000 kg soulevés.', (x) => x.tonnage, 1_000_000),
-  t('r1', 'Records', 'bronze', 'trophy', 'Premier record', 'Une série qui bat ton meilleur 1RM estimé.', (x) => x.records, 1),
-  t('r25', 'Records', 'silver', 'trophy', 'Collectionneur', '25 records battus.', (x) => x.records, 25),
-  t('r100', 'Records', 'gold', 'trophy', 'Briseur de plafonds', '100 records battus.', (x) => x.records, 100),
-  t('f7', 'Série', 'bronze', 'flame', 'Une semaine pleine', '7 jours de série.', (x) => x.bestStreak, 7),
-  t('f30', 'Série', 'silver', 'flame', 'Un mois sans lâcher', '30 jours de série.', (x) => x.bestStreak, 30),
-  t('f100', 'Série', 'gold', 'flame', 'Cent jours', '100 jours de série.', (x) => x.bestStreak, 100),
-  t('f365', 'Série', 'legend', 'flame', 'Une année entière', '365 jours de série.', (x) => x.bestStreak, 365),
-  t('v30', 'Journées', 'silver', 'check', 'Discipline', '30 journées validées (séance et repas).', (x) => x.validated, 30),
-  t('m50', 'Nutrition', 'bronze', 'utensils', 'Carnet ouvert', '50 repas notés.', (x) => x.meals, 50),
-  t('m300', 'Nutrition', 'silver', 'utensils', 'Rien ne m’échappe', '300 repas notés.', (x) => x.meals, 300),
-  t('c50', 'Cardio', 'bronze', 'run', '50 km', '50 km en course, vélo, nage ou marche notée.', (x) => x.cardioKm, 50),
-  t('c500', 'Cardio', 'gold', 'run', '500 km', 'Paris, Lyon et un peu plus.', (x) => x.cardioKm, 500),
-  t('p10', 'Pas', 'bronze', 'steps', '10 000 pas × 10', '10 journées au-dessus de 10 000 pas.', (x) => x.steps10k, 10),
-  t('b10', 'Corps', 'bronze', 'scale', 'Sur la balance', '10 pesées notées.', (x) => x.weighIns, 10),
-  t('b1', 'Corps', 'bronze', 'camera', 'Avant, après', 'Ta première photo de physique.', (x) => x.photos, 1),
-  t('e1', 'Moments', 'silver', 'sun', 'Lève-tôt', 'Une séance validée avant 8 h.', (x) => x.early, 1),
-  t('l1', 'Moments', 'silver', 'moon', 'Oiseau de nuit', 'Une séance validée après 22 h.', (x) => x.late, 1),
-  t('w4', 'Moments', 'gold', 'spark', 'Week-end warrior', 'Samedi et dimanche, quatre week-ends.', (x) => x.weekends, 4),
+  t('s1', tr('Séances'), 'bronze', 'dumbbell', tr('Premier pas'), tr('Ta première séance validée.'), (x) => x.sessions, 1),
+  t('s10', tr('Séances'), 'bronze', 'dumbbell', tr('Régulier'), tr('10 séances validées.'), (x) => x.sessions, 10),
+  t('s50', tr('Séances'), 'silver', 'dumbbell', tr('Habitué'), tr('50 séances validées.'), (x) => x.sessions, 50),
+  t('s100', tr('Séances'), 'gold', 'dumbbell', tr('Centurion'), tr('100 séances validées.'), (x) => x.sessions, 100),
+  t('s250', tr('Séances'), 'legend', 'dumbbell', tr('Machine'), tr('250 séances validées.'), (x) => x.sessions, 250),
+  t('t10', tr('Tonnage'), 'bronze', 'bolt', tr('10 tonnes'), tr('10 000 kg soulevés au total.'), (x) => x.tonnage, 10_000),
+  t('t100', tr('Tonnage'), 'silver', 'bolt', tr('100 tonnes'), tr('Le poids d’une baleine bleue.'), (x) => x.tonnage, 100_000),
+  t('t500', tr('Tonnage'), 'gold', 'bolt', tr('500 tonnes'), tr('Un Airbus A380 chargé, à la main.'), (x) => x.tonnage, 500_000),
+  t('t1000', tr('Tonnage'), 'legend', 'bolt', tr('Mille tonnes'), tr('1 000 000 kg soulevés.'), (x) => x.tonnage, 1_000_000),
+  t('r1', tr('Records'), 'bronze', 'trophy', tr('Premier record'), tr('Une série qui bat ton meilleur 1RM estimé.'), (x) => x.records, 1),
+  t('r25', tr('Records'), 'silver', 'trophy', tr('Collectionneur'), tr('25 records battus.'), (x) => x.records, 25),
+  t('r100', tr('Records'), 'gold', 'trophy', tr('Briseur de plafonds'), tr('100 records battus.'), (x) => x.records, 100),
+  t('f7', tr('Série'), 'bronze', 'flame', tr('Une semaine pleine'), tr('7 jours de série.'), (x) => x.bestStreak, 7),
+  t('f30', tr('Série'), 'silver', 'flame', tr('Un mois sans lâcher'), tr('30 jours de série.'), (x) => x.bestStreak, 30),
+  t('f100', tr('Série'), 'gold', 'flame', tr('Cent jours'), tr('100 jours de série.'), (x) => x.bestStreak, 100),
+  t('f365', tr('Série'), 'legend', 'flame', tr('Une année entière'), tr('365 jours de série.'), (x) => x.bestStreak, 365),
+  t('v30', tr('Journées'), 'silver', 'check', tr('Discipline'), tr('30 journées validées (séance et repas).'), (x) => x.validated, 30),
+  t('m50', tr('Nutrition'), 'bronze', 'utensils', tr('Carnet ouvert'), tr('50 repas notés.'), (x) => x.meals, 50),
+  t('m300', tr('Nutrition'), 'silver', 'utensils', tr('Rien ne m’échappe'), tr('300 repas notés.'), (x) => x.meals, 300),
+  t('c50', tr('Cardio'), 'bronze', 'run', tr('50 km'), tr('50 km en course, vélo, nage ou marche notée.'), (x) => x.cardioKm, 50),
+  t('c500', tr('Cardio'), 'gold', 'run', tr('500 km'), tr('Paris, Lyon et un peu plus.'), (x) => x.cardioKm, 500),
+  t('p10', tr('Pas'), 'bronze', 'steps', tr('10 000 pas × 10'), tr('10 journées au-dessus de 10 000 pas.'), (x) => x.steps10k, 10),
+  t('b10', tr('Corps'), 'bronze', 'scale', tr('Sur la balance'), tr('10 pesées notées.'), (x) => x.weighIns, 10),
+  t('b1', tr('Corps'), 'bronze', 'camera', tr('Avant, après'), tr('Ta première photo de physique.'), (x) => x.photos, 1),
+  t('e1', tr('Moments'), 'silver', 'sun', tr('Lève-tôt'), tr('Une séance validée avant 8 h.'), (x) => x.early, 1),
+  t('l1', tr('Moments'), 'silver', 'moon', tr('Oiseau de nuit'), tr('Une séance validée après 22 h.'), (x) => x.late, 1),
+  t('w4', tr('Moments'), 'gold', 'spark', tr('Week-end warrior'), tr('Samedi et dimanche, quatre week-ends.'), (x) => x.weekends, 4),
 ];
 
-export const TIER_LABEL: Record<Tier, string> = { bronze: 'Bronze', silver: 'Argent', gold: 'Or', legend: 'Légende' };
+export const TIER_LABEL: Record<Tier, string> = { bronze: tr('Bronze'), silver: tr('Argent'), gold: tr('Or'), legend: tr('Légende') };
 
 export const unlockedOf = (st: Stats) => TROPHIES.filter((x) => x.value(st) >= x.goal);
