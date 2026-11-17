@@ -1,7 +1,7 @@
 import { ReadinessCard } from '../components/Recovery';
 import { MonthRecap } from '../components/MonthRecap';
 import { ofMonth, recapReady } from '../lib/monthRecap';
-import { activeSeason, greeting, SEASON_SHINE, type SeasonId, seasonStart } from '../lib/season';
+import { activeSeason, greeting, SEASON_SHINE, seasonDay, type SeasonId, seasonStart } from '../lib/season';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { Bubble, type Mood, Pulse } from '../components/Pulse';
 import { Flame } from '../components/Flame';
@@ -77,7 +77,7 @@ function nextStep(s: AppState, today: string, season: SeasonId | null): { mood: 
       return { mood: 'cheer', text: `Tu es lancé : ${prog.done} séries sur ${prog.total}.${why}`, cta: { label: 'Continuer la séance', tab: 'workout' } };
     }
     const detail = session.lifting ? `${session.exercises.length} exercices, environ ${session.duration}` : session.focus;
-    const text = season ? seasonStart(season, today, s.settings.name, `${session.name} : ${detail}`) : `Salut${name} ! Aujourd’hui c’est ${session.name} : ${detail}.`;
+    const text = season ? seasonStart(season, seasonDay(today), s.settings.name, `${session.name} : ${detail}`) : `Salut${name} ! Aujourd’hui c’est ${session.name} : ${detail}.`;
     return { mood: 'happy', text, cta: { label: `Commencer ${session.name}`, tab: 'workout' } };
   }
   if (mealsLeft > 0) {
@@ -135,7 +135,7 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
       <header className="home-top">
         <div className="who">
           <div className="date">{formatLong(today)}</div>
-          <h1>{greeting(season, today, s.settings.name)}</h1>
+          <h1>{greeting(season, seasonDay(today), s.settings.name)}</h1>
         </div>
         <span className="stat-pill flame" title={`Jours de série, ${flames.tierInfo.name}`} aria-label={`${st.current} jours de série`}>
           <Flame tier={flames.tier} size={18} animated={st.todayValidated} />

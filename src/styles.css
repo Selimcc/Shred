@@ -3120,6 +3120,9 @@ span.roll.roll {
   margin-top: 12px;
   border-radius: 16px;
   overflow: hidden;
+  /* Safari découpe mal les coins arrondis d'un contenu composé : un liseré sombre apparaît au bord. */
+  isolation: isolate;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 .post-photos.n1 {
   grid-template-columns: 1fr;
@@ -3131,11 +3134,13 @@ span.roll.roll {
 .post-photos.n3 {
   grid-template-columns: 2fr 1fr;
   grid-template-rows: 1fr 1fr;
+  aspect-ratio: 4 / 3;
 }
 .post-photos.n3 .post-photo:first-child {
   grid-row: span 2;
 }
 .post-photo {
+  position: relative;
   border: 0;
   padding: 0;
   background: var(--surface-2);
@@ -3143,19 +3148,30 @@ span.roll.roll {
   overflow: hidden;
   display: block;
   width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .post-photos.n1 .post-photo {
   aspect-ratio: 4 / 3.4;
 }
 .post-photos.n3 .post-photo {
   aspect-ratio: auto;
-  min-height: 90px;
+  height: 100%;
 }
-.post-photo img {
+/* L'image remplit le bouton par positionnement : sur iPhone, une hauteur en % dans un bouton ne se résout
+   pas toujours et laissait une bande du fond visible sous la photo. */
+.post-photo img,
+.post-photo .sk-block {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+.post-photo .sk-block {
+  margin: 0;
+  border-radius: 0;
 }
 .post-actions {
   display: flex;
@@ -7826,4 +7842,49 @@ html[data-season='noel'] .today-hero::before {
   .season-scene {
     display: none;
   }
+}
+
+/* Publication modifiée : la mention reste discrète, à la suite du texte. */
+.post-edited {
+  color: var(--ink-3);
+  font-size: 0.78em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Panneau admin : labo des fêtes. */
+.season-lab-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.season-lab-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  color: #f6f2ee;
+}
+.season-lab-pick .small {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.season-lab-pick.on {
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+}
+.season-lab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
 }

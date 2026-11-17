@@ -113,6 +113,14 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 | Design | Seasonal themes read an identifier from three places: the calendar, the `season` setting (synced with the backup) and `?saison=` in the address. | Only an identifier of the fixed list is applied (own-property check, so `__proto__` or `toString` are refused); anything else falls back to the calendar. The value ends up in a `data-season` attribute and a `theme-color`, both from the list. |
 | Design | The coach is told the season. | The client sends an identifier; the server appends one of its own fixed sentences when it is on the list and ignores anything else, so no free text reaches the system prompt this way. Tested with free text and inherited property names. |
 
+## Version 0.26
+
+| Severity | Finding | Fix |
+|---|---|---|
+| Design | Editing a post (`PUT /api/club/posts/:id`). | Author only: an admin can delete a post but never rewrite someone's words. Text trimmed and capped at 1,000 characters, mentions checked again against real accounts (10 at most), an empty text refused when there is no photo, video, music or session. Only newly added people are notified, and edits are capped at 60 a day, so an edit cannot be used to send the same notification over and over. The post keeps `editedAt` and shows « (modifié) ». Photos, session, sparks and comments are untouched. |
+| Low | Sheets opened from inside an animated card were trapped in its stacking context: the edit sheet ended up under the tab bar. | Sheets render in a portal at the root of the document. |
+| Design | Admin season lab. | Client side only, kept in memory for the session, never saved nor synced; the season id still comes from the fixed list. |
+
 ## Accepted
 
 | Severity | Finding | Why |

@@ -49,6 +49,8 @@ export interface Post {
   /** Membres qui ont envoyé une étincelle. */
   sparks: string[];
   comments: number;
+  /** Dernière modification du texte par son auteur : l'app affiche « (modifié) ». */
+  editedAt?: number;
 }
 
 export interface Comment {
@@ -312,6 +314,30 @@ export class Club {
         return out({ ok: true, photos: found.post.photos, videos: found.post.video ? [found.post.video.id] : [], posters: found.post.video ? [found.post.video.poster] : [] });
       }
 
+      case '/edit': {
+        // Seul l'auteur réécrit son texte (pas même un admin : ses mots restent les siens).
+        const found = await this.getPost(String(b.id));
+        if (!found) return out({ error: 'not-found' });
+        const p = found.post;
+        if (p.author !== viewer) return out({ error: 'forbidden-edit' });
+        const text = typeof b.text === 'string' ? b.text : '';
+        const mentions = Array.isArray(b.mentions) ? (b.mentions as Mention[]) : [];
+        if (!text && !p.session && !p.photos.length && !p.video && !p.music) return out({ error: 'Le texte ne peut pas être vide sans photo ni séance' });
+        const before = new Set(p.mentions.map((m) => m.id));
+        const same = text === p.text && mentions.length === before.size && mentions.every((m) => before.has(m.id));
+        if (same) return out({ post: p });
+        p.text = text;
+        p.mentions = mentions;
+        p.editedAt = Date.now();
+        await this.db.put(found.key, p);
+        // Seules les personnes ajoutées par la modification sont prévenues.
+        for (const m of mentions.filter((x) => !before.has(x.id))) {
+          await this.notify(m.id, { type: 'mention', actor: viewer, actorName: b.viewerName, post: p.id, text: p.session?.title ?? p.text.slice(0, 80) });
+          pushes.push({ user: m.id, title: `${b.viewerName} t’a identifié`, body: p.session?.title ?? p.text.slice(0, 100), url: `/?tab=club&post=${p.id}` });
+        }
+        return out({ post: p });
+      }
+
       case '/spark': {
         const found = await this.getPost(String(b.id));
         if (!found || !(await this.see(viewer))(found.post)) return out({ error: 'not-found' });
@@ -548,6 +574,7 @@ async function callClub<T>(env: Env, user: User, path: string, body: Record<stri
   const data = (await res.json()) as T & { pushes: Push[]; error?: string };
   if (data.error === 'not-found') throw new HttpError(404, 'Publication introuvable');
   if (data.error === 'forbidden') throw new HttpError(403, 'Tu ne peux pas supprimer ça');
+  if (data.error === 'forbidden-edit') throw new HttpError(403, 'Seul l’auteur peut modifier sa publication');
   if (data.error === 'self') throw new HttpError(400, 'Pas d’étincelle pour soi-même');
   if (data.error === 'challenge-self') throw new HttpError(400, 'Pas de défi à soi-même');
   if (data.error === 'challenge-private') throw new HttpError(403, 'Compte privé : abonne-toi d’abord pour lancer un défi');
@@ -770,6 +797,14 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
         ...(data.videos ?? []).map((v) => env.KV.delete(`club:video:${v}`)),
       ]);
       return json({ ok: true });
+    }
+    if (!sub && method === 'PUT') {
+      await capDaily(env, user.id, 'edit');
+      const b = await readJson<{ text?: string; mentions?: unknown }>(req, 20_000);
+      const text = str(b.text, LIMITS.text);
+      const data = await callClub<{ post: Post }>(env, user, '/edit', { id, text, mentions: await checkMentions(env, b.mentions) });
+      await later(data.pushes);
+      return json({ post: view(data.post, user) });
     }
     if (sub === 'spark' && method === 'POST') {
       await capDaily(env, user.id, 'spark');

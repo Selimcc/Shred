@@ -4,7 +4,7 @@ import { DemoInviteHost, demoInvite } from './components/DemoInvite';
 import { PulseMoment } from './components/PulseMoment';
 import { SeasonLayer } from './components/SeasonLayer';
 import { SeasonScene } from './components/SeasonScene';
-import { activeSeason, SEASON_BAR } from './lib/season';
+import { activeSeason, SEASON_BAR, seasonDay, useSeasonLab } from './lib/season';
 import { Icon } from './components/Icon';
 import { AskHost, ToastHost } from './components/ui';
 import { DEMO } from './lib/api';
@@ -54,6 +54,7 @@ export function App() {
   const [compose, setCompose] = useState<string | null>(null);
   const [openPost] = useState(() => new URLSearchParams(location.search).get('post'));
   const [openMember] = useState(() => (new URLSearchParams(location.search).get('member') ?? '').toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 20) || null);
+  useSeasonLab();
   const season = activeSeason(s, today);
 
   // Thème de saison : toute l'interface suit les jetons de couleur de la fête, et la barre d'état aussi.
@@ -123,7 +124,7 @@ export function App() {
       )}
       {DEMO && <DemoInviteHost />}
       <SeasonLayer season={season} />
-      <SeasonScene season={season} today={today} />
+      <SeasonScene season={season} today={seasonDay(today)} />
       <main className="app">
         {tab === 'today' && <Today today={today} go={go} openSettings={() => setSettings('menu')} />}
         {tab === 'workout' && <Workout today={today} editProgram={() => setSettings('program')} />}

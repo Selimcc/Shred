@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { leave, leaveInPlace } from '../lib/leave';
 import { loadPhoto } from '../lib/photos';
@@ -64,7 +65,9 @@ export function Sheet({ title, onClose, children, footer }: { title: string; onC
     return () => leave(el, 'sheet-out', 220, [{ selector: footer ? '.sheet-scroll' : '.sheet', top: scroll.current }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return (
+  // Rendue à la racine du document : une carte animée (transformée) plus haut ne peut pas l'enfermer sous la
+  // barre d'onglets ni la décaler.
+  return createPortal(
     <div ref={root} className="sheet-backdrop" onClick={onClose} style={view ? { top: view.top, height: view.height, bottom: 'auto', '--sheet-max': `${view.height - 12}px` } as CSSProperties : undefined}>
       <div
         className={`sheet${footer ? ' has-foot' : ''}`}
@@ -92,7 +95,8 @@ export function Sheet({ title, onClose, children, footer }: { title: string; onC
           children
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

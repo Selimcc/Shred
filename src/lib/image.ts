@@ -34,6 +34,9 @@ function draw(src: ImageBitmap | HTMLImageElement, maxSide: number, quality: num
   canvas.height = Math.round(h * scale);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas indisponible');
+  // En réduisant, Safari peut laisser le dernier pixel du bord à moitié transparent, et le JPEG le rend noir :
+  // l'image est d'abord peinte un pixel plus grande dessous, le bord s'appuie alors sur ses vraies couleurs.
+  ctx.drawImage(src, -1, -1, canvas.width + 2, canvas.height + 2);
   ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Compression impossible'))), 'image/jpeg', quality),

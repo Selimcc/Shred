@@ -51,6 +51,8 @@ export interface ClubPost {
   sparked: boolean;
   mine: boolean;
   comments: number;
+  /** Texte modifié par son auteur après publication : « (modifié) » s'affiche. */
+  editedAt?: number;
 }
 
 export interface ClubComment {
@@ -324,6 +326,8 @@ export const club = {
   create: (p: NewPost) => (DEMO ? demo.create(p) : api<{ post: ClubPost }>('/api/club/posts', { body: p })),
   uploadVideo: (blob: Blob, type: string) => (DEMO ? Promise.reject(new Error('Pas de vidéo dans la démo')) : uploadVideo(blob, type)),
   remove: (id: string) => (DEMO ? demo.remove(id) : api(`/api/club/posts/${id}`, { method: 'DELETE' })),
+  edit: (id: string, text: string, mentions: Mention[]) =>
+    DEMO ? demo.edit(id, text, mentions) : api<{ post: ClubPost }>(`/api/club/posts/${id}`, { method: 'PUT', body: { text, mentions } }),
   spark: (id: string) => (DEMO ? demo.spark(id) : api<{ post: ClubPost }>(`/api/club/posts/${id}/spark`, { body: {} })),
   comment: (id: string, text: string, mentions: Mention[]) =>
     DEMO ? demo.comment(id, text) : api<{ comment: ClubComment; post: ClubPost }>(`/api/club/posts/${id}/comments`, { body: { text, mentions } }),
@@ -510,6 +514,15 @@ const demo = (() => {
     remove: (id: string) => {
       posts.splice(posts.indexOf(find(id)), 1);
       return wait({ ok: true });
+    },
+    edit: (id: string, text: string, mentions: Mention[]) => {
+      const p = find(id);
+      if (text !== p.text) {
+        p.text = text;
+        p.mentions = mentions;
+        p.editedAt = Date.now();
+      }
+      return wait({ post: view(p) });
     },
     spark: (id: string) => {
       const p = find(id);

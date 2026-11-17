@@ -180,6 +180,35 @@ check('on ne supprime pas le commentaire d’un autre', r.status === 403);
 r = await call(`/api/club/posts/${post1.id}/comments/${c1.id}`, { token: selim.token, method: 'DELETE' });
 check('l’auteur de la publication peut retirer un commentaire', r.status === 200 && r.data.post.comments === 0);
 
+/* ---------- Modifier une publication ---------- */
+
+r = await call(`/api/club/posts/${post1.id}`, { token: ines.token, method: 'PUT', body: { text: 'Piraté' } });
+check('modification : refusée à qui n’est pas l’auteur', r.status === 403);
+r = await call('/api/club/notifications', { token: yanis.token });
+const yanisMentions = r.data.notices.filter((n) => n.type === 'mention').length;
+r = await call(`/api/club/posts/${post1.id}`, { token: selim.token, method: 'PUT', body: { text: 'Grosse séance jambes avec @Inès et @Yanis', mentions: [{ id: ines.id }, { id: yanis.id }, { id: 'inconnu-123456' }] } });
+check('modification : texte réécrit et marqué modifié', r.status === 200 && r.data.post.text.endsWith('@Yanis') && typeof r.data.post.editedAt === 'number', r.data.error);
+check('modification : mentions revérifiées contre les membres', r.data.post.mentions.length === 2);
+check('modification : photos, séance et étincelles gardées', r.data.post.photos.length === 1 && r.data.post.session?.title === 'Bas du corps' && r.data.post.sparks === 2);
+const editedAt = r.data.post.editedAt;
+r = await call('/api/club/notifications', { token: yanis.token });
+check('modification : la personne ajoutée est prévenue', r.data.notices.filter((n) => n.type === 'mention').length === yanisMentions + 1);
+r = await call('/api/club/notifications', { token: ines.token });
+check('modification : la personne déjà identifiée ne l’est pas une deuxième fois', r.data.unread === 0);
+r = await call(`/api/club/posts/${post1.id}`, { token: selim.token, method: 'PUT', body: { text: 'Grosse séance jambes avec @Inès et @Yanis', mentions: [{ id: ines.id }, { id: yanis.id }] } });
+check('modification : même texte, rien ne change', r.data.post.editedAt === editedAt);
+r = await call('/api/club/feed', { token: ines.token });
+check('modification : visible dans le fil', r.data.posts.find((p) => p.id === post1.id)?.editedAt === editedAt);
+r = await call('/api/club/posts', { token: ines.token, body: { text: 'Juste du texte' } });
+const textOnly = r.data.post;
+r = await call(`/api/club/posts/${textOnly.id}`, { token: ines.token, method: 'PUT', body: { text: '   ' } });
+check('modification : texte vidé refusé sans photo ni séance', r.status === 400);
+r = await call(`/api/club/posts/${textOnly.id}`, { token: selim.token, method: 'PUT', body: { text: 'L’admin réécrit' } });
+check('modification : même un admin ne réécrit pas le texte d’un autre', r.status === 403);
+r = await call(`/api/club/posts/${textOnly.id}`, { token: ines.token, method: 'PUT', body: { text: 'x'.repeat(5000) } });
+check('modification : texte borné à 1000 caractères', r.status === 200 && r.data.post.text.length === 1000);
+await call(`/api/club/posts/${textOnly.id}`, { token: ines.token, method: 'DELETE' });
+
 /* ---------- Membres, photo de profil, suppression ---------- */
 
 r = await call('/api/club/avatar', { token: ines.token, method: 'PUT', body: { photo: png } });

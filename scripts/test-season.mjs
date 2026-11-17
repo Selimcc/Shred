@@ -103,6 +103,20 @@ check(
     /^Bonne année/.test(season.seasonStart('nouvel-an', '2027-01-02', '', 'Push')),
 );
 
+/* ---------- Labo des admins ---------- */
+const plain = store.initial();
+season.setSeasonLab({ season: 'saint-valentin', holiday: false });
+check('labo : la fête testée passe avant le calendrier et le réglage', season.activeSeason({ ...plain, settings: { ...plain.settings, season: 'off' } }, '2026-12-10') === 'saint-valentin');
+check('labo : sans jour J, la date reste celle du jour', season.seasonDay('2026-11-17') === '2026-11-17');
+season.setSeasonLab({ season: 'saint-valentin', holiday: true });
+check('labo : jour J de la Saint-Valentin', season.seasonDay('2026-11-17') === '2026-02-14' && season.greeting('saint-valentin', season.seasonDay('2026-11-17'), 'Selim') === 'Joyeuse Saint-Valentin Selim');
+season.setSeasonLab({ season: 'nouvel-an', holiday: true });
+check('labo : jour J du Nouvel an, le 1er janvier qui vient', season.seasonDay('2026-11-17') === '2027-01-01');
+season.setSeasonLab({ season: 'paques', holiday: true });
+check('labo : jour J de Pâques calculé', season.seasonDay('2027-02-01') === '2027-03-28');
+season.setSeasonLab(null);
+check('labo arrêté : retour au calendrier', season.activeSeason(plain, '2026-11-17') === null && season.seasonDay('2026-11-17') === '2026-11-17');
+
 /* ---------- Coach ---------- */
 const base = coach.coachSystem('Selim');
 check('coach : rien sans saison', !/Saison :/.test(base));

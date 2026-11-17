@@ -289,7 +289,7 @@ export function Club({
             </div>
           )}
           {posts?.map((p) => (
-            <PostCard key={p.id} post={p} author={memberOf(p.author, p)} onChange={update} onOpen={() => setOpen(p.id)} onAuthor={() => void openPerson(p.author)} onRemoved={() => setPosts((l) => l?.filter((x) => x.id !== p.id) ?? null)} />
+            <PostCard key={p.id} post={p} author={memberOf(p.author, p)} members={members} onChange={update} onOpen={() => setOpen(p.id)} onAuthor={() => void openPerson(p.author)} onRemoved={() => setPosts((l) => l?.filter((x) => x.id !== p.id) ?? null)} />
           ))}
           {next && (
             <button className="btn block" onClick={more}>
@@ -583,9 +583,51 @@ function PostPhoto({ id, onClick }: { id: string; onClick: () => void }) {
   );
 }
 
+/** Modifier le texte de sa publication : même saisie qu'à la publication, @ pour identifier. */
+function EditPostSheet({ post, members, onClose, onSaved }: { post: ClubPost; members: Member[]; onClose: () => void; onSaved: (p: ClubPost) => void }) {
+  const [text, setText] = useState(post.text);
+  const [mentions, setMentions] = useState<Mention[]>(post.mentions);
+  const [busy, setBusy] = useState(false);
+  const empty = !text.trim() && !post.session && !post.photos.length && !post.video && !post.music;
+  const save = async () => {
+    if (empty) return toast('Sans photo ni séance, la publication a besoin d’un texte', true);
+    setBusy(true);
+    try {
+      const clean = text.trim();
+      const { post: p } = await club.edit(post.id, clean, keptMentions(clean, mentions));
+      onSaved(p);
+      toast(p.editedAt !== post.editedAt ? 'Publication modifiée' : 'Rien n’a changé');
+      onClose();
+    } catch (e) {
+      toast(errorText(e), true);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Sheet
+      title="Modifier la publication"
+      onClose={onClose}
+      footer={
+        <button className="btn primary block" onClick={save} disabled={busy || empty}>
+          {busy ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      }
+    >
+      <div className="stack">
+        <MentionInput value={text} onChange={setText} mentions={mentions} onMentions={setMentions} members={members} placeholder="Ton texte. Tape @ pour identifier un membre." rows={5} autoFocus />
+        <p className="small faint" style={{ margin: 0 }}>
+          Seul le texte change ; « (modifié) » s’affichera à côté. Les personnes que tu ajoutes avec @ sont prévenues.
+        </p>
+      </div>
+    </Sheet>
+  );
+}
+
 function PostCard({
   post,
   author,
+  members = [],
   onChange,
   onOpen,
   onAuthor,
@@ -594,6 +636,8 @@ function PostCard({
 }: {
   post: ClubPost;
   author: Pick<Member, 'id' | 'name' | 'avatar'>;
+  /** Pour identifier quelqu'un en modifiant le texte. */
+  members?: Member[];
   onChange: (p: ClubPost) => void;
   onOpen?: () => void;
   onAuthor?: () => void;
@@ -601,6 +645,7 @@ function PostCard({
   detail?: boolean;
 }) {
   const [burst, setBurst] = useState(0);
+  const [editing, setEditing] = useState(false);
   const [photo, setPhoto] = useState<number | null>(null);
   // Lecture automatique : la publication la plus visible joue sa musique si le son du fil est activé.
   const box = useRef<HTMLElement>(null);
@@ -667,9 +712,14 @@ function PostCard({
           </span>
         </button>
         {post.mine && (
-          <button className="icon-btn" onClick={remove} aria-label="Supprimer la publication">
-            <Icon name="trash" size={18} />
-          </button>
+          <>
+            <button className="icon-btn" onClick={() => setEditing(true)} aria-label="Modifier la publication">
+              <Icon name="pencil" size={18} />
+            </button>
+            <button className="icon-btn" onClick={remove} aria-label="Supprimer la publication">
+              <Icon name="trash" size={18} />
+            </button>
+          </>
         )}
       </header>
 
@@ -677,6 +727,12 @@ function PostCard({
       {post.text && (
         <p className="post-text">
           <MentionText text={post.text} mentions={post.mentions} />
+          {post.editedAt && <Edited at={post.editedAt} />}
+        </p>
+      )}
+      {!post.text && post.editedAt && (
+        <p className="post-text">
+          <Edited at={post.editedAt} />
         </p>
       )}
       <PostMedia post={post} slot={slot} onPhoto={setPhoto} />
@@ -704,12 +760,23 @@ function PostCard({
         </button>
       </footer>
 
+      {editing && <EditPostSheet post={post} members={members} onClose={() => setEditing(false)} onSaved={onChange} />}
       {photo !== null && (
         <Sheet title={`Photo ${photo + 1} sur ${post.photos.length}`} onClose={() => setPhoto(null)}>
           <Lightbox ids={post.photos} index={photo} onIndex={setPhoto} />
         </Sheet>
       )}
     </article>
+  );
+}
+
+/** La petite mention après un texte réécrit, avec l'heure de la modification au survol. */
+function Edited({ at }: { at: number }) {
+  return (
+    <span className="post-edited" title={`Modifié ${ago(at)}`}>
+      {' '}
+      (modifié)
+    </span>
   );
 }
 
@@ -1102,7 +1169,7 @@ function PostSheet({ id, members, onClose, onChange }: { id: string; members: Me
       {!data && !error && <div className="spinner" />}
       {data && (
         <div className="stack" style={{ gap: 16 }}>
-          <PostCard post={data.post} author={memberOf(data.post.author, data.post.authorName)} onChange={change} detail onRemoved={onClose} />
+          <PostCard post={data.post} author={memberOf(data.post.author, data.post.authorName)} members={members} onChange={change} detail onRemoved={onClose} />
           <section className="stack comments" style={{ gap: 12 }}>
             {data.comments.length === 0 && <p className="small muted" style={{ margin: 0 }}>Pas encore de commentaire. Lance la discussion.</p>}
             {data.comments.map((c) => (

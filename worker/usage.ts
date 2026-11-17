@@ -385,6 +385,8 @@ export const DAILY_CAPS = {
   email: 10,
   // Minuteur de repos : une série validée, un ajustement de +30 s… largement de quoi faire deux séances.
   rest: 800,
+  // Modifier le texte d'une publication.
+  edit: 60,
 } as const;
 
 export async function capDaily(env: Env, userId: string, kind: keyof typeof DAILY_CAPS): Promise<void> {

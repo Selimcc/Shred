@@ -34,6 +34,7 @@ const PATHS: Record<string, string> = {
   snow: 'M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M9 4l3 2 3-2M9 20l3-2 3 2',
   chevron: 'M9 6l6 6-6 6',
   trash: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13',
+  pencil: 'M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4',
   send: 'M4 12 20 4l-6 16-3-7-7-1Z',
   bell: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4l2-2Zm4 4h4',
   bolt: 'M13 2 4 14h7l-1 8 9-12h-7l1-8Z',

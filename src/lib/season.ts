@@ -1,6 +1,7 @@
 // La saison affichée : celle du calendrier, aucune si l'utilisateur les a coupées, ou celle qu'il essaie.
 // Plus ce que Pulse en dit et les couleurs des fêtes (confettis, lumière de Pulse).
-import { holidayOn, isSeasonId, type SeasonId, SEASONS, seasonOn } from '../../shared/season';
+import { useSyncExternalStore } from 'react';
+import { easter, holidayOn, isSeasonId, type SeasonId, SEASONS, seasonOn } from '../../shared/season';
 import { dayKey } from './date';
 import { type AppState, useApp } from './store';
 
@@ -16,7 +17,53 @@ const fromUrl: SeasonId | null = (() => {
   }
 })();
 
+/* ---------- Labo des admins : un thème forcé sur cet appareil, le temps de la session ---------- */
+
+export interface SeasonLab {
+  season: SeasonId;
+  /** Simuler le jour J (vœu en titre, « Bonne année » du bouquet). */
+  holiday: boolean;
+}
+let lab: SeasonLab | null = null;
+const labSubs = new Set<() => void>();
+
+/** Ni enregistré ni synchronisé : il disparaît à la fermeture de l'app. */
+export function setSeasonLab(next: SeasonLab | null) {
+  lab = next;
+  for (const f of labSubs) f();
+}
+
+export function useSeasonLab(): SeasonLab | null {
+  return useSyncExternalStore(
+    (cb) => {
+      labSubs.add(cb);
+      return () => labSubs.delete(cb);
+    },
+    () => lab,
+    () => lab,
+  );
+}
+
+/** La date que voient les vœux et les scènes : aujourd'hui, ou le jour J de la fête testée. */
+export function seasonDay(today: string): string {
+  if (!lab?.holiday) return today;
+  const y = Number(today.slice(0, 4));
+  switch (lab.season) {
+    case 'halloween':
+      return `${y}-10-31`;
+    case 'noel':
+      return `${y}-12-25`;
+    case 'nouvel-an':
+      return `${y + 1}-01-01`;
+    case 'saint-valentin':
+      return `${y}-02-14`;
+    case 'paques':
+      return easter(y);
+  }
+}
+
 export function activeSeason(s: AppState, today: string): SeasonId | null {
+  if (lab) return lab.season;
   if (fromUrl) return fromUrl;
   const pref = s.settings.season ?? 'auto';
   if (pref === 'off') return null;
@@ -25,6 +72,7 @@ export function activeSeason(s: AppState, today: string): SeasonId | null {
 }
 
 export function useSeason(): SeasonId | null {
+  useSeasonLab();
   return activeSeason(useApp(), dayKey());
 }
 

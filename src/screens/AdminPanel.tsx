@@ -7,6 +7,10 @@ import { api } from '../lib/api';
 import { dayKey } from '../lib/date';
 import { MemberAvatar } from './Club';
 import { shareText } from './Account';
+import { Pulse } from '../components/Pulse';
+import { playSeasonScene } from '../components/SeasonScene';
+import { SEASON_IDS, SEASONS } from '../../shared/season';
+import { setSeasonLab, useSeasonLab } from '../lib/season';
 
 interface Tester {
   id: string;
@@ -103,9 +107,11 @@ export function AdminPanel() {
       .sort((a, b) => (b.lastSeen ?? 0) - (a.lastSeen ?? 0) || a.name.localeCompare(b.name));
   }, [data, filter, q, now]);
 
+  // Le labo des fêtes reste utilisable même si la liste des testeurs ne charge pas.
   if (error && !data) {
     return (
-      <div className="stack" style={{ gap: 10 }}>
+      <div className="stack" style={{ gap: 16 }}>
+        <SeasonLabCard />
         <p className="muted">{error}</p>
         <button className="btn block" onClick={() => void load()}>
           Réessayer
@@ -113,7 +119,13 @@ export function AdminPanel() {
       </div>
     );
   }
-  if (!data) return <div className="spinner" />;
+  if (!data)
+    return (
+      <div className="stack" style={{ gap: 16 }}>
+        <SeasonLabCard />
+        <div className="spinner" />
+      </div>
+    );
 
   const tiles: { id: Filter; n: number; label: string }[] = [
     { id: 'all', n: counts.all, label: counts.all > 1 ? 'testeurs' : 'testeur' },
@@ -124,6 +136,7 @@ export function AdminPanel() {
 
   return (
     <div className="stack" style={{ gap: 16 }}>
+      <SeasonLabCard />
       <div className="admin-tiles" role="group" aria-label="Filtrer les testeurs">
         {tiles.map((t) => (
           <button key={t.id} className={`admin-tile ${filter === t.id ? 'on' : ''} ${t.id}`} onClick={() => setFilter(t.id)} aria-pressed={filter === t.id}>
@@ -188,6 +201,52 @@ export function AdminPanel() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Labo des fêtes : forcer un thème sur cet appareil seulement (rien d'enregistré ni de synchronisé),
+ * simuler le jour J et lancer la scène, pour tester avant la date.
+ */
+function SeasonLabCard() {
+  const lab = useSeasonLab();
+  const pick = (id: (typeof SEASON_IDS)[number]) => {
+    setSeasonLab(lab?.season === id ? null : { season: id, holiday: lab?.holiday ?? false });
+    if (lab?.season !== id) setTimeout(playSeasonScene, 450);
+  };
+  return (
+    <section className="card season-lab">
+      <div className="section-head" style={{ margin: 0 }}>
+        <h2 style={{ fontSize: '1.05rem' }}>Tester les fêtes</h2>
+        {lab && (
+          <button className="link small" onClick={() => setSeasonLab(null)}>
+            Arrêter
+          </button>
+        )}
+      </div>
+      <p className="small muted" style={{ margin: '4px 0 12px' }}>
+        Sur cet appareil seulement, jusqu’à la fermeture de l’app. Personne d’autre ne le voit.
+      </p>
+      <div className="season-lab-row" role="group" aria-label="Fête à tester">
+        {SEASON_IDS.map((id) => (
+          <button key={id} type="button" className={`season-lab-pick sc-${id} ${lab?.season === id ? 'on' : ''}`} onClick={() => pick(id)} aria-pressed={lab?.season === id}>
+            <Pulse season={id} mood="happy" size={40} />
+            <span className="small">{SEASONS[id].name}</span>
+          </button>
+        ))}
+      </div>
+      {lab && (
+        <div className="season-lab-actions">
+          <label className="row" style={{ padding: 0, gap: 10 }}>
+            <input type="checkbox" checked={lab.holiday} onChange={(e) => setSeasonLab({ ...lab, holiday: e.target.checked })} />
+            <span className="small">Simuler le jour J ({SEASONS[lab.season].wish})</span>
+          </label>
+          <button className="btn small" onClick={playSeasonScene}>
+            <Icon name="play" size={14} filled /> Lancer la scène
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
