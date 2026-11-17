@@ -1,3 +1,4 @@
+import type { SeasonId } from '../../shared/season';
 import { useSyncExternalStore } from 'react';
 import {
   DEFAULT_HABITS,
@@ -94,6 +95,8 @@ export interface Goal {
   level?: 'half' | 'full';
 }
 
+export type SeasonPref = 'auto' | 'off' | SeasonId;
+
 export interface Settings {
   name: string;
   age?: number;
@@ -125,6 +128,8 @@ export interface Settings {
   waterGoal?: number;
   /** Machines signalées en panne : l'exercice est remplacé automatiquement jusqu'à la date. */
   broken?: Record<string, { since: string; until: string }>;
+  /** Thème de saison : selon le calendrier (par défaut), jamais, ou un thème choisi pour l'essayer. */
+  season?: SeasonPref;
 }
 
 export interface PublicProfileSettings {

@@ -1,6 +1,7 @@
 // Pulse fête tes réussites. Séance validée : il bondit au centre de l'écran, onde de lumière et étincelles.
 // Record, habitudes, pas, publication, étincelles reçues : il surgit en haut de l'écran le temps d'un clin d'œil.
 // Si la grande fête de fin de journée s'affiche au même moment, c'est elle qui passe.
+import { SEASON_PALETTE, useSeason } from '../lib/season';
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { leave, leaveInPlace } from '../lib/leave';
 import { dayKey } from '../lib/date';
@@ -39,7 +40,8 @@ export function PulseMoment() {
   const [queue, setQueue] = useState<Moment[]>([]);
   const current = queue[0];
   const tier = flameInfo(s, dayKey()).tier;
-  const colors = TIERS[Math.min(tier, TIERS.length - 1)].colors;
+  const season = useSeason();
+  const colors = season ? SEASON_PALETTE[season] : TIERS[Math.min(tier, TIERS.length - 1)].colors;
 
   useEffect(
     () =>

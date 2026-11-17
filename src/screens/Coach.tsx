@@ -1,3 +1,4 @@
+import { activeSeason } from '../lib/season';
 import { useEffect, useRef, useState } from 'react';
 import { athleteSummary, WEIGHT_GOALS } from '../../shared/athlete';
 import { DossierCard } from '../components/Dossier';
@@ -125,6 +126,7 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
           notes: [st.settings.coachNotes, athleteSummary(st.settings.athlete, st.settings.gym), `Objectif : ${WEIGHT_GOALS[st.settings.weightGoal].label}.`].filter(Boolean).join('\n'),
           name: st.settings.name || undefined,
           memory: hits.length ? memoryText(hits) : undefined,
+          season: activeSeason(st, today) ?? undefined,
         },
       });
       setState((d) => {

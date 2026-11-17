@@ -1,6 +1,7 @@
 // La fête de fin de journée : Pulse et le compteur de série, et un mot de Pulse la première fois et à chaque palier.
 import { type CSSProperties, useEffect } from 'react';
 import { celebrationFor, flameInfo, ladder, TIERS } from '../lib/flames';
+import { SEASON_PALETTE, useSeason } from '../lib/season';
 import { setState, useApp } from '../lib/store';
 import { Bubble, Pulse } from './Pulse';
 
@@ -34,7 +35,8 @@ function Embers({ colors }: { colors: readonly string[] }) {
 }
 
 function Confetti() {
-  const palette = ['#ff7a1f', '#ffc83d', '#4f7cff', '#2fd27c', '#ff5468', '#7fd3ff', '#cf6bff'];
+  const season = useSeason();
+  const palette = season ? SEASON_PALETTE[season] : ['#ff7a1f', '#ffc83d', '#4f7cff', '#2fd27c', '#ff5468', '#7fd3ff', '#cf6bff'];
   return (
     <div className="confetti" aria-hidden="true">
       {Array.from({ length: 42 }, (_, i) => (

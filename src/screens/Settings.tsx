@@ -14,7 +14,7 @@ import { ChoiceCard, Field, NumberSetting, Toggle } from '../components/form';
 import { Icon } from '../components/Icon';
 import { ask, errorText, Sheet, toast } from '../components/ui';
 import { api, DEMO, type Health } from '../lib/api';
-import { dayKey } from '../lib/date';
+import { dayKey, formatShort } from '../lib/date';
 import { addHabit, addPlannedMeal, removeHabit, removePlannedMeal, updateHabit, updatePlannedMeal } from '../lib/program-edit';
 import { disablePush, enablePush, pushConfig, pushSupport, testPush } from '../lib/push';
 import { getSession, signedIn, useSession } from '../lib/session';
@@ -30,9 +30,12 @@ import {
   resetAll,
   setState,
   useApp,
+  type SeasonPref,
   WEIGHT_GOALS,
   type WeightGoal,
 } from '../lib/store';
+import { isSeasonId, nextStart, SEASON_IDS, SEASONS, seasonOn } from '../../shared/season';
+import { Pulse } from '../components/Pulse';
 import { AccountPage, TestersPage } from './Account';
 import { HealthPage } from './HealthSetup';
 import { ProgramEditor } from './ProgramEditor';
@@ -66,7 +69,8 @@ export type SettingsPage =
   | 'report'
   | 'data'
   | 'strava'
-  | 'usage';
+  | 'usage'
+  | 'theme';
 
 const TITLES: Record<SettingsPage, string> = {
   menu: 'Réglages',
@@ -90,6 +94,7 @@ const TITLES: Record<SettingsPage, string> = {
   data: 'Données',
   strava: 'Strava',
   usage: 'Cloudflare',
+  theme: 'Thème de saison',
 };
 
 const AI_MODES: { id: AiMode; title: string; text: string }[] = [
@@ -185,6 +190,7 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
         { id: 'mealplan', icon: 'utensils', sub: s.prep ? 'Plan, préparation et courses' : 'Générer un plan adapté', show: mod.nutrition },
         { id: 'habits', icon: 'check', sub: s.habits.map((h) => h.name).join(', ') || 'Aucune', show: mod.habits },
         { id: 'notifications', icon: 'bell', sub: s.settings.pushEnabled ? 'Activés' : 'Désactivés', show: !DEMO },
+        { id: 'theme', icon: 'sparkle', sub: themeSub(s) },
       ],
     },
     {
@@ -290,12 +296,68 @@ export function Settings({ onClose, initialPage = 'menu' }: { onClose: () => voi
       {page === 'data' && <DataPage onReset={onClose} />}
       {page === 'strava' && <StravaPage />}
       {page === 'usage' && <UsagePage />}
+      {page === 'theme' && <ThemePage />}
       </div>
     </Sheet>
   );
 }
 
 /* ---------- Pages ---------- */
+
+/** La ligne sous « Thème de saison » dans le menu. */
+function themeSub(s: AppState): string {
+  const pref = s.settings.season ?? 'auto';
+  if (pref === 'off') return 'Désactivé';
+  if (isSeasonId(pref)) return `Aperçu : ${SEASONS[pref].name}`;
+  const today = dayKey();
+  const now = seasonOn(today);
+  if (now) return `${SEASONS[now].name} en ce moment`;
+  const next = [...SEASON_IDS].sort((a, b) => nextStart(a, today).localeCompare(nextStart(b, today)))[0];
+  return `Prochain : ${SEASONS[next].name}, le ${formatShort(nextStart(next, today))}`;
+}
+
+function ThemePage() {
+  const s = useApp();
+  const today = dayKey();
+  const pref = s.settings.season ?? 'auto';
+  const now = seasonOn(today);
+  const set = (v: SeasonPref) =>
+    setState((d) => {
+      d.settings.season = v;
+    });
+  return (
+    <div className="stack">
+      <p className="small muted" style={{ margin: 0 }}>
+        Aux fêtes, toute l’app change de couleurs, un décor s’installe en fond et Pulse se déguise. Le thème arrive et repart tout seul avec le calendrier.
+      </p>
+      <div className="seg" role="group" aria-label="Thème de saison">
+        <button type="button" className={pref !== 'off' ? 'on' : ''} onClick={() => set('auto')}>
+          Selon le calendrier
+        </button>
+        <button type="button" className={pref === 'off' ? 'on' : ''} onClick={() => set('off')}>
+          Jamais
+        </button>
+      </div>
+      <h3 className="settings-group" style={{ marginBottom: 0 }}>
+        Essayer un thème
+      </h3>
+      <div className="season-grid">
+        {SEASON_IDS.map((id) => (
+          <button key={id} type="button" className={`season-card sc-${id} ${pref === id ? 'on' : ''}`} onClick={() => set(pref === id ? 'auto' : id)} aria-pressed={pref === id}>
+            <Pulse season={id} mood="happy" size={62} />
+            <b>{SEASONS[id].name}</b>
+            <span className="small">{now === id ? 'En ce moment' : `Dès le ${formatShort(nextStart(id, today))}`}</span>
+          </button>
+        ))}
+      </div>
+      <p className="small faint" style={{ margin: 0 }}>
+        {isSeasonId(pref)
+          ? `Aperçu de ${SEASONS[pref].name} : touche la carte encore pour revenir au calendrier.`
+          : 'Touche une carte pour voir le thème tout de suite, même hors saison.'}
+      </p>
+    </div>
+  );
+}
 
 const PROFILE_FIELDS: { id: keyof PublicProfileSettings['show']; title: string; text: string }[] = [
   { id: 'streak', title: 'Série actuelle', text: 'Le nombre de jours validés d’affilée.' },

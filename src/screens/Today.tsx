@@ -1,6 +1,7 @@
 import { ReadinessCard } from '../components/Recovery';
 import { MonthRecap } from '../components/MonthRecap';
 import { ofMonth, recapReady } from '../lib/monthRecap';
+import { activeSeason, greeting, SEASON_SHINE, type SeasonId, seasonStart } from '../lib/season';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { Bubble, type Mood, Pulse } from '../components/Pulse';
 import { Flame } from '../components/Flame';
@@ -41,7 +42,7 @@ import { atGym } from '../lib/places';
 
 
 /** Ce que Pulse dit, et le bouton principal : une seule chose à faire maintenant. */
-function nextStep(s: AppState, today: string): { mood: Mood; text: string; cta?: { label: string; tab: Tab } } {
+function nextStep(s: AppState, today: string, season: SeasonId | null): { mood: Mood; text: string; cta?: { label: string; tab: Tab } } {
   const day = readDay(s, today);
   const session = sessionFor(s, today);
   const prog = setProgress(session, day);
@@ -55,7 +56,8 @@ function nextStep(s: AppState, today: string): { mood: Mood; text: string; cta?:
   const mealsLeft = Math.max(0, rule.minMeals - meals);
 
   if (st.todayValidated) {
-    return { mood: 'proud', text: `Journée validée${name} ! ${st.current} jour${st.current > 1 ? 's' : ''} de série. Je brille grâce à toi, reviens demain.`, cta: { label: 'Voir ma progression', tab: 'progress' } };
+    const shine = season ? SEASON_SHINE[season] : 'Je brille grâce à toi, reviens demain.';
+    return { mood: 'proud', text: `Journée validée${name} ! ${st.current} jour${st.current > 1 ? 's' : ''} de série. ${shine}`, cta: { label: 'Voir ma progression', tab: 'progress' } };
   }
   if (hour < 7 && !prog.done && !meals) {
     return { mood: 'sleepy', text: `Il est tôt… Aujourd’hui : ${session.name}. Je t’attends quand tu es prêt.` };
@@ -75,7 +77,8 @@ function nextStep(s: AppState, today: string): { mood: Mood; text: string; cta?:
       return { mood: 'cheer', text: `Tu es lancé : ${prog.done} séries sur ${prog.total}.${why}`, cta: { label: 'Continuer la séance', tab: 'workout' } };
     }
     const detail = session.lifting ? `${session.exercises.length} exercices, environ ${session.duration}` : session.focus;
-    return { mood: 'happy', text: `Salut${name} ! Aujourd’hui c’est ${session.name} : ${detail}.`, cta: { label: `Commencer ${session.name}`, tab: 'workout' } };
+    const text = season ? seasonStart(season, today, s.settings.name, `${session.name} : ${detail}`) : `Salut${name} ! Aujourd’hui c’est ${session.name} : ${detail}.`;
+    return { mood: 'happy', text, cta: { label: `Commencer ${session.name}`, tab: 'workout' } };
   }
   if (mealsLeft > 0) {
     return {
@@ -112,7 +115,8 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
   const meals = mealsCount(day);
   const mod = s.settings.modules;
   const rule = ruleOf(s);
-  const step = nextStep(s, today);
+  const season = activeSeason(s, today);
+  const step = nextStep(s, today, season);
   const habitsDone = s.habits.filter((h) => day.habits[h.id]).length;
 
   const blocks = sessionBlocks(session.exercises);
@@ -131,7 +135,7 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
       <header className="home-top">
         <div className="who">
           <div className="date">{formatLong(today)}</div>
-          <h1>{s.settings.name ? `Salut ${s.settings.name}` : 'Salut'}</h1>
+          <h1>{greeting(season, today, s.settings.name)}</h1>
         </div>
         <span className="stat-pill flame" title={`Jours de série, ${flames.tierInfo.name}`} aria-label={`${st.current} jours de série`}>
           <Flame tier={flames.tier} size={18} animated={st.todayValidated} />

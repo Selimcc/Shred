@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Celebration } from './components/Celebration';
 import { DemoInviteHost, demoInvite } from './components/DemoInvite';
 import { PulseMoment } from './components/PulseMoment';
+import { SeasonLayer } from './components/SeasonLayer';
+import { activeSeason, SEASON_BAR } from './lib/season';
 import { Icon } from './components/Icon';
 import { AskHost, ToastHost } from './components/ui';
 import { DEMO } from './lib/api';
@@ -51,6 +53,15 @@ export function App() {
   const [compose, setCompose] = useState<string | null>(null);
   const [openPost] = useState(() => new URLSearchParams(location.search).get('post'));
   const [openMember] = useState(() => (new URLSearchParams(location.search).get('member') ?? '').toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 20) || null);
+  const season = activeSeason(s, today);
+
+  // Thème de saison : toute l'interface suit les jetons de couleur de la fête, et la barre d'état aussi.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (season) root.dataset.season = season;
+    else delete root.dataset.season;
+    for (const m of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) m.content = season ? SEASON_BAR[season] : '#15171b';
+  }, [season]);
 
   const go = (t: Tab) => {
     setTab(t);
@@ -110,6 +121,7 @@ export function App() {
         </div>
       )}
       {DEMO && <DemoInviteHost />}
+      <SeasonLayer season={season} />
       <main className="app">
         {tab === 'today' && <Today today={today} go={go} openSettings={() => setSettings('menu')} />}
         {tab === 'workout' && <Workout today={today} editProgram={() => setSettings('program')} />}

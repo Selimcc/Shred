@@ -106,6 +106,13 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 | Design | Readiness score, muscle recovery map, workout mode, monthly recap. | Computed on the phone from data the app already has; no new endpoint, nothing new sent to the server. The recap image is drawn locally and only leaves the phone through the share sheet. |
 | Design | Workout mode keeps the screen on (Wake Lock) and beeps (Web Audio). | Both only while the full screen is open; the lock is released on exit and requested again when the app comes back to the front. No permission prompt, no microphone. |
 
+## Version 0.24
+
+| Severity | Finding | Fix |
+|---|---|---|
+| Design | Seasonal themes read an identifier from three places: the calendar, the `season` setting (synced with the backup) and `?saison=` in the address. | Only an identifier of the fixed list is applied (own-property check, so `__proto__` or `toString` are refused); anything else falls back to the calendar. The value ends up in a `data-season` attribute and a `theme-color`, both from the list. |
+| Design | The coach is told the season. | The client sends an identifier; the server appends one of its own fixed sentences when it is on the list and ignores anything else, so no free text reaches the system prompt this way. Tested with free text and inherited property names. |
+
 ## Accepted
 
 | Severity | Finding | Why |
