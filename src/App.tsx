@@ -115,7 +115,7 @@ export function App() {
     const root = document.documentElement;
     if (season) root.dataset.season = season;
     else delete root.dataset.season;
-    for (const m of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) m.content = season ? SEASON_BAR[season] : '#15171b';
+    for (const m of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) m.content = season ? SEASON_BAR[season] : '#161413';
   }, [season]);
 
   // Pas de compte : écran d'accueil. Premier lancement : quelques questions.

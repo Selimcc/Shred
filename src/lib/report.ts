@@ -10,7 +10,7 @@ import { dayValidated, mealsCount, ruleOf, sessionFor, streakInfo, totals } from
 import type { AppState } from './store';
 import { e1rm, GROUPS, strengthProfile } from './strength';
 import { addTraining, dayTraining, empty, totalMinutes } from './training';
-import { lang, list, loc, lower, tn, tr } from '../../shared/i18n';
+import { lang, list, lower, tn, tr } from '../../shared/i18n';
 
 export interface Advice {
   id: string;
@@ -331,7 +331,7 @@ const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 /** Mail simple, lisible partout (styles en ligne, une colonne, pas d'image). */
 export function reportHtml(s: AppState, r: WeeklyReport, appUrl: string): string {
   const stat = (v: string, label: string) =>
-    `<td style="padding:12px 8px;text-align:center;background:#f2f4fa;border-radius:12px"><div style="font-size:22px;font-weight:800;color:#0f1630">${esc(v)}</div><div style="font-size:12px;color:#4d5874">${esc(label)}</div></td>`;
+    `<td style="padding:12px 8px;text-align:center;background:#f6f1ea;border-radius:12px"><div style="font-size:22px;font-weight:800;color:#1f1a17">${esc(v)}</div><div style="font-size:12px;color:#6b625a">${esc(label)}</div></td>`;
   const rows = [
     stat(`${r.sessions.done}/${r.sessions.planned}`, tr('séances')),
     stat(`${r.validated}/${r.days}`, tr('jours validés')),
@@ -348,18 +348,18 @@ export function reportHtml(s: AppState, r: WeeklyReport, appUrl: string): string
   if (r.steps !== null) details.push(tr('<b>Pas</b> : {n} par jour.', { n: formatNumber(r.steps) }));
   if (r.prs.length) details.push(tr('<b>Records</b> : {list}.', { list: r.prs.map((x) => `${esc(x.name)} (${esc(x.text)})`).join(', ') }));
   const advice = r.advice
-    .map((a) => `<li style="margin:0 0 10px"><b>${esc(a.title)}</b><br><span style="color:#4d5874">${esc(a.text)}</span></li>`)
+    .map((a) => `<li style="margin:0 0 10px"><b>${esc(a.title)}</b><br><span style="color:#6b625a">${esc(a.text)}</span></li>`)
     .join('');
   // Le gabarit reste hors des traductions : seuls les textes passent par tr().
-  return `<!doctype html><html lang="${lang()}"><body style="margin:0;background:#ffffff;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f1630">
+  return `<!doctype html><html lang="${lang()}"><body style="margin:0;background:#ffffff;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f1a17">
 <div style="max-width:520px;margin:0 auto;padding:24px 18px">
-<div style="font-size:13px;color:#3563f0;font-weight:700;letter-spacing:.04em">SHRED · ${esc(tr('Bilan de la semaine').toLocaleUpperCase(loc()))}</div>
+<div style="font-size:14px;color:#c63a2c;font-weight:700">${esc(tr('Bilan de la semaine'))}</div>
 <h1 style="font-size:22px;margin:6px 0 4px">${esc(tr('Salut {name}', { name: s.settings.name || '' }).trim())}</h1>
-<p style="margin:0 0 18px;color:#4d5874">${esc(tr('Du {from} au {to}.', { from: formatShort(r.monday), to: formatShort(r.sunday) }))} ${esc(r.headline)}</p>
+<p style="margin:0 0 18px;color:#6b625a">${esc(tr('Du {from} au {to}.', { from: formatShort(r.monday), to: formatShort(r.sunday) }))} ${esc(r.headline)}</p>
 <table role="presentation" style="width:100%;border-collapse:separate"><tr>${rows}</tr></table>
 <div style="margin:18px 0;line-height:1.55">${details.map((x) => `<p style="margin:0 0 8px">${x}</p>`).join('')}</div>
 ${advice ? `<h2 style="font-size:17px;margin:20px 0 10px">${esc(tr('Pour la semaine qui vient'))}</h2><ul style="padding-left:18px;margin:0;line-height:1.5">${advice}</ul>` : ''}
-<p style="margin:24px 0 0"><a href="${esc(appUrl)}" style="display:inline-block;background:#3563f0;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:12px">${esc(tr('Ouvrir Shred'))}</a></p>
-<p style="margin:24px 0 0;font-size:12px;color:#8a93ab">${esc(tr('Tu reçois ce mail parce que tu l’as activé dans Réglages, Bilan de la semaine.'))}</p>
+<p style="margin:24px 0 0"><a href="${esc(appUrl)}" style="display:inline-block;background:#c63a2c;color:#fff7ee;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:12px">${esc(tr('Ouvrir Shred'))}</a></p>
+<p style="margin:24px 0 0;font-size:12px;color:#8c8278">${esc(tr('Tu reçois ce mail parce que tu l’as activé dans Réglages, Bilan de la semaine.'))}</p>
 </div></body></html>`;
 }

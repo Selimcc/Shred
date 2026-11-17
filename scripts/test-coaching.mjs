@@ -169,7 +169,7 @@ check('bilan : moyenne kcal et protéines', rep.nutrition.kcal === 2200 && rep.n
 check('bilan : poids trop lent pour une sèche → −150 kcal', rep.advice.some((x) => x.action?.kind === 'kcal' && x.action.delta === -150), rep.advice.map((x) => x.id).join(','));
 check('bilan : protéines trop basses signalées', rep.advice.some((x) => x.id === 'protein'));
 const html = k.reportHtml(s, rep, 'https://shred.test');
-check('mail HTML lisible, sans balise injectée', html.includes('BILAN DE LA SEMAINE') && html.includes('https://shred.test') && !html.includes('<script'));
+check('mail HTML lisible, sans balise injectée', html.includes('Bilan de la semaine') && html.includes('https://shred.test') && !html.includes('<script'));
 check('version texte du bilan', k.reportText(s, rep).includes('Pour la semaine qui vient'));
 
 /* Mail côté serveur */

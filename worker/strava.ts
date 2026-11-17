@@ -113,8 +113,8 @@ async function accessToken(env: Env, store: Store): Promise<Tokens> {
 const page = (lang: Lang, title: string, text: string) =>
   new Response(
     `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#15171b;color:#f2f3f5;font:16px/1.5 system-ui,-apple-system,sans-serif;padding:24px}
-main{max-width:360px;text-align:center}h1{font-size:1.4rem;margin:0 0 8px}p{color:#a0a5ad;margin:0 0 20px}a{display:inline-block;background:#f2f3f5;color:#15171b;border-radius:14px;padding:12px 20px;font-weight:700;text-decoration:none}</style></head>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#161413;color:#f5efe7;font:16px/1.5 system-ui,-apple-system,sans-serif;padding:24px}
+main{max-width:360px;text-align:center}h1{font-size:1.4rem;margin:0 0 8px}p{color:#b7ada2;margin:0 0 20px}a{display:inline-block;background:#f5efe7;color:#1a1512;border-radius:12px;padding:12px 20px;font-weight:700;text-decoration:none}</style></head>
 <body><main><h1>${tx(lang, title)}</h1><p>${tx(lang, text)}</p><a href="/">${tx(lang, 'Revenir dans Shred')}</a></main></body></html>`,
     { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } },
   );

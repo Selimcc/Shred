@@ -85,7 +85,7 @@ const consentKey = async (handle: string) => `mcpc:${await sha256hex(handle)}`;
 function errorPage(text: string, status = 400): Response {
   const esc = text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
   return new Response(
-    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shred</title><body style="font-family:system-ui,sans-serif;background:#0d0f12;color:#f2f3f5;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px"><div style="max-width:420px"><h1 style="font-size:1.3rem">Connexion impossible</h1><p style="color:#a0a5ad">${esc}</p><p><a href="/" style="color:#ffd166">Ouvrir Shred</a></p></div>`,
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shred</title><body style="font-family:system-ui,sans-serif;background:#161413;color:#f5efe7;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px"><div style="max-width:420px"><h1 style="font-size:1.3rem">Connexion impossible</h1><p style="color:#b7ada2">${esc}</p><p><a href="/" style="color:#f2bd2c">Ouvrir Shred</a></p></div>`,
     { status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } },
   );
 }

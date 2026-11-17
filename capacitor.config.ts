@@ -6,10 +6,10 @@ const config: CapacitorConfig = {
   appId: 'fr.shred.app',
   appName: 'Shred',
   webDir: 'dist-native',
-  backgroundColor: '#15171b',
+  backgroundColor: '#161413',
   ios: {
     contentInset: 'never',
-    backgroundColor: '#15171b',
+    backgroundColor: '#161413',
     limitsNavigationsToAppBoundDomains: false,
   },
 };

@@ -179,7 +179,8 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
         </div>
       )}
 
-      <section className="today-hero" style={{ '--tier': tier } as CSSProperties}>
+      {/* Le disque de la séance : rouge pour la muscu, bleu pour l'endurance, vert pour le repos. */}
+      <section className="today-hero" data-plate={session.type === 'rest' ? 'green' : session.type === 'cardio' ? 'blue' : 'red'} style={{ '--tier': tier } as CSSProperties}>
         <button className="hero-coach" onClick={() => go('coach')} aria-label={tr('Parler à Pulse, ton coach')}>
           <Pulse mood={step.mood} tier={flames.tier} size={60} />
           <Bubble key={step.text}>{step.text}</Bubble>

@@ -171,6 +171,12 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 | Low | Meal slots in the day summary. | `/api/state` keeps only known meal ids (`breakfast`, `lunch`, `snack`, `dinner`, `extra`); the notification link is built by the server from that fixed list. |
 | Info | Activities logged by hand. | Stored in the member's own encrypted backup like imported ones; nothing new reaches the server. |
 
+## Version 0.33
+
+| Severity | Finding | Fix |
+| --- | --- | --- |
+| Info | Visual redesign. | No new route, data or permission. The typeface ships inside the app bundle (`@fontsource-variable/bricolage-grotesque`, served from the app's own origin, `font-src 'self'`), the floor texture is an inline SVG data URI (`img-src data:`, no script). Nothing is loaded from a third party. |
+
 ## Accepted
 
 | Severity | Finding | Why |

@@ -12,7 +12,15 @@ export interface StoryExtras {
 const W = 1080;
 const H = 1920;
 const PAD = 88;
-const FONT = '"Archivo Variable", "Archivo", system-ui, -apple-system, sans-serif';
+const FONT = '"Bricolage Grotesque Variable", "Bricolage Grotesque", system-ui, -apple-system, sans-serif';
+
+/** Les couleurs de l'app (« Disques ») : sol noir chaud, craie, disques. */
+const BG = '#161413';
+const CHALK = '#f5efe7';
+const CHALK_2 = '#b7ada2';
+const CHALK_3 = '#8c8278';
+const YELLOW = '#f2bd2c';
+export const PLATE = { red: '#c63a2c', blue: '#2f6bd1', green: '#26773d', yellow: YELLOW } as const;
 
 type Ctx = CanvasRenderingContext2D & { fontStretch?: string; letterSpacing?: string };
 
@@ -41,20 +49,9 @@ function roundRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: numb
   ctx.closePath();
 }
 
-function glow(ctx: Ctx, x: number, y: number, r: number, color: string) {
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, color);
-  g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
-}
-
 /** Petite flamme dessinée (pas d'emoji : même rendu partout). */
 function flame(ctx: Ctx, x: number, y: number, s: number) {
-  const g = ctx.createLinearGradient(x, y - s, x, y + s);
-  g.addColorStop(0, '#ffd27a');
-  g.addColorStop(1, '#ff8a1f');
-  ctx.fillStyle = g;
+  ctx.fillStyle = YELLOW;
   ctx.beginPath();
   ctx.moveTo(x, y - s);
   ctx.bezierCurveTo(x + s * 0.9, y - s * 0.2, x + s * 0.8, y + s * 0.9, x, y + s);
@@ -63,30 +60,50 @@ function flame(ctx: Ctx, x: number, y: number, s: number) {
   ctx.fill();
 }
 
-/** Fond graphite, lueur d'accent en haut, glacier en bas, fines diagonales ; marque et date en tête. */
-function backdrop(ctx: Ctx, accent: string, rightLabel: string) {
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#16191e');
-  bg.addColorStop(1, '#0c0e11');
-  ctx.fillStyle = bg;
+/** Un grand disque vu de face, coupé par le bord de l'image : le disque de la séance (ou du profil du mois). */
+function bigPlate(ctx: Ctx, x: number, y: number, r: number, color: string) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+  ctx.lineWidth = r * 0.07;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.93, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.lineWidth = r * 0.02;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.62, 0, Math.PI * 2);
+  ctx.stroke();
+  // Le moyeu : la bague d'acier et le trou.
+  ctx.fillStyle = '#c9c2b8';
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = BG;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.13, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Le sol de la salle, un grand disque à la couleur de la séance en haut à droite ; marque et date en tête. */
+function backdrop(ctx: Ctx, plate: string, rightLabel: string) {
+  ctx.fillStyle = BG;
   ctx.fillRect(0, 0, W, H);
-  glow(ctx, W * 0.95, H * 0.02, 900, accent);
-  glow(ctx, W * 0.0, H * 0.75, 800, 'rgba(134,185,255,0.12)');
-  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
-  ctx.lineWidth = 2;
-  for (let i = -H; i < W; i += 56) {
+  // Les paillettes du caoutchouc, toujours au même endroit (pas d'aléatoire : la même image à chaque fois).
+  for (let i = 0; i < 260; i++) {
+    const x = (i * 397) % W;
+    const y = (i * 761 + (i % 7) * 113) % H;
+    ctx.fillStyle = i % 23 === 0 ? 'rgba(242,189,44,0.22)' : i % 29 === 0 ? 'rgba(50,116,219,0.26)' : 'rgba(255,240,220,0.09)';
     ctx.beginPath();
-    ctx.moveTo(i, 0);
-    ctx.lineTo(i + H, H);
-    ctx.stroke();
+    ctx.arc(x, y, 2 + (i % 3), 0, Math.PI * 2);
+    ctx.fill();
   }
-  ctx.fillStyle = '#f2f3f5';
-  setFont(ctx, 800, 46, 'condensed');
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '10px';
-  ctx.fillText('SHRED', PAD, PAD + 50);
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
-  ctx.fillStyle = '#a0a5ad';
-  setFont(ctx, 500, 38);
+  bigPlate(ctx, W * 0.98, H * 0.05, 470, plate);
+  ctx.fillStyle = CHALK;
+  setFont(ctx, 800, 50, 'condensed');
+  ctx.fillText('Shred', PAD, PAD + 50);
+  setFont(ctx, 600, 38);
   ctx.textAlign = 'right';
   ctx.fillText(rightLabel, W - PAD, PAD + 48);
   ctx.textAlign = 'left';
@@ -101,19 +118,16 @@ function statGrid(ctx: Ctx, stats: { label: string; value: string }[], top: numb
     const x = PAD + (i % 2) * (cw + gap);
     const yy = top + Math.floor(i / 2) * (ch + gap);
     roundRect(ctx, x, yy, cw, ch, 44);
-    const cg = ctx.createLinearGradient(0, yy, 0, yy + ch);
-    cg.addColorStop(0, 'rgba(255,255,255,0.075)');
-    cg.addColorStop(1, 'rgba(255,255,255,0.03)');
-    ctx.fillStyle = cg;
+    ctx.fillStyle = '#201d1b';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+    ctx.strokeStyle = 'rgba(255,236,214,0.1)';
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.fillStyle = '#f2f3f5';
+    ctx.fillStyle = CHALK;
     const vs = fit(ctx, st.value, 780, 120, cw - 80, 'condensed');
     setFont(ctx, 780, vs, 'condensed');
     ctx.fillText(st.value, x + 40, yy + 150);
-    ctx.fillStyle = '#a0a5ad';
+    ctx.fillStyle = CHALK_2;
     setFont(ctx, 500, 36);
     ctx.fillText(st.label, x + 40, yy + 205);
   });
@@ -195,29 +209,22 @@ function starAt(ctx: Ctx, x: number, y: number, r: number) {
 export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> {
   const { canvas, ctx } = await canvasReady();
   const pc = m.profile.color;
-  backdrop(ctx, alpha(pc, 0.3), `${m.month[0].toUpperCase()}${m.month.slice(1)} ${m.year}`);
-  glow(ctx, W * 0.1, H * 0.42, 700, alpha(pc, 0.1));
+  backdrop(ctx, pc, `${m.month[0].toUpperCase()}${m.month.slice(1)} ${m.year}`);
 
   // Le mois.
-  ctx.fillStyle = '#a0a5ad';
+  ctx.fillStyle = CHALK_2;
   setFont(ctx, 600, 46);
   ctx.fillText(tr('Mon mois'), PAD, 236);
-  const title = m.month.toUpperCase();
-  const size = fit(ctx, title, 820, 250, W - PAD * 2, 'condensed');
-  const tg = ctx.createLinearGradient(0, 420 - size, 0, 420);
-  tg.addColorStop(0, '#ffffff');
-  tg.addColorStop(1, '#c4c8cf');
-  ctx.fillStyle = tg;
+  const title = `${m.month[0].toUpperCase()}${m.month.slice(1)}`;
+  fit(ctx, title, 820, 250, W - PAD * 2, 'condensed');
+  ctx.fillStyle = CHALK;
   ctx.fillText(title, PAD - 6, 420);
 
   // Le profil du mois, dans une carte à sa couleur.
   const cy = 476;
   const ch = 300;
   roundRect(ctx, PAD, cy, W - PAD * 2, ch, 48);
-  const cg = ctx.createLinearGradient(PAD, cy, W - PAD, cy + ch);
-  cg.addColorStop(0, alpha(pc, 0.26));
-  cg.addColorStop(1, alpha(pc, 0.06));
-  ctx.fillStyle = cg;
+  ctx.fillStyle = alpha(pc, 0.16);
   ctx.fill();
   ctx.strokeStyle = alpha(pc, 0.55);
   ctx.lineWidth = 3;
@@ -225,11 +232,11 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
   ctx.fillStyle = pc;
   setFont(ctx, 700, 38);
   ctx.fillText(tr('Mon profil du mois'), PAD + 52, cy + 84);
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = CHALK;
   const ps = fit(ctx, m.profile.title, 820, 104, W - PAD * 2 - 104, 'condensed');
   setFont(ctx, 820, ps, 'condensed');
   ctx.fillText(m.profile.title, PAD + 50, cy + 84 + ps * 0.95);
-  ctx.fillStyle = '#c9ccd2';
+  ctx.fillStyle = '#d9cfc3';
   setFont(ctx, 500, 38);
   wrap(ctx, m.profile.line, W - PAD * 2 - 104, 2).forEach((l, k) => ctx.fillText(l, PAD + 52, cy + 84 + ps * 0.95 + 64 + k * 50));
 
@@ -240,7 +247,7 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
   ctx.textAlign = 'center';
   setFont(ctx, 700, 28);
   ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach((l, k) => {
-    ctx.fillStyle = '#7d828b';
+    ctx.fillStyle = CHALK_3;
     ctx.fillText(l, PAD + k * (cell + gap) + cell / 2, top);
   });
   m.cal.days.forEach((d, k) => {
@@ -252,19 +259,19 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
       ctx.fillStyle = pc;
       ctx.fill();
     } else if (d.future) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+      ctx.strokeStyle = 'rgba(255,236,214,0.14)';
       ctx.lineWidth = 2;
       ctx.stroke();
     } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillStyle = 'rgba(255,236,214,0.06)';
       ctx.fill();
     }
-    ctx.fillStyle = d.trained ? '#14161a' : '#6c717a';
+    ctx.fillStyle = d.trained ? '#1a1512' : CHALK_3;
     setFont(ctx, d.trained ? 760 : 500, 28);
     ctx.fillText(String(k + 1), x + cell / 2, y + cell / 2 + 10);
     if (d.record) {
       // Sur une case allumée, l'étoile se détache en sombre (la case peut être dorée elle aussi).
-      ctx.fillStyle = d.trained ? '#14161a' : '#ffd166';
+      ctx.fillStyle = d.trained ? '#1a1512' : '#f7c948';
       starAt(ctx, x + cell - 10, y + 10, 13);
     }
   });
@@ -280,11 +287,11 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
   const step = (calBottom - (top - 28)) / Math.max(1, stats.length);
   stats.forEach((st, k) => {
     const y = top - 28 + k * step;
-    ctx.fillStyle = '#f2f3f5';
+    ctx.fillStyle = CHALK;
     const vs = Math.min(fit(ctx, st.value, 800, 96, sw, 'condensed'), (step - 62) / 0.82);
     setFont(ctx, 800, vs, 'condensed');
     ctx.fillText(st.value, sx, y + vs * 0.82);
-    ctx.fillStyle = '#a0a5ad';
+    ctx.fillStyle = CHALK_2;
     setFont(ctx, 500, 32);
     ctx.fillText(st.label, sx, y + vs * 0.82 + 42);
   });
@@ -292,11 +299,11 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
   // L'exercice du mois et les records.
   let by = calBottom + 96;
   if (m.top) {
-    ctx.fillStyle = '#a0a5ad';
+    ctx.fillStyle = CHALK_2;
     setFont(ctx, 500, 36);
     ctx.fillText(tr('Exercice du mois'), PAD, by);
     by += 62;
-    ctx.fillStyle = '#f2f3f5';
+    ctx.fillStyle = CHALK;
     const ts = fit(ctx, m.top, 720, 54, W - PAD * 2, 'normal');
     setFont(ctx, 720, ts);
     ctx.fillText(m.top, PAD, by);
@@ -306,14 +313,14 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
   for (const r of records) {
     by += 84;
     roundRect(ctx, PAD, by - 52, 64, 64, 20);
-    ctx.fillStyle = 'rgba(255,181,71,0.16)';
+    ctx.fillStyle = 'rgba(242,189,44,0.16)';
     ctx.fill();
-    ctx.fillStyle = '#ffb547';
+    ctx.fillStyle = YELLOW;
     setFont(ctx, 800, 30, 'condensed');
     ctx.textAlign = 'center';
     ctx.fillText('PR', PAD + 32, by - 9);
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#f2f3f5';
+    ctx.fillStyle = CHALK;
     const rs = fit(ctx, r, 600, 40, W - PAD * 2 - 96, 'normal');
     setFont(ctx, 600, rs);
     ctx.fillText(r, PAD + 92, by - 6);
@@ -324,16 +331,16 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
     setFont(ctx, 760, 44);
     const tw = ctx.measureText(label).width;
     roundRect(ctx, PAD, fy - 68, tw + 150, 100, 50);
-    ctx.fillStyle = 'rgba(255,181,71,0.12)';
+    ctx.fillStyle = 'rgba(242,189,44,0.12)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,181,71,0.35)';
+    ctx.strokeStyle = 'rgba(242,189,44,0.35)';
     ctx.lineWidth = 2;
     ctx.stroke();
     flame(ctx, PAD + 60, fy - 18, 28);
-    ctx.fillStyle = '#ffd27a';
+    ctx.fillStyle = YELLOW;
     ctx.fillText(label, PAD + 108, fy);
   }
-  ctx.fillStyle = '#6c717a';
+  ctx.fillStyle = CHALK_3;
   setFont(ctx, 500, 36);
   ctx.fillText(tr('{v}suivi avec Shred', { v: m.name ? `${m.name}, ` : '' }), PAD, H - PAD);
   return canvas;
@@ -342,19 +349,16 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
 export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promise<HTMLCanvasElement> {
   const { canvas, ctx } = await canvasReady();
 
-  backdrop(ctx, sum.kind === 'cardio' ? 'rgba(95,211,160,0.22)' : 'rgba(255,181,71,0.24)', extra.dateLabel);
+  backdrop(ctx, sum.kind === 'cardio' ? PLATE.blue : PLATE.red, extra.dateLabel);
 
   // Titre de la séance, le plus grand possible.
-  const title = sum.title.toUpperCase();
+  const title = sum.title;
   let y = 520;
-  const size = fit(ctx, title, 820, 260, W - PAD * 2, 'condensed');
-  const tg = ctx.createLinearGradient(0, y - size, 0, y);
-  tg.addColorStop(0, '#ffffff');
-  tg.addColorStop(1, '#c4c8cf');
-  ctx.fillStyle = tg;
+  fit(ctx, title, 820, 260, W - PAD * 2, 'condensed');
+  ctx.fillStyle = CHALK;
   ctx.fillText(title, PAD - 6, y);
   y += 70;
-  ctx.fillStyle = '#a0a5ad';
+  ctx.fillStyle = CHALK_2;
   setFont(ctx, 500, 42);
   ctx.fillText(sum.kind === 'cardio' ? tr('Séance d’endurance terminée') : sum.kind === 'rest' ? tr('Récupération active') : tr('Séance de musculation terminée'), PAD, y);
 
@@ -369,21 +373,21 @@ export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promis
   let ry = top + (stats.length > 2 ? 2 : stats.length ? 1 : 0) * (ch + gap) + 60;
   const records = (sum.records ?? []).slice(0, 3);
   if (records.length) {
-    ctx.fillStyle = '#ffb547';
+    ctx.fillStyle = YELLOW;
     setFont(ctx, 760, 40);
     ctx.fillText(records.length > 1 ? tr('{length} records battus', { length: records.length }) : tr('Record battu'), PAD, ry);
     ry += 30;
     for (const r of records) {
       ry += 74;
       roundRect(ctx, PAD, ry - 52, 64, 64, 20);
-      ctx.fillStyle = 'rgba(255,181,71,0.16)';
+      ctx.fillStyle = 'rgba(242,189,44,0.16)';
       ctx.fill();
-      ctx.fillStyle = '#ffb547';
+      ctx.fillStyle = YELLOW;
       setFont(ctx, 800, 30, 'condensed');
       ctx.textAlign = 'center';
       ctx.fillText('PR', PAD + 32, ry - 9);
       ctx.textAlign = 'left';
-      ctx.fillStyle = '#f2f3f5';
+      ctx.fillStyle = CHALK;
       const rs = fit(ctx, r, 600, 42, W - PAD * 2 - 96, 'normal');
       setFont(ctx, 600, rs);
       ctx.fillText(r, PAD + 92, ry - 6);
@@ -397,16 +401,16 @@ export async function drawStory(sum: SessionSummary, extra: StoryExtras): Promis
     setFont(ctx, 760, 48);
     const tw = ctx.measureText(label).width;
     roundRect(ctx, PAD, by - 70, tw + 150, 104, 52);
-    ctx.fillStyle = 'rgba(255,181,71,0.12)';
+    ctx.fillStyle = 'rgba(242,189,44,0.12)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,181,71,0.35)';
+    ctx.strokeStyle = 'rgba(242,189,44,0.35)';
     ctx.lineWidth = 2;
     ctx.stroke();
     flame(ctx, PAD + 60, by - 18, 30);
-    ctx.fillStyle = '#ffd27a';
+    ctx.fillStyle = YELLOW;
     ctx.fillText(label, PAD + 108, by + 0);
   }
-  ctx.fillStyle = '#6c717a';
+  ctx.fillStyle = CHALK_3;
   setFont(ctx, 500, 36);
   ctx.fillText(tr('{v}suivi avec Shred', { v: extra.name ? `${extra.name}, ` : '' }), PAD, H - PAD);
   return canvas;

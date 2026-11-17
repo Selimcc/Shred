@@ -47,6 +47,7 @@ A training and nutrition companion that installs on the phone like a native app:
 | **Integrations** | Strava (OAuth, activities imported and matched to the day's session, see [docs/STRAVA.md](docs/STRAVA.md)); iPhone app reading Apple Health directly ([docs/IOS.md](docs/IOS.md)); or, in the web app, Apple Health through iOS Shortcuts: steps, energy, sleep, resting heart rate, HRV, exercise minutes, distance (sleep and HRV suggest the day's readiness), gym check-ins, weekly report by email (Resend) |
 | **Accounts** | Invite-only, multiple users per server, admin page and CLI, opt-in public profiles |
 | **Languages** | French, English, Spanish, Portuguese, German, Italian; automatic from the phone or set in Settings, Language; workouts, meals and program names stay as the member wrote them |
+| **Look** | Taken from the gym: a black rubber floor, chalk for text, and bumper-plate colours as flat blocks that mean something (red for lifting, blue for endurance, green for rest and what is done, yellow for the streak); one variable typeface, Bricolage Grotesque; no glass or glow. Pulse, the mascot, is a small plate with a face |
 
 ## Architecture
 
@@ -126,6 +127,8 @@ scripts/       setup, admin CLI, VAPID key generation, test suites
 ## Credits
 
 Exercise demo images come from [Free Exercise DB](https://github.com/yuhonas/free-exercise-db) (public domain, Unlicense).
+
+Typeface: [Bricolage Grotesque](https://github.com/ateliertriay/bricolage) (SIL Open Font License 1.1), bundled through Fontsource.
 
 ## License
 
