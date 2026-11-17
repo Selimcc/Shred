@@ -99,7 +99,8 @@ function backdrop(ctx: Ctx, plate: string, rightLabel: string) {
     ctx.arc(x, y, 2 + (i % 3), 0, Math.PI * 2);
     ctx.fill();
   }
-  bigPlate(ctx, W * 0.98, H * 0.05, 470, plate);
+  // Le moyeu reste au-dessus de la date : la craie ne passe jamais sur l'acier clair, quelle que soit la langue.
+  bigPlate(ctx, W * 0.98, -H * 0.01, 470, plate);
   ctx.fillStyle = CHALK;
   setFont(ctx, 800, 50, 'condensed');
   ctx.fillText('Shred', PAD, PAD + 50);
