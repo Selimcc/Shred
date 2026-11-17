@@ -1,7 +1,7 @@
 // Thèmes de saison : dates des fêtes (Pâques comprise), préférence de l'utilisateur, vœux, et le coach qui
 // n'accepte qu'un identifiant de la liste.
 import { build } from 'esbuild';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -9,7 +9,13 @@ import { pathToFileURL } from 'node:url';
 globalThis.localStorage = { getItem: () => null, setItem: () => undefined, removeItem: () => undefined };
 const dir = mkdtempSync(join(tmpdir(), 'shred-season-'));
 await build({
-  entryPoints: { shared: 'shared/season.ts', season: 'src/lib/season.ts', store: 'src/lib/store.ts', coach: 'worker/claude.ts' },
+  entryPoints: {
+    shared: 'shared/season.ts',
+    season: 'src/lib/season.ts',
+    store: 'src/lib/store.ts',
+    coach: 'worker/claude.ts',
+    scene: 'src/components/SeasonScene.tsx',
+  },
   bundle: true,
   format: 'esm',
   platform: 'node',
@@ -19,7 +25,7 @@ await build({
   define: { __BUILD__: '"0.24.0+test"', 'import.meta.env': '{"MODE":"test","DEV":false,"PROD":true}' },
 });
 const load = (n) => import(pathToFileURL(join(dir, `${n}.js`)).href);
-const [shared, season, store, coach] = await Promise.all(['shared', 'season', 'store', 'coach'].map(load));
+const [shared, season, store, coach, scene] = await Promise.all(['shared', 'season', 'store', 'coach', 'scene'].map(load));
 
 let failures = 0;
 const check = (name, cond, extra = '') => {
@@ -107,6 +113,16 @@ check(
   'coach : identifiant hérité refusé',
   coach.coachSystem('Selim', 'constructor') === base && coach.coachSystem('Selim', { toString: () => 'noel' }) === base,
 );
+
+/* ---------- Scènes de fête ---------- */
+// La durée côté code (quand la scène se retire) doit être celle des animations du CSS, sinon elle est coupée.
+const styles = readFileSync('src/styles.css', 'utf8');
+const main = { 'saint-valentin': 'cupid-path', noel: 'sleigh-fly', halloween: 'witch-fly', 'nouvel-an': 'rocket', paques: 'bunny-run' };
+for (const id of shared.SEASON_IDS) {
+  const ms = scene.SCENE_MS[id];
+  const sec = `${ms / 1000}s`;
+  check(`scène ${id} : ${sec} dans le code et le CSS`, typeof ms === 'number' && styles.includes(`animation: ${main[id]} ${sec}`), main[id]);
+}
 
 console.log(failures ? `\n${failures} échec(s)` : '\nTout est bon.');
 process.exit(failures ? 1 : 0);

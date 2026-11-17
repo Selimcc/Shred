@@ -60,11 +60,13 @@ function Halloween() {
 function Snow({ n, front }: { n: number; front?: boolean }) {
   return (
     <div className={`sl-snow ${front ? 'front' : ''}`}>
-      {Array.from({ length: n }, (_, i) => {
+      {Array.from({ length: n }, (_, j) => {
+        // Les flocons de devant ne doublent pas ceux de derrière.
+        const i = front ? j + 100 : j;
         const size = front ? 2 + rnd(i, 9) * 2 : 2 + rnd(i, 3) * 4;
         return (
           <i
-            key={i}
+            key={j}
             style={css({
               left: `${rnd(i, 4) * 100}%`,
               width: size,
@@ -198,19 +200,19 @@ export function SeasonLayer({ season }: { season: SeasonId | null }) {
   return (
     <>
       <div className={`season-layer sl-${season}`} aria-hidden="true">
-        {season === 'halloween' && (
-          <>
-            <Halloween />
-            <Snow n={30} />
-          </>
-        )}
-        {season === 'noel' && <Snow n={38} />}
+        {season === 'halloween' && <Halloween />}
+        {season === 'noel' && <Snow n={52} />}
         {season === 'nouvel-an' && <Fireworks />}
         {season === 'saint-valentin' && <Rising n={14} kind="heart" />}
         {season === 'paques' && <Petals />}
       </div>
       {season === 'noel' && <Garland />}
       {season === 'halloween' && <Bats />}
+      {season === 'noel' && (
+        <div className="season-front" aria-hidden="true">
+          <Snow n={12} front />
+        </div>
+      )}
     </>
   );
 }

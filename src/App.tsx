@@ -3,6 +3,7 @@ import { Celebration } from './components/Celebration';
 import { DemoInviteHost, demoInvite } from './components/DemoInvite';
 import { PulseMoment } from './components/PulseMoment';
 import { SeasonLayer } from './components/SeasonLayer';
+import { SeasonScene } from './components/SeasonScene';
 import { activeSeason, SEASON_BAR } from './lib/season';
 import { Icon } from './components/Icon';
 import { AskHost, ToastHost } from './components/ui';
@@ -122,6 +123,7 @@ export function App() {
       )}
       {DEMO && <DemoInviteHost />}
       <SeasonLayer season={season} />
+      <SeasonScene season={season} today={today} />
       <main className="app">
         {tab === 'today' && <Today today={today} go={go} openSettings={() => setSettings('menu')} />}
         {tab === 'workout' && <Workout today={today} editProgram={() => setSettings('program')} />}

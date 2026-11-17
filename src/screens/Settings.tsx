@@ -36,6 +36,8 @@ import {
 } from '../lib/store';
 import { isSeasonId, nextStart, SEASON_IDS, SEASONS, seasonOn } from '../../shared/season';
 import { Pulse } from '../components/Pulse';
+import { playSeasonScene } from '../components/SeasonScene';
+import { activeSeason } from '../lib/season';
 import { AccountPage, TestersPage } from './Account';
 import { HealthPage } from './HealthSetup';
 import { ProgramEditor } from './ProgramEditor';
@@ -321,6 +323,7 @@ function ThemePage() {
   const today = dayKey();
   const pref = s.settings.season ?? 'auto';
   const now = seasonOn(today);
+  const active = activeSeason(s, today);
   const set = (v: SeasonPref) =>
     setState((d) => {
       d.settings.season = v;
@@ -343,13 +346,28 @@ function ThemePage() {
       </h3>
       <div className="season-grid">
         {SEASON_IDS.map((id) => (
-          <button key={id} type="button" className={`season-card sc-${id} ${pref === id ? 'on' : ''}`} onClick={() => set(pref === id ? 'auto' : id)} aria-pressed={pref === id}>
+          <button
+            key={id}
+            type="button"
+            className={`season-card sc-${id} ${pref === id ? 'on' : ''}`}
+            onClick={() => {
+              set(pref === id ? 'auto' : id);
+              // Le thème s'applique, puis sa scène passe devant l'écran.
+              if (pref !== id) setTimeout(playSeasonScene, 450);
+            }}
+            aria-pressed={pref === id}
+          >
             <Pulse season={id} mood="happy" size={62} />
             <b>{SEASONS[id].name}</b>
             <span className="small">{now === id ? 'En ce moment' : `Dès le ${formatShort(nextStart(id, today))}`}</span>
           </button>
         ))}
       </div>
+      {active && (
+        <button type="button" className="btn block" onClick={playSeasonScene}>
+          <Icon name="play" size={16} filled /> Revoir l’animation de {SEASONS[active].name}
+        </button>
+      )}
       <p className="small faint" style={{ margin: 0 }}>
         {isSeasonId(pref)
           ? `Aperçu de ${SEASONS[pref].name} : touche la carte encore pour revenir au calendrier.`
