@@ -299,6 +299,18 @@ h1 { margin: 0; font-size: var(--font-heading-xl-size, 24px); line-height: var(-
         h('div', { class: 'progress' }, h('div', { class: 'bar', role: 'presentation' }, h('i', { style: `width:${p.total ? Math.round((100 * p.done) / p.total) : 0}%` })), h('span', { class: 'num' }, `${p.done}/${p.total} séries`)),
       );
       const list = h('ul', { class: 'ex' });
+      const w = c.warmup;
+      if (w && typeof w.min === 'number') {
+        list.append(
+          h(
+            'li',
+            { class: w.status === 'done' ? 'done' : w.status === 'skipped' ? 'skipped' : '' },
+            mark({ complete: w.status === 'done', done: [], sets: 1 }),
+            h('div', null, h('span', { class: 'name' }, 'Échauffement'), h('span', { class: 'plan num' }, [`${w.min} min`, w.focus].filter(Boolean).join(' · '))),
+            h('span', { class: 'sets num' }, w.status === 'done' ? 'fait' : w.status === 'skipped' ? 'passé' : ''),
+          ),
+        );
+      }
       const shown = c.exercises.slice(0, 7);
       for (const ex of shown) {
         const t = ex.trend && TREND[ex.trend];

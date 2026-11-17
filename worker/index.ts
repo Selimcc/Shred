@@ -9,7 +9,7 @@ import { identityRoutes } from './identity';
 import { emailReady, sendReport } from './report';
 import { authenticate, ensureIndexed, listAccounts, loadJson, type User, userStore } from './users';
 import { restRoute } from './timers';
-import { clubRoutes, clubStats } from './club';
+import { clubRoutes, clubStats, sweepChallenges } from './club';
 import { stravaCallback, stravaRoutes } from './strava';
 import { type PushSubscriptionData, sendPush } from './webpush';
 import { counters, currentMode, FREE, flushUsage, lastKnownMode, metered, presence, summary, sweepUsage, usageReport, utcDay } from './usage';
@@ -405,6 +405,8 @@ export default {
         .then((sent) => {
           for (const [who, types] of Object.entries(sent)) if (types.length) console.log(`Rappels envoyés à ${who} :`, types.join(', '));
         })
+        // Défis échus : ratés, mise rendue, bonnet de Nulos.
+        .then(() => sweepChallenges(env).catch((e) => console.error('Défis :', e)))
         // Une fois par jour, vers 3 h UTC, on range les compteurs expirés.
         .then(() => (at.getUTCHours() === 3 && at.getUTCMinutes() < 15 ? sweepUsage(env) : undefined))
         .then(() => flushUsage(env, true))

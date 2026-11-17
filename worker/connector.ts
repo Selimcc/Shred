@@ -6,6 +6,8 @@ import { CATALOG, catalogEntry, GROUP_NAMES } from '../shared/catalog';
 import { adviseLoad } from '../src/lib/advisor';
 import { type Sealed, unseal } from '../src/lib/crypto';
 import { addDays, diffDays, formatLong, formatShort, mondayOf } from '../src/lib/date';
+import { dayWarmup } from '../src/lib/warmupDay';
+import { fmtDose } from '../shared/warmup';
 import { flameInfo } from '../src/lib/flames';
 import { bodyDoc, dayDoc, type KnowledgeDoc, localRetriever, normalize, profileDoc, programText } from '../src/lib/knowledge';
 import { fmtKg, reconcileStreak, sessionFor, setProgress, totals, weeklyChange } from '../src/lib/logic';
@@ -107,6 +109,8 @@ export function today(d: UserData, args: { date?: unknown }, appUrl: string): To
       change: ex.change ?? null,
     };
   });
+  const warm = session.type !== 'rest' ? dayWarmup(s, date) : null;
+  const warmStatus = (day as { warmup?: 'done' | 'skipped' }).warmup ?? null;
   const flame = flameInfo(s, date);
   const eaten = totals(day);
   const nutrition = s.settings.modules.nutrition;
@@ -122,6 +126,11 @@ export function today(d: UserData, args: { date?: unknown }, appUrl: string): To
   } else {
     lines.push(`${label} : séance ${session.name} (${session.focus}), ${session.duration}.`);
     lines.push(day.mainDone ? 'Séance validée.' : `${progress.done}/${progress.total} séries faites.`);
+    if (warm) {
+      const ramp = warm.ramp ? `, puis séries d’approche pour ${warm.ramp.name.toLowerCase()} (${warm.ramp.sets.map((x) => `${nf(x.w, x.w % 1 ? 1 : 0)}×${x.r}`).join(', ')})` : '';
+      const status = warmStatus === 'done' ? ' (fait)' : warmStatus === 'skipped' ? ' (passé)' : '';
+      lines.push(`Échauffement prévu, ${warm.min} min${status} : ${warm.moves.map((m) => `${m.name.toLowerCase()} ${fmtDose(m)}`).join(', ')}${ramp}.`);
+    }
     for (const e of exercises) {
       const bits = [`- ${e.name} : ${e.plan}`];
       if (e.load) bits.push(`charge conseillée ${e.load}`);
@@ -150,6 +159,7 @@ export function today(d: UserData, args: { date?: unknown }, appUrl: string): To
       session: { name: session.name, focus: session.focus, type: session.type, duration: session.duration },
       mainDone: day.mainDone,
       progress,
+      warmup: warm ? { min: warm.min, focus: warm.focus, status: warmStatus, moves: warm.moves.length + (warm.ramp ? 1 : 0) } : null,
       exercises,
       streak: { days: flame.current, best: flame.best, tier: flame.tierInfo.name, colors: flame.tierInfo.colors },
       nutrition: nutrition ? { kcal: [eaten.kcal, s.settings.targets.kcal], protein: [eaten.protein, s.settings.targets.protein] } : null,

@@ -20,7 +20,8 @@ import {
   updateSession,
   updateSlot,
 } from '../lib/program-edit';
-import { useApp } from '../lib/store';
+import { setState, useApp } from '../lib/store';
+import { Toggle } from '../components/form';
 import { sportLabel } from '../../shared/athlete';
 import { findSession, planWeek } from '../../shared/program';
 import { planSummary } from '../../shared/plans';
@@ -212,6 +213,20 @@ export function ProgramEditor() {
           <button className="btn small" onClick={() => setOpen(addSession('rest'))}>
             <Icon name="plus" size={16} /> Repos
           </button>
+        </div>
+      </section>
+
+      <section>
+        <div className="section-head">
+          <h2>Avant chaque séance</h2>
+        </div>
+        <div className="group">
+          <Toggle
+            title="Échauffement"
+            text="5 à 10 minutes choisies d’après la séance du jour : muscles travaillés, sport, séries d’approche. Tu peux toujours le passer."
+            on={s.settings.warmup !== false}
+            onChange={(v) => setState((d) => void (d.settings.warmup = v))}
+          />
         </div>
       </section>
     </div>

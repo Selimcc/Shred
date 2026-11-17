@@ -17,6 +17,9 @@ import { isRecord } from '../lib/moments';
 import { cancelRestPush, scheduleRestPush } from '../lib/restPush';
 import { continuous, minutesOf, nextUndone, recordReps, type Step, stepsOf, workSpan } from '../lib/focus';
 import { type AppState, type DayLog, getState, readDay, setState, useApp } from '../lib/store';
+import { dayWarmup } from '../lib/warmupDay';
+import { setWarmup } from '../lib/workoutActions';
+import { fmtDose, type WarmMove, type WarmPhase, type WarmRamp } from '../../shared/warmup';
 import { DISCIPLINE_ICON, Icon } from './Icon';
 import { useScrollLock } from './ui';
 
@@ -60,8 +63,11 @@ function useWakeLock() {
   }, []);
 }
 
+type WarmStep = { kind: 'move'; move: WarmMove } | { kind: 'ramp'; ramp: WarmRamp } | { kind: 'then'; text: string };
+
 export function FocusMode({
   today,
+  warmFirst = false,
   rest,
   setRest,
   onSet,
@@ -69,6 +75,8 @@ export function FocusMode({
   onShare,
 }: {
   today: string;
+  /** Ouvert depuis la carte d'échauffement : on commence par lui même s'il est déjà fait. */
+  warmFirst?: boolean;
   rest: Rest;
   setRest: (r: Rest) => void;
   /** La validation de la liste : coche, record, minuteur de repos et notification. */
@@ -89,6 +97,27 @@ export function FocusMode({
   const [work, setWork] = useState<Work>(null);
   const [dir, setDir] = useState<1 | -1>(1);
   const muted = !!s.ui.focusMute;
+  // L'échauffement, avant la première série : guidé mouvement par mouvement, chrono quand c'est au temps.
+  const warm = dayWarmup(s, today);
+  const warmSteps: WarmStep[] = warm
+    ? [
+        ...warm.moves.map((move) => ({ kind: 'move' as const, move })),
+        ...(warm.ramp ? [{ kind: 'ramp' as const, ramp: warm.ramp }] : []),
+        ...(warm.then ? [{ kind: 'then' as const, text: warm.then }] : []),
+      ]
+    : [];
+  const [warming, setWarming] = useState(() => !!warm && (warmFirst || (!day.warmup && steps.every((st) => !isDone(st)))));
+  const [wi, setWi] = useState(0);
+  const endWarm = (status: 'done' | 'skipped') => {
+    if (status === 'done' || !readDay(getState(), today).warmup) setWarmup(today, status);
+    setWarming(false);
+    setDir(1);
+  };
+  const goWarm = (to: number) => {
+    if (to < 0 || to >= warmSteps.length || to === wi) return;
+    setDir(to > wi ? 1 : -1);
+    setWi(to);
+  };
   const root = useRef<HTMLDivElement>(null);
   // Les +30 s / −15 s s'enchaînent vite : on ne reprogramme la notification qu'une fois les doigts posés.
   const pending = useRef<{ t: number; end: number; label?: string } | null>(null);
@@ -119,7 +148,7 @@ export function FocusMode({
     );
   const step = steps[idx] as Step | undefined;
   const allDone = steps.length > 0 && steps.every((st) => isDone(st));
-  const phase = allDone ? 'done' : rest ? 'rest' : 'set';
+  const phase = warming && warmSteps.length ? 'warm' : allDone ? 'done' : rest ? 'rest' : 'set';
 
   // Séance finie : plus de repos à décompter.
   useEffect(() => {
@@ -199,16 +228,20 @@ export function FocusMode({
   const onTouchEnd = (e: TouchEvent) => {
     const t = touch.current;
     touch.current = null;
-    if (!t || phase !== 'set') return;
+    if (!t || (phase !== 'set' && phase !== 'warm')) return;
     const dx = e.changedTouches[0].clientX - t.x;
     const dy = e.changedTouches[0].clientY - t.y;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) go(idx + (dx < 0 ? 1 : -1));
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (phase === 'warm') goWarm(wi + (dx < 0 ? 1 : -1));
+      else go(idx + (dx < 0 ? 1 : -1));
+    }
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
-    if ((e.target as HTMLElement).tagName === 'INPUT' || phase !== 'set') return;
-    if (e.key === 'ArrowRight') go(idx + 1);
-    if (e.key === 'ArrowLeft') go(idx - 1);
+    if ((e.target as HTMLElement).tagName === 'INPUT' || (phase !== 'set' && phase !== 'warm')) return;
+    const move = phase === 'warm' ? (n: number) => goWarm(wi + n) : (n: number) => go(idx + n);
+    if (e.key === 'ArrowRight') move(1);
+    if (e.key === 'ArrowLeft') move(-1);
   };
 
   return createPortal(
@@ -238,7 +271,13 @@ export function FocusMode({
         </button>
       </header>
       <div className="focus-progress" aria-hidden="true">
-        {session.exercises.map((ex, i) => {
+        {phase === 'warm' &&
+          warmSteps.map((_, i) => (
+            <span key={i} className={i === wi ? 'cur' : ''} style={{ flexGrow: 1 }}>
+              <i style={{ transform: `scaleX(${i < wi ? 1 : 0})` }} />
+            </span>
+          ))}
+        {phase !== 'warm' && session.exercises.map((ex, i) => {
           const n = continuous(ex) ? 1 : ex.sets;
           const d = (day.sets[ex.key] ?? []).slice(0, n).filter((l) => l.done).length;
           return (
@@ -250,6 +289,19 @@ export function FocusMode({
       </div>
 
       <div className="focus-body">
+        {phase === 'warm' && (
+          <WarmView
+            key={wi}
+            step={warmSteps[wi]}
+            index={wi}
+            count={warmSteps.length}
+            dir={dir}
+            muted={muted}
+            onPrev={wi > 0 ? () => goWarm(wi - 1) : undefined}
+            onNext={() => (wi < warmSteps.length - 1 ? goWarm(wi + 1) : endWarm('done'))}
+            onSkip={() => endWarm('skipped')}
+          />
+        )}
         {phase === 'done' && <DoneView s={s} today={today} since={since} onShare={onShare} onClose={onClose} />}
         {phase === 'rest' && rest && (
           <RestView
@@ -818,6 +870,149 @@ function RestView({
       {canUndo && (
         <button className="link small" onClick={onUndo}>
           Annuler la dernière série
+        </button>
+      )}
+    </div>
+  );
+}
+
+const PHASE: Record<WarmPhase, { label: string; icon: string }> = {
+  raise: { label: 'Température', icon: 'flame' },
+  mobilise: { label: 'Mobilité', icon: 'warmup' },
+  activate: { label: 'Activation', icon: 'bolt' },
+  prime: { label: 'Préparation', icon: 'dumbbell' },
+};
+
+/** Un mouvement de l'échauffement : chrono s'il est au temps, sinon « Fait ». Les séries d'approche se cochent. */
+function WarmView({
+  step,
+  index,
+  count,
+  dir,
+  muted,
+  onPrev,
+  onNext,
+  onSkip,
+}: {
+  step: WarmStep;
+  index: number;
+  count: number;
+  dir: 1 | -1;
+  muted: boolean;
+  onPrev?: () => void;
+  onNext: () => void;
+  onSkip: () => void;
+}) {
+  const [timer, setTimer] = useState<{ end: number; total: number } | null>(null);
+  const [ticked, setTicked] = useState<number[]>([]);
+  const last = index === count - 1;
+  const move = step.kind === 'move' ? step.move : null;
+  const phase = move ? PHASE[move.phase] : null;
+  const start = (sec: number) => {
+    primeAudio();
+    setTimer({ end: Date.now() + sec * 1000, total: sec });
+  };
+  return (
+    <div className={`focus-step warm-step in${dir}`}>
+      <div className={`focus-media ${timer ? 'working' : ''}`}>
+        {timer ? (
+          <Countdown
+            end={timer.end}
+            total={timer.total}
+            label="Encore"
+            size={190}
+            muted={muted}
+            onDone={(late) => {
+              if (!late && !muted) beep('end');
+              buzz([200, 100, 200]);
+              onNext();
+            }}
+          />
+        ) : (
+          <span className="focus-glyph warm-glyph">
+            <Icon name={phase?.icon ?? (step.kind === 'ramp' ? 'dumbbell' : 'play')} size={58} />
+          </span>
+        )}
+      </div>
+      <div className="focus-kicker small warm-kicker">
+        <span>
+          Échauffement, {index + 1} sur {count}
+        </span>
+        <button className="link small" onClick={onSkip}>
+          Passer l’échauffement
+        </button>
+      </div>
+      {move && (
+        <>
+          <h2 className="display focus-name">{move.name}</h2>
+          <div className="focus-meta">
+            <span className="focus-set num">{fmtDose(move)}</span>
+            <span className="tag">{phase?.label}</span>
+          </div>
+          <p className="small muted focus-line">{move.cue}</p>
+        </>
+      )}
+      {step.kind === 'ramp' && (
+        <>
+          <h2 className="display focus-name">{step.ramp.name}</h2>
+          <p className="small muted focus-line">
+            Séries d’approche avant {fmtKg(step.ramp.work)}. Repos court entre elles, elles ne comptent pas dans la séance.
+          </p>
+          <div className="ramp-sets">
+            {step.ramp.sets.map((x, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`ramp-set ${ticked.includes(i) ? 'on' : ''}`}
+                aria-pressed={ticked.includes(i)}
+                onClick={() => {
+                  buzz(10);
+                  setTicked((t) => (t.includes(i) ? t.filter((x) => x !== i) : [...t, i]));
+                }}
+              >
+                <b className="num">{fmtKg(x.w)}</b>
+                <span className="small num">× {x.r}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {step.kind === 'then' && (
+        <>
+          <h2 className="display focus-name">Ensuite</h2>
+          <p className="focus-line warm-then">{step.text}</p>
+        </>
+      )}
+      <div className="focus-actions">
+        <button className="focus-nav prev" onClick={onPrev} disabled={!onPrev} aria-label="Mouvement précédent">
+          <Icon name="chevron" size={22} />
+        </button>
+        {timer ? (
+          <button className="btn go" onClick={() => setTimer(null)}>
+            Arrêter le chrono
+          </button>
+        ) : move?.sec ? (
+          <button className="btn go" onClick={() => start(move.sec!)}>
+            <Icon name="play" size={18} filled /> Lancer {fmtDose(move)}
+          </button>
+        ) : (
+          <button className="btn go" onClick={onNext}>
+            {last ? (
+              'C’est parti'
+            ) : (
+              <>
+                <Icon name="check" size={20} /> Fait
+              </>
+            )}
+          </button>
+        )}
+        <button className="focus-nav" onClick={onNext} disabled={last} aria-label="Mouvement suivant">
+          <Icon name="chevron" size={22} />
+        </button>
+      </div>
+      {move?.sec && !timer && (
+        <button className="link small focus-alt" onClick={onNext}>
+          {last ? 'Déjà fait, c’est parti' : 'Déjà fait, suivant'}
         </button>
       )}
     </div>

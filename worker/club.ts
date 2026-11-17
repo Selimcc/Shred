@@ -9,6 +9,7 @@ import { type Env, HttpError, json, readJson } from './env';
 import { vapidFromEnv } from './reminders';
 import { getAccount, type IndexEntry, listAccounts, loadJson, type User, userStore } from './users';
 import { fold } from '../shared/handle';
+import { addPlates, claimPlates, GAGE_MAX, GRACE_MS, NULOS_HOURS, OPEN_MAX, PLATES, stakeOf, type Wallet } from '../shared/plates';
 import type { StoredProfile } from './profiles';
 import { type PushSubscriptionData, sendPush } from './webpush';
 
@@ -63,9 +64,25 @@ export interface Comment {
   mentions: Mention[];
 }
 
-export type NoticeType = 'mention' | 'comment' | 'spark' | 'follow' | 'request' | 'accepted' | 'challenge' | 'challengeDone';
+export type NoticeType =
+  | 'mention'
+  | 'comment'
+  | 'spark'
+  | 'follow'
+  | 'request'
+  | 'accepted'
+  | 'challenge'
+  | 'challengeDone'
+  | 'challengeFailed'
+  | 'challengeExpired'
+  | 'gageDone'
+  | 'rematch';
 
-/** Un défi : « fais une séance avant telle heure ». Relevé quand la personne défiée valide une séance à temps. */
+/**
+ * Un défi : « fais une séance avant telle heure ». Relevé quand la personne défiée valide une séance à temps : elle
+ * empoche la mise. Raté : la mise revient à son auteur, la personne défiée porte le bonnet de Nulos 24 h et fait
+ * son gage s'il y en a un. Elle peut prendre sa revanche une fois, gratuitement.
+ */
 export interface Challenge {
   id: string;
   from: string;
@@ -75,8 +92,24 @@ export interface Challenge {
   at: number;
   due: number;
   text?: string;
-  status: 'open' | 'done';
+  /** Disques misés par l'auteur (gage compris). */
+  stake?: number;
+  gage?: string;
+  /** Revanche : le défi raté qu'elle venge. */
+  rematch?: string;
+  status: 'open' | 'done' | 'failed';
   doneAt?: number;
+  failedAt?: number;
+  /** Gage fait (le bonnet tombe). */
+  gageDone?: number;
+  /** La revanche lancée après cet échec. */
+  revenge?: string;
+}
+
+/** Défis relevés et ratés par une personne. */
+export interface ChallengeRecord {
+  won: number;
+  lost: number;
 }
 
 /** Délais proposés, en heures. */
@@ -220,6 +253,73 @@ export class Club {
     await this.db.put(`n:${user}:${pad(at)}:${rid()}`, { ...n, id: rid(), at });
   }
 
+  private async wallet(user: string): Promise<Wallet> {
+    return (await this.db.get<Wallet>(`w:${user}`)) ?? { bal: PLATES.start };
+  }
+
+  private async record(user: string): Promise<ChallengeRecord> {
+    return (await this.db.get<ChallengeRecord>(`rec:${user}`)) ?? { won: 0, lost: 0 };
+  }
+
+  private async bump(user: string, field: keyof ChallengeRecord) {
+    const r = await this.record(user);
+    r[field]++;
+    await this.db.put(`rec:${user}`, r);
+  }
+
+  /** Fin du bonnet de Nulos, ou 0 s'il n'en porte pas. */
+  private async nulos(user: string): Promise<number> {
+    const until = (await this.db.get<number>(`nul:${user}`)) ?? 0;
+    return until > Date.now() ? until : 0;
+  }
+
+  /** Les défis de la personne (reçus et lancés), les plus récents d'abord. */
+  private async challengesOf(user: string, limit = 60): Promise<Challenge[]> {
+    const ids = await this.db.list<string>({ prefix: `chu:${user}:`, reverse: true, limit });
+    return (await Promise.all([...ids.values()].map((id) => this.db.get<Challenge>(`ch:${id}`)))).filter((x): x is Challenge => Boolean(x));
+  }
+
+  /** Le bonnet tient tant qu'un défi raté de moins de 24 h n'a pas son gage fait. */
+  private async refreshNulos(user: string) {
+    const now = Date.now();
+    let until = 0;
+    for (const c of await this.challengesOf(user)) {
+      if (c.to !== user || c.status !== 'failed' || c.gageDone) continue;
+      until = Math.max(until, (c.failedAt ?? c.due) + NULOS_HOURS * 3600_000);
+    }
+    if (until > now) await this.db.put(`nul:${user}`, until);
+    else await this.db.delete(`nul:${user}`);
+  }
+
+  /** Échéance passée sans séance (demi-heure de grâce comprise) : le défi est raté. True s'il vient d'être réglé. */
+  private async settle(c: Challenge, pushes: Push[], now = Date.now()): Promise<boolean> {
+    if (c.status !== 'open' || now <= c.due + GRACE_MS) return false;
+    c.status = 'failed';
+    c.failedAt = c.due;
+    await this.db.put(`ch:${c.id}`, c);
+    await this.db.delete(`open:${pad(c.due)}:${c.id}`);
+    if (c.stake) await this.db.put(`w:${c.from}`, addPlates(await this.wallet(c.from), c.stake));
+    const until = c.due + NULOS_HOURS * 3600_000;
+    if (until > now) await this.db.put(`nul:${c.to}`, Math.max(until, (await this.db.get<number>(`nul:${c.to}`)) ?? 0));
+    await this.bump(c.to, 'lost');
+    await this.notify(c.to, { type: 'challengeFailed', actor: c.from, actorName: c.fromName, text: c.gage ?? c.text });
+    await this.notify(c.from, { type: 'challengeExpired', actor: c.to, actorName: c.toName, text: c.text });
+    if (until > now)
+      pushes.push({
+        user: c.to,
+        title: 'Défi raté : bonnet de Nulos',
+        body: c.gage ? `Ton gage : ${c.gage}` : `Pour 24 h. Prends ta revanche contre ${c.fromName} !`,
+        url: '/?tab=club',
+      });
+    pushes.push({
+      user: c.from,
+      title: `${c.toName} n’a pas relevé ton défi`,
+      body: c.stake ? `Ta mise de ${c.stake} disque${c.stake > 1 ? 's' : ''} te revient.` : 'Pas de séance dans les temps.',
+      url: '/?tab=club',
+    });
+    return true;
+  }
+
   private async getPost(id: string): Promise<{ key: string; post: Post } | null> {
     const key = await this.db.get<string>(`pid:${id}`);
     if (!key) return null;
@@ -259,7 +359,13 @@ export class Club {
           // Page incomplète et entièrement lue : on est au bout du fil.
           if (page.size < 50 && seen === page.size) more = posts.length >= LIMITS.feed && seen < page.size;
         }
-        return out({ posts, next: posts.length >= LIMITS.feed ? end : null, following: follows });
+        // Les auteurs qui portent le bonnet de Nulos en ce moment.
+        const nulos: Record<string, number> = {};
+        for (const a of new Set(posts.map((p) => p.author))) {
+          const until = await this.nulos(a);
+          if (until) nulos[a] = until;
+        }
+        return out({ posts, next: posts.length >= LIMITS.feed ? end : null, following: follows, nulos });
       }
 
       case '/create': {
@@ -473,6 +579,8 @@ export class Club {
             posts: (await this.db.get<number>(`count:${id}`)) ?? 0,
             sparks: (await this.db.get<number>(`sp:${id}`)) ?? 0,
             private: privs.has(id),
+            nulos: await this.nulos(id),
+            record: await this.record(id),
           })),
         );
         return out({ following, followers, requested, requests, rows });
@@ -494,25 +602,46 @@ export class Club {
         const c = b.challenge as Challenge;
         if (c.to === viewer) return out({ error: 'challenge-self' });
         if ((await this.privates()).has(c.to) && !(await this.following(viewer)).includes(c.to)) return out({ error: 'challenge-private' });
-        const mine = await this.db.list<string>({ prefix: `chu:${viewer}:`, reverse: true, limit: 50 });
-        let open = 0;
-        for (const id of mine.values()) {
-          const x = await this.db.get<Challenge>(`ch:${id}`);
-          if (x && x.from === viewer && x.to === c.to && x.status === 'open' && x.due > Date.now()) open++;
+        const now = Date.now();
+        const mine = await this.challengesOf(viewer);
+        // En cours : lancé par toi, ni relevé ni échu (on ne règle rien ici, le cron et la liste s'en chargent).
+        const open = mine.filter((x) => x.from === viewer && x.status === 'open' && now <= x.due + GRACE_MS);
+        if (open.some((x) => x.to === c.to)) return out({ error: 'challenge-pair' });
+        if (open.length >= OPEN_MAX) return out({ error: 'challenge-many' });
+        if (c.rematch) {
+          // Revanche : contre qui t'a battu, une seule fois, tant que le bonnet est sur ta tête. Gratuite, sans gage.
+          const origin = mine.find((x) => x.id === c.rematch);
+          if (!origin || origin.to !== viewer || origin.from !== c.to || origin.status !== 'failed' || origin.revenge || (origin.failedAt ?? origin.due) + NULOS_HOURS * 3600_000 < now)
+            return out({ error: 'rematch-closed' });
+          c.stake = 0;
+          delete c.gage;
+          origin.revenge = c.id;
+          await this.db.put(`ch:${origin.id}`, origin);
+        } else {
+          const w = await this.wallet(viewer);
+          if (w.bal < (c.stake ?? 0)) return out({ error: 'challenge-poor' });
+          if (c.stake) await this.db.put(`w:${viewer}`, addPlates(w, -c.stake));
         }
-        if (open >= 2) return out({ error: 'challenge-many' });
         await this.db.put(`ch:${c.id}`, c);
         await this.db.put(`chu:${viewer}:${pad(c.at)}:${c.id}`, c.id);
         await this.db.put(`chu:${c.to}:${pad(c.at)}:${c.id}`, c.id);
-        await this.notify(c.to, { type: 'challenge', actor: viewer, actorName: b.viewerName, text: c.text });
-        pushes.push({ user: c.to, title: `${b.viewerName} te lance un défi`, body: c.text || 'Une séance avant la fin du délai. Tu relèves ?', url: '/?tab=club' });
-        return out({ challenge: c });
+        await this.db.put(`open:${pad(c.due)}:${c.id}`, c.id);
+        await this.notify(c.to, { type: c.rematch ? 'rematch' : 'challenge', actor: viewer, actorName: b.viewerName, text: c.gage ? `${c.text ? `${c.text} ` : ''}Gage : ${c.gage}` : c.text });
+        pushes.push({
+          user: c.to,
+          title: c.rematch ? `${b.viewerName} prend sa revanche` : `${b.viewerName} te lance un défi`,
+          body: c.gage ? `Gage si tu rates : ${c.gage}` : c.text || 'Une séance avant la fin du délai. Tu relèves ?',
+          url: '/?tab=club',
+        });
+        return out({ challenge: c, wallet: await this.wallet(viewer) });
       }
 
       case '/challenges': {
-        const ids = await this.db.list<string>({ prefix: `chu:${viewer}:`, reverse: true, limit: 30 });
-        const list = (await Promise.all([...ids.values()].map((id) => this.db.get<Challenge>(`ch:${id}`)))).filter((x): x is Challenge => Boolean(x));
-        return out({ challenges: list });
+        const now = Date.now();
+        const list = await this.challengesOf(viewer, 30);
+        // Les défis échus se règlent dès qu'on les regarde, sans attendre le passage du cron.
+        for (const c of list) await this.settle(c, pushes, now);
+        return out({ challenges: list, wallet: await this.wallet(viewer), nulos: await this.nulos(viewer), record: await this.record(viewer) });
       }
 
       case '/challenge-done': {
@@ -520,13 +649,63 @@ export class Club {
         if (!c || c.to !== viewer) return out({ error: 'challenge-missing' });
         if (c.status === 'done') return out({ challenge: c, already: true });
         const now = Date.now();
-        if (now > c.due) return out({ error: 'challenge-expired' });
+        const at = typeof b.at === 'number' && Number.isFinite(b.at) ? b.at : now;
+        // À temps : maintenant, ou validée hors ligne avant l'échéance et arrivée dans la demi-heure.
+        const inTime = c.status === 'open' && at >= c.at && (now <= c.due || (now <= c.due + GRACE_MS && at <= c.due));
+        if (!inTime) return out({ error: 'challenge-expired' });
         c.status = 'done';
-        c.doneAt = now;
+        c.doneAt = Math.min(now, at);
         await this.db.put(`ch:${c.id}`, c);
+        await this.db.delete(`open:${pad(c.due)}:${c.id}`);
+        if (c.stake) await this.db.put(`w:${viewer}`, addPlates(await this.wallet(viewer), c.stake));
+        await this.bump(viewer, 'won');
         await this.notify(c.from, { type: 'challengeDone', actor: viewer, actorName: b.viewerName, text: c.text });
-        pushes.push({ user: c.from, title: `${b.viewerName} a relevé ton défi`, body: 'Séance validée dans les temps.', url: '/?tab=club' });
-        return out({ challenge: c });
+        pushes.push({
+          user: c.from,
+          title: `${b.viewerName} a relevé ton défi`,
+          body: c.stake ? `Séance validée dans les temps : ta mise de ${c.stake} disque${c.stake > 1 ? 's' : ''} est pour ${b.viewerName}.` : 'Séance validée dans les temps.',
+          url: '/?tab=club',
+        });
+        return out({ challenge: c, wallet: await this.wallet(viewer) });
+      }
+
+      case '/gage-done': {
+        const c = await this.db.get<Challenge>(`ch:${String(b.id)}`);
+        if (!c || c.to !== viewer || c.status !== 'failed' || !c.gage) return out({ error: 'challenge-missing' });
+        if (c.gageDone) return out({ challenge: c, already: true, nulos: await this.nulos(viewer) });
+        c.gageDone = Date.now();
+        await this.db.put(`ch:${c.id}`, c);
+        await this.refreshNulos(viewer);
+        await this.notify(c.from, { type: 'gageDone', actor: viewer, actorName: b.viewerName, text: c.gage });
+        pushes.push({ user: c.from, title: `${b.viewerName} a fait son gage`, body: c.gage, url: '/?tab=club' });
+        return out({ challenge: c, nulos: await this.nulos(viewer) });
+      }
+
+      case '/wallet': {
+        const day = String(b.day ?? '');
+        const streak = Number(b.streak);
+        const r = claimPlates(await this.wallet(viewer), day, streak);
+        if (r.gained || r.wallet.day !== (await this.wallet(viewer)).day) await this.db.put(`w:${viewer}`, r.wallet);
+        return out({ wallet: r.wallet, gained: r.gained, bonus: r.bonus });
+      }
+
+      case '/sweep': {
+        // Passage du cron : les défis échus deviennent ratés, avec notifications.
+        if (!(await this.db.get('open-index'))) {
+          // Défis d'avant la 0.30 : on indexe une fois ceux qui sont encore ouverts.
+          const all = await this.db.list<Challenge>({ prefix: 'ch:' });
+          for (const c of all.values()) if (c.status === 'open') await this.db.put(`open:${pad(c.due)}:${c.id}`, c.id);
+          await this.db.put('open-index', 1);
+        }
+        const now = Date.now();
+        const due = await this.db.list<string>({ prefix: 'open:', end: `open:${pad(now - GRACE_MS)}`, limit: 100 });
+        let settled = 0;
+        for (const [key, id] of due) {
+          const c = await this.db.get<Challenge>(`ch:${id}`);
+          if (c && (await this.settle(c, pushes, now))) settled++;
+          else await this.db.delete(key);
+        }
+        return out({ settled });
       }
 
       case '/forget': {
@@ -550,7 +729,7 @@ export class Club {
         for (const f of await this.list(`rq:${viewer}`)) await this.dropRequest(f, viewer);
         const privs = await this.privates();
         if (privs.delete(viewer)) await this.db.put('private', [...privs]);
-        await this.db.delete([`f:${viewer}`, `fb:${viewer}`, `rq:${viewer}`, `rqo:${viewer}`, `count:${viewer}`, `nr:${viewer}`, `sp:${viewer}`]);
+        await this.db.delete([`f:${viewer}`, `fb:${viewer}`, `rq:${viewer}`, `rqo:${viewer}`, `count:${viewer}`, `nr:${viewer}`, `sp:${viewer}`, `w:${viewer}`, `rec:${viewer}`, `nul:${viewer}`]);
         return out({ ok: true, photos, videos });
       }
     }
@@ -579,7 +758,10 @@ async function callClub<T>(env: Env, user: User, path: string, body: Record<stri
   if (data.error === 'challenge-self') throw new HttpError(400, 'Pas de défi à soi-même');
   if (data.error === 'challenge-private') throw new HttpError(403, 'Compte privé : abonne-toi d’abord pour lancer un défi');
   if (data.error === 'no-request') throw new HttpError(404, 'Demande introuvable ou déjà traitée');
-  if (data.error === 'challenge-many') throw new HttpError(429, 'Déjà deux défis en cours pour cette personne : attends qu’elle les relève');
+  if (data.error === 'challenge-many') throw new HttpError(429, `Déjà ${OPEN_MAX} défis lancés en cours : attends qu’ils se terminent`);
+  if (data.error === 'challenge-pair') throw new HttpError(409, 'Un défi est déjà en cours avec cette personne : attends qu’il se termine');
+  if (data.error === 'challenge-poor') throw new HttpError(402, 'Pas assez de disques : valide tes journées pour en gagner');
+  if (data.error === 'rematch-closed') throw new HttpError(410, 'La revanche n’est plus possible');
   if (data.error === 'challenge-missing') throw new HttpError(404, 'Défi introuvable');
   if (data.error === 'challenge-expired') throw new HttpError(410, 'Défi expiré');
   if (data.error) throw new HttpError(400, data.error);
@@ -593,6 +775,9 @@ interface SocialRow {
   posts: number;
   sparks: number;
   private: boolean;
+  /** Fin du bonnet de Nulos, 0 sinon. */
+  nulos?: number;
+  record?: ChallengeRecord;
 }
 interface Social {
   following: string[];
@@ -641,6 +826,8 @@ async function buildMembers(env: Env, user: User, accounts: IndexEntry[], s: Soc
       followingCount: row?.following ?? 0,
       posts: row?.posts ?? 0,
       sparks: row?.sparks ?? 0,
+      ...(row?.nulos ? { nulos: row.nulos } : {}),
+      ...(row?.record && (row.record.won || row.record.lost) ? { record: row.record } : {}),
       avatar: avatars[i] ?? null,
       ...(open && p?.visible ? { profile: p.data ?? {} } : {}),
     };
@@ -721,6 +908,18 @@ async function checkMentions(env: Env, input: unknown): Promise<Mention[]> {
   return members.filter((a) => ids.has(a.id)).slice(0, 10).map((a) => ({ id: a.id, name: a.name }));
 }
 
+/** Ce que l'app voit de son porte-monnaie. */
+const walletView = (w: Wallet | undefined) => ({ plates: w?.bal ?? PLATES.start, cap: PLATES.cap });
+
+/** Passage du cron : règle les défis échus et prévient les deux camps. */
+export async function sweepChallenges(env: Env): Promise<number> {
+  if (!env.CLUB) return 0;
+  const res = await stub(env).fetch('https://club/sweep', { method: 'POST', body: JSON.stringify({ viewer: 'cron', viewerName: 'Shred' }) });
+  const data = (await res.json()) as { settled?: number; pushes?: Push[] };
+  await sendPushes(env, data.pushes ?? []);
+  return data.settled ?? 0;
+}
+
 export async function clubRoutes(req: Request, env: Env, user: User, url: URL, ctx?: ExecutionContext): Promise<Response | null> {
   const { pathname } = url;
   if (!pathname.startsWith('/api/club')) return null;
@@ -732,7 +931,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
   };
 
   if (pathname === '/api/club/feed' && method === 'GET') {
-    const data = await callClub<{ posts: Post[]; next: string | null; following: string[] }>(env, user, '/feed', {
+    const data = await callClub<{ posts: Post[]; next: string | null; following: string[]; nulos?: Record<string, number> }>(env, user, '/feed', {
       filter: url.searchParams.get('filter') ?? 'all',
       before: url.searchParams.get('before') ?? undefined,
     });
@@ -741,7 +940,12 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
     const [index, avatars] = await Promise.all([listAccounts(env), Promise.all(authors.map((a) => userStore(env.KV, a).get('avatar')))]);
     const info = new Map(authors.map((a, i) => [a, { handle: index.find((x) => x.id === a)?.handle ?? null, avatar: avatars[i] ?? null }]));
     return json({
-      posts: data.posts.map((p) => ({ ...view(p, user), authorHandle: info.get(p.author)?.handle ?? null, authorAvatar: info.get(p.author)?.avatar ?? null })),
+      posts: data.posts.map((p) => ({
+        ...view(p, user),
+        authorHandle: info.get(p.author)?.handle ?? null,
+        authorAvatar: info.get(p.author)?.avatar ?? null,
+        ...(data.nulos?.[p.author] ? { authorNulos: data.nulos[p.author] } : {}),
+      })),
       next: data.next,
       following: data.following,
     });
@@ -931,6 +1135,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
           volume: current ? b!.volume : 0,
           streak: b?.streak ?? 0,
           ...(days !== undefined ? { days } : {}),
+          ...(s.rows.find((r) => r.id === a.id)?.nulos ? { nulos: s.rows.find((r) => r.id === a.id)!.nulos } : {}),
         };
       })
       .filter((r): r is NonNullable<typeof r> => Boolean(r))
@@ -978,27 +1183,59 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
 
   if (pathname === '/api/club/challenges' && method === 'POST') {
     await capDaily(env, user.id, 'challenge');
-    const b = await readJson<{ to?: string; hours?: number; text?: string }>(req, 5_000);
+    const b = await readJson<{ to?: string; hours?: number; text?: string; gage?: string; rematch?: string }>(req, 5_000);
     const to = String(b.to ?? '');
     const target = /^[A-Za-z0-9_-]{6,64}$/.test(to) ? await getAccount(env, to) : null;
     if (!target) throw new HttpError(404, 'Membre introuvable');
     const hours = CHALLENGE_HOURS.includes(Number(b.hours)) ? Number(b.hours) : 48;
     const at = Date.now();
     const text = str(b.text, 140);
-    const challenge: Challenge = { id: rid(), from: user.id, fromName: user.name, to: target.id, toName: target.name, at, due: at + hours * 3600_000, status: 'open', ...(text ? { text } : {}) };
-    const data = await callClub<{ challenge?: Challenge }>(env, user, '/challenge', { challenge });
+    const rematch = typeof b.rematch === 'string' && /^[a-f0-9]{24}$/.test(b.rematch) ? b.rematch : undefined;
+    const gage = rematch ? '' : str(b.gage, GAGE_MAX);
+    const challenge: Challenge = {
+      id: rid(),
+      from: user.id,
+      fromName: user.name,
+      to: target.id,
+      toName: target.name,
+      at,
+      due: at + hours * 3600_000,
+      status: 'open',
+      stake: stakeOf(Boolean(gage), Boolean(rematch)),
+      ...(text ? { text } : {}),
+      ...(gage ? { gage } : {}),
+      ...(rematch ? { rematch } : {}),
+    };
+    const data = await callClub<{ challenge?: Challenge; wallet: Wallet }>(env, user, '/challenge', { challenge });
     await later(data.pushes);
-    return json({ challenge: data.challenge });
+    return json({ challenge: data.challenge, wallet: walletView(data.wallet) });
   }
   if (pathname === '/api/club/challenges' && method === 'GET') {
-    const data = await callClub<{ challenges: Challenge[] }>(env, user, '/challenges');
-    return json({ challenges: data.challenges });
-  }
-  const chDone = pathname.match(/^\/api\/club\/challenges\/([a-f0-9]{24})\/done$/);
-  if (chDone && method === 'POST') {
-    const data = await callClub<{ challenge?: Challenge; already?: boolean }>(env, user, '/challenge-done', { id: chDone[1] });
+    const data = await callClub<{ challenges: Challenge[]; wallet: Wallet; nulos: number; record: ChallengeRecord }>(env, user, '/challenges');
     await later(data.pushes);
-    return json({ challenge: data.challenge, already: Boolean(data.already) });
+    return json({ challenges: data.challenges, wallet: walletView(data.wallet), nulos: data.nulos, record: data.record });
+  }
+  const chDone = pathname.match(/^\/api\/club\/challenges\/([a-f0-9]{24})\/(done|gage)$/);
+  if (chDone && method === 'POST') {
+    const b = await readJson<{ at?: number }>(req, 500);
+    if (chDone[2] === 'gage') {
+      const data = await callClub<{ challenge?: Challenge; already?: boolean; nulos: number }>(env, user, '/gage-done', { id: chDone[1] });
+      await later(data.pushes);
+      return json({ challenge: data.challenge, already: Boolean(data.already), nulos: data.nulos });
+    }
+    const data = await callClub<{ challenge?: Challenge; already?: boolean; wallet?: Wallet }>(env, user, '/challenge-done', { id: chDone[1], at: typeof b.at === 'number' ? b.at : undefined });
+    await later(data.pushes);
+    return json({ challenge: data.challenge, already: Boolean(data.already), ...(data.wallet ? { wallet: walletView(data.wallet) } : {}) });
+  }
+  if (pathname === '/api/club/wallet' && method === 'POST') {
+    // Une journée validée : le serveur ne compte qu'aujourd'hui ou la veille (fuseaux horaires), une fois.
+    const b = await readJson<{ day?: string; streak?: number }>(req, 500);
+    const day = typeof b.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.day) ? b.day : '';
+    const off = day ? Math.round((Date.parse(`${day}T12:00:00Z`) - Date.parse(`${new Date(Date.now()).toISOString().slice(0, 10)}T12:00:00Z`)) / 86_400_000) : NaN;
+    const streak = Number(b.streak);
+    if (!(off >= -1 && off <= 1) || !Number.isInteger(streak) || streak < 0 || streak > 100_000) throw new HttpError(400, 'Journée invalide');
+    const data = await callClub<{ wallet: Wallet; gained: number; bonus: number }>(env, user, '/wallet', { day, streak });
+    return json({ wallet: walletView(data.wallet), gained: data.gained, bonus: data.bonus });
   }
 
   if (pathname === '/api/club/notifications' && method === 'GET') {

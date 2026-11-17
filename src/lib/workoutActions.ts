@@ -84,3 +84,12 @@ export function startDeload(today: string) {
 export function stopDeload() {
   setState((d) => void (d.deload = { ...d.deload, week: undefined }));
 }
+
+/** Échauffement du jour fait, passé, ou à refaire (undefined). */
+export function setWarmup(date: string, status: 'done' | 'skipped' | undefined) {
+  setState((d) => {
+    const day = ensureDay(d, date);
+    if (status) day.warmup = status;
+    else delete day.warmup;
+  });
+}

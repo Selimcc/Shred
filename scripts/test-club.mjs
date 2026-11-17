@@ -270,30 +270,61 @@ check('musique hors Apple ignorée', r.status === 200 && !r.data.post.music);
 
 /* ---------- Défis ---------- */
 
+r = await call('/api/club/challenges', { token: selim.token });
+check('porte-monnaie de départ : 5 disques', r.data.wallet?.plates === 5 && r.data.wallet.cap === 30 && r.data.nulos === 0, JSON.stringify(r.data.wallet));
 r = await call('/api/club/challenges', { token: selim.token, body: { to: ines.id, hours: 48, text: 'Jambes avant jeudi ?' } });
 const ch = r.data.challenge;
-check('défi lancé', r.status === 200 && ch.to === ines.id && ch.status === 'open' && Math.abs(ch.due - ch.at - 48 * 3600_000) < 1000);
+check('défi lancé : une mise d’un disque', r.status === 200 && ch.to === ines.id && ch.status === 'open' && ch.stake === 1 && r.data.wallet.plates === 4 && Math.abs(ch.due - ch.at - 48 * 3600_000) < 1000);
 r = await call('/api/club/notifications', { token: ines.token });
 check('la personne défiée est prévenue', r.data.notices.some((n) => n.type === 'challenge' && n.actorName === 'Selim' && n.text === 'Jambes avant jeudi ?'));
 r = await call('/api/club/challenges', { token: selim.token, body: { to: selim.id } });
 check('pas de défi à soi-même', r.status === 400);
 r = await call('/api/club/challenges', { token: selim.token, body: { to: 'inconnu-1234' } });
 check('membre inconnu : refusé', r.status === 404);
-await call('/api/club/challenges', { token: selim.token, body: { to: ines.id, hours: 24 } });
 r = await call('/api/club/challenges', { token: selim.token, body: { to: ines.id, hours: 24 } });
-check('pas plus de deux défis en cours vers la même personne', r.status === 429);
+check('un seul défi à la fois par personne', r.status === 409);
+r = await call('/api/club/challenges', { token: selim.token, body: { to: yanis.id, hours: 24, gage: '  Payer le café  ' } });
+const withGage = r.data.challenge;
+check('défi avec gage : mise de 3 disques', r.status === 200 && withGage.stake === 3 && withGage.gage === 'Payer le café' && r.data.wallet.plates === 1, JSON.stringify(r.data));
+r = await call('/api/club/notifications', { token: yanis.token });
+check('le gage est annoncé', r.data.notices.some((n) => n.type === 'challenge' && /Gage : Payer le café/.test(n.text ?? '')));
+const camille = await register('camille@exemple.com', 'Camille', await inv());
+const nora = await register('nora@exemple.com', 'Nora', await inv());
+r = await call('/api/club/challenges', { token: selim.token, body: { to: camille.id, gage: 'Payer le café' } });
+check('pas assez de disques pour un gage : refusé', r.status === 402);
+r = await call('/api/club/challenges', { token: selim.token, body: { to: camille.id } });
+const toCamille = r.data.challenge;
+check('dernier disque misé', r.status === 200 && r.data.wallet.plates === 0);
+r = await call('/api/club/challenges', { token: selim.token, body: { to: nora.id } });
+check('trois défis lancés en même temps, pas plus', r.status === 429);
 r = await call('/api/club/challenges', { token: ines.token });
-check('chacun voit ses défis', r.data.challenges.length === 2 && r.data.challenges.every((c) => c.to === ines.id));
+check('chacun voit ses défis', r.data.challenges.length === 1 && r.data.challenges[0].to === ines.id);
 r = await call(`/api/club/challenges/${ch.id}/done`, { token: yanis.token, body: {} });
 check('seule la personne défiée peut le relever', r.status === 404);
 r = await call(`/api/club/challenges/${ch.id}/done`, { token: ines.token, body: {} });
-check('défi relevé', r.status === 200 && r.data.challenge.status === 'done' && !r.data.already);
+check('défi relevé : la mise est pour elle', r.status === 200 && r.data.challenge.status === 'done' && !r.data.already && r.data.wallet.plates === 6);
 r = await call(`/api/club/challenges/${ch.id}/done`, { token: ines.token, body: {} });
-check('relevé une seule fois (pas d’XP en double)', r.data.already === true);
+check('relevé une seule fois (pas d’XP ni de disque en double)', r.data.already === true);
 r = await call('/api/club/notifications', { token: selim.token });
 check('celui qui a lancé le défi est prévenu', r.data.notices.some((n) => n.type === 'challengeDone' && n.actorName === 'Inès'));
-r = await call('/api/club/challenges', { token: selim.token, body: { to: yanis.id, hours: 999 } });
+r = await call(`/api/club/member/${ines.id}`, { token: selim.token });
+check('fiche : défis relevés', r.data.member.record?.won === 1 && !r.data.member.nulos, JSON.stringify(r.data.member.record));
+r = await call('/api/club/challenges', { token: ines.token, body: { to: yanis.id, hours: 999 } });
 check('délai inconnu : 48 h par défaut', Math.abs(r.data.challenge.due - r.data.challenge.at - 48 * 3600_000) < 1000);
+r = await call('/api/club/challenges', { token: ines.token, body: { to: selim.id, rematch: ch.id } });
+check('pas de revanche sur un défi relevé', r.status === 410);
+
+/* ---------- Disques ---------- */
+
+const todayKey = new Date(Date.now()).toISOString().slice(0, 10);
+r = await call('/api/club/wallet', { token: nora.token, body: { day: todayKey, streak: 1 } });
+check('journée validée : un disque de plus', r.status === 200 && r.data.gained === 1 && r.data.wallet.plates === 6, JSON.stringify(r.data));
+r = await call('/api/club/wallet', { token: nora.token, body: { day: todayKey, streak: 1 } });
+check('une seule fois par jour', r.data.gained === 0 && r.data.wallet.plates === 6);
+r = await call('/api/club/wallet', { token: nora.token, body: { day: '2020-01-01', streak: 5 } });
+check('journée trop ancienne refusée', r.status === 400);
+r = await call('/api/club/wallet', { token: nora.token, body: { day: todayKey, streak: -3 } });
+check('série invalide refusée', r.status === 400);
 
 /* ---------- Strava ---------- */
 
@@ -478,6 +509,71 @@ const ty = r.data.testers?.find((t) => t.id === yanis.id);
 check('panneau admin : tous les testeurs', r.status === 200 && r.data.testers.length >= 4 && r.data.version, JSON.stringify(r.data).slice(0, 200));
 check('présence : dernière visite, version et appareil', ty?.lastSeen > 0 && ty.version === '0.20.0' && ty.platform === 'iPhone, app installée', JSON.stringify(ty));
 check('compteurs du club par testeur', typeof ty?.posts === 'number' && typeof ty?.followers === 'number');
+
+/* ---------- Défis ratés : bonnet de Nulos, mise rendue, gage, revanche (on avance l'horloge) ---------- */
+
+const realNow = Date.now;
+let shift = 0;
+Date.now = () => realNow() + shift;
+const H = 3600_000;
+// Inès défie Selim 24 h ; il valide hors ligne avant l'échéance et se synchronise 10 min après.
+r = await call('/api/club/challenges', { token: ines.token, body: { to: selim.id, hours: 24 } });
+const late = r.data.challenge;
+shift = 24 * H + 10 * 60_000;
+r = await call(`/api/club/challenges/${late.id}/done`, { token: selim.token, body: { at: late.at + 23 * H } });
+check('validé hors ligne avant l’échéance : compte encore pendant la demi-heure de grâce', r.status === 200 && r.data.challenge.status === 'done', JSON.stringify(r.data));
+r = await call(`/api/club/challenges/${toCamille.id}/done`, { token: camille.token, body: { at: realNow() - H } });
+check('séance validée avant le défi : ne compte pas', r.status === 410, String(r.status));
+
+// 25 h : le défi avec gage de Yanis est échu.
+shift = 25 * H;
+r = await call(`/api/club/challenges/${withGage.id}/done`, { token: yanis.token, body: {} });
+check('trop tard : défi expiré', r.status === 410);
+r = await call('/api/club/challenges', { token: yanis.token });
+const failed = r.data.challenges.find((c) => c.id === withGage.id);
+check('défi raté dès qu’on regarde la liste', failed?.status === 'failed' && failed.failedAt === withGage.due, JSON.stringify(failed));
+check('bonnet de Nulos pour 24 h', r.data.nulos > Date.now() && Math.abs(r.data.nulos - (withGage.due + 24 * H)) < 1000 && r.data.record.lost === 1);
+r = await call('/api/club/notifications', { token: yanis.token });
+check('Yanis est prévenu, avec son gage', r.data.notices.some((n) => n.type === 'challengeFailed' && n.text === 'Payer le café'));
+r = await call('/api/club/challenges', { token: selim.token });
+check('la mise revient à Selim', r.data.wallet.plates === 4, JSON.stringify(r.data.wallet));
+r = await call('/api/club/notifications', { token: selim.token });
+check('Selim est prévenu', r.data.notices.some((n) => n.type === 'challengeExpired' && n.actorName === 'Yanis'));
+r = await call(`/api/club/member/${yanis.id}`, { token: selim.token });
+check('fiche : bonnet de Nulos et défi raté', r.data.member.nulos > Date.now() && r.data.member.record?.lost === 1);
+r = await call('/api/club/feed', { token: selim.token });
+const yanisPost = r.data.posts.find((p) => p.author === yanis.id);
+check('fil : le bonnet suit ses publications', !yanisPost || yanisPost.authorNulos > Date.now());
+r = await call(`/api/club/challenges/${withGage.id}/gage`, { token: selim.token, body: {} });
+check('seul le perdant déclare son gage', r.status === 404);
+r = await call('/api/club/challenges', { token: yanis.token, body: { to: selim.id, rematch: withGage.id, gage: 'Payer le café', hours: 24 } });
+const revenge = r.data.challenge;
+check('revanche : gratuite et sans gage', r.status === 200 && revenge.stake === 0 && !revenge.gage && revenge.rematch === withGage.id && r.data.wallet.plates === 5, JSON.stringify(r.data));
+r = await call('/api/club/notifications', { token: selim.token });
+check('Selim est prévenu de la revanche', r.data.notices.some((n) => n.type === 'rematch' && n.actorName === 'Yanis'));
+r = await call('/api/club/challenges', { token: yanis.token });
+check('une seule revanche', r.data.challenges.find((c) => c.id === withGage.id)?.revenge === revenge.id);
+r = await call(`/api/club/challenges/${withGage.id}/gage`, { token: yanis.token, body: {} });
+check('gage fait : le bonnet tombe', r.status === 200 && r.data.nulos === 0 && r.data.challenge.gageDone > 0);
+r = await call('/api/club/notifications', { token: selim.token });
+check('Selim apprend que le gage est fait', r.data.notices.some((n) => n.type === 'gageDone' && n.text === 'Payer le café'));
+
+// Le cron règle les autres défis échus, sans qu'on ait besoin d'ouvrir l'app.
+r = await club.sweepChallenges(env);
+check('cron : rien d’autre d’échu à 25 h', r === 0, String(r));
+shift = 49 * H;
+r = await club.sweepChallenges(env);
+check('cron : le défi de Camille est raté à 49 h', r >= 1, String(r));
+r = await call('/api/club/challenges', { token: camille.token });
+check('Camille porte le bonnet, sans gage à faire', r.data.nulos > Date.now() && r.data.challenges.find((c) => c.id === toCamille.id)?.status === 'failed');
+r = await call(`/api/club/challenges/${toCamille.id}/gage`, { token: camille.token, body: {} });
+check('pas de gage à déclarer quand il n’y en avait pas', r.status === 404);
+shift = 74 * H;
+r = await call('/api/club/challenges', { token: camille.token });
+check('24 h plus tard, le bonnet est tombé', r.data.nulos === 0);
+r = await call('/api/club/challenges', { token: camille.token, body: { to: selim.id, rematch: toCamille.id } });
+check('revanche fermée une fois le bonnet tombé', r.status === 410);
+Date.now = realNow;
 
 console.log(failures ? `\n${failures} échec(s)` : '\nTout est bon.');
 process.exit(failures ? 1 : 0);

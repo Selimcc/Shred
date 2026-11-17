@@ -47,11 +47,7 @@ export function exerciseStats(s: AppState, key: string, before = '9999-12-31'): 
   return out;
 }
 
-/** Exercice à la barre olympique (20 kg), où le calcul des disques a un sens. */
-export function isBarbell(key: string, name: string): boolean {
-  if (/poulie|guidée|smith|machine|haltère|ez\b|trap/i.test(name)) return false;
-  return /\bbarre\b/i.test(name) || ['bench', 'squat', 'deadlift', 'barbell-row', 'military-press', 'front-squat', 'rdl', 'hip-thrust'].includes(key);
-}
+export { isBarbell, warmupSets } from '../../shared/warmup';
 
 export const PLATES = [25, 20, 15, 10, 5, 2.5, 1.25] as const;
 
@@ -66,24 +62,4 @@ export function platesFor(total: number, bar = 20): { plates: number[]; rest: nu
     }
   }
   return { plates, rest: Math.round(side * 2 * 100) / 100 };
-}
-
-/**
- * Échauffement avant la première série lourde : barre vide puis paliers à 50, 70 et 85 %, de moins en moins de
- * reps pour arriver frais. Charges arrondies au pas de l'exercice.
- */
-export function warmupSets(work: number, step = 2.5, barbell = true): { w: number; r: number }[] {
-  if (!(work > 0)) return [];
-  const round = (x: number) => Math.max(step, Math.round(x / step) * step);
-  const out: { w: number; r: number }[] = [];
-  if (barbell && work > 30) out.push({ w: 20, r: 10 });
-  for (const [pct, r] of [
-    [0.5, 6],
-    [0.7, 4],
-    [0.85, 2],
-  ] as const) {
-    const w = round(work * pct);
-    if (w < work && (!out.length || w > out[out.length - 1].w)) out.push({ w, r });
-  }
-  return out;
 }

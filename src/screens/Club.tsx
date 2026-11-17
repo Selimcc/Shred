@@ -27,14 +27,20 @@ import {
   splitMentions,
   type Visibility,
   type Challenge,
+  type ChallengeState,
   CHALLENGE_DELAYS,
+  canRematch,
+  isNulos,
   rememberMe,
   timeLeft,
   videoUrl,
   type NewPost,
   type PostVideo,
 } from '../lib/club';
-import { Field } from '../components/form';
+import { Field, Toggle } from '../components/form';
+import { GAGE_MAX, GRACE_MS, nextBonus, NULOS_HOURS, PLATES, stakeOf } from '../../shared/plates';
+import { loadChallenges, setWallet, useWallet } from '../lib/wallet';
+import { flameInfo } from '../lib/flames';
 import { dayKey, formatShort, mondayOf, weekdayOf } from '../lib/date';
 import { boardDays, boardLine, boardRanks, boardVolume } from '../lib/board';
 import { prepareImage } from '../lib/image';
@@ -88,6 +94,24 @@ export function MemberAvatar({ m, size = 40 }: { m: Pick<Member, 'id' | 'name' |
   return (
     <span className="avatar" style={{ width: size, height: size, fontSize: size * 0.4, background: url ? 'var(--surface-3)' : `hsl(${h} 42% 34%)` }} aria-hidden="true">
       {url ? <img src={url} alt="" /> : m.name.trim().charAt(0).toUpperCase() || '?'}
+    </span>
+  );
+}
+
+/** « jusqu'à 18:30 », « jusqu'à demain 9:05 ». */
+function untilText(at: number): string {
+  const d = new Date(at);
+  const time = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return dayKey(d) === dayKey() ? `jusqu’à ${time}` : `jusqu’à demain ${time}`;
+}
+
+/** Le bonnet de Nulos, à côté du nom de qui a raté un défi (24 h, ou jusqu'à son gage fait). */
+export function Nulos({ until }: { until?: number }) {
+  if (!isNulos(until)) return null;
+  return (
+    <span className="nulos" title={`Défi raté : bonnet de Nulos ${untilText(until!)}`}>
+      <Icon name="dunce" size={13} />
+      Nulos
     </span>
   );
 }
@@ -229,6 +253,7 @@ export function Club({
           <div className="date">Les séances des membres</div>
           <h1>Club</h1>
         </div>
+        <PlatesButton />
         <button
           className="icon-btn badge-host"
           onClick={() => {
@@ -260,7 +285,7 @@ export function Club({
       </div>
 
       {view !== 'members' && <Leaderboard onOpen={(id) => void openPerson(id)} />}
-      {view !== 'members' && <ChallengeStrip me={members.find((x) => x.me)?.id ?? null} />}
+      {view !== 'members' && <ChallengeStrip me={members.find((x) => x.me)?.id ?? null} onUpdate={load} />}
 
       {error && (
         <div className="card stack" style={{ gap: 8 }}>
@@ -463,6 +488,7 @@ function Leaderboard({ onOpen }: { onOpen: (id: string) => void }) {
               <span className="board-who">
                 <span className="board-name">
                   <span className="title ellipsis">{r.me ? 'Toi' : r.name}</span>
+                  <Nulos until={r.nulos} />
                   {r.streak > 1 && (
                     <span className="board-streak num" title={`${r.streak} jours de série`}>
                       <Icon name="flame" size={12} />
@@ -720,8 +746,9 @@ function PostCard({
         <button className="post-author" onClick={onAuthor} aria-label={`Voir le profil de ${post.authorName}`}>
           <MemberAvatar m={author} />
           <span style={{ minWidth: 0 }}>
-            <b className="ellipsis" style={{ display: 'block' }}>
-              {post.authorName}
+            <b className="post-name">
+              <span className="ellipsis">{post.authorName}</span>
+              <Nulos until={post.authorNulos} />
             </b>
             <span className="small muted">
               {ago(post.at)}
@@ -1256,8 +1283,9 @@ function MemberRow({ m, onOpen, onChange }: { m: Member; onOpen: (m: Member) => 
     <div className="row member-row" role="button" tabIndex={0} onClick={() => onOpen(m)} onKeyDown={(e) => e.key === 'Enter' && onOpen(m)}>
       <MemberAvatar m={m} size={44} />
       <div className="grow" style={{ minWidth: 0 }}>
-        <div className="title">
-          {m.name} {m.private && <Icon name="lock" size={13} />}
+        <div className="title member-title">
+          <span className="ellipsis">{m.name}</span> {m.private && <Icon name="lock" size={13} />}
+          <Nulos until={m.nulos} />
         </div>
         {m.handle && (
           <div className="small ellipsis">
@@ -1482,8 +1510,9 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
           <input ref={file} type="file" accept="image/*" hidden onChange={avatar} />
           {crop && <AvatarCrop file={crop} onCancel={() => setCrop(null)} onDone={upload} />}
           <div className="grow" style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 850, fontSize: '1.3rem' }}>
+            <div className="member-sheet-name">
               {m.name} {m.private && <Icon name="lock" size={16} />}
+              <Nulos until={m.nulos} />
             </div>
             {m.handle && (
               <div className="small ellipsis">
@@ -1549,6 +1578,11 @@ function MemberSheet({ m: initial, onClose, onChange, onEdit }: { m: Member; onC
             </div>
           ))}
         </div>
+        {m.record && (m.record.won > 0 || m.record.lost > 0) && (
+          <p className="small muted member-record">
+            <Icon name="bolt" size={14} /> Défis : {m.record.won} relevé{m.record.won > 1 ? 's' : ''}, {m.record.lost} raté{m.record.lost > 1 ? 's' : ''}
+          </p>
+        )}
         {!locked && m.profile?.radar && m.profile.radar.some((r) => r.score !== null) && (
           <section className="card" style={{ padding: '8px 8px 4px' }}>
             <Radar groups={m.profile.radar.map((r) => ({ ...r, grade: r.grade as GroupScore['grade'], lifts: [] }))} />
@@ -1578,6 +1612,10 @@ const NOTICE_TEXT: Record<Notice['type'], (n: Notice) => string> = {
   accepted: (n) => `${n.actorName} a accepté ta demande : tu vois ses séances`,
   challenge: (n) => `${n.actorName} te lance un défi${n.text ? ` : « ${n.text.slice(0, 70)} »` : ' : une séance avant la fin du délai'}`,
   challengeDone: (n) => `${n.actorName} a relevé ton défi${n.text ? ` « ${n.text.slice(0, 50)} »` : ''}`,
+  challengeFailed: (n) => `Défi de ${n.actorName} raté : bonnet de Nulos pour 24 h${n.text ? `. Gage : « ${n.text.slice(0, 60)} »` : ''}`,
+  challengeExpired: (n) => `${n.actorName} n’a pas relevé ton défi : ta mise te revient`,
+  gageDone: (n) => `${n.actorName} a fait son gage${n.text ? ` : « ${n.text.slice(0, 60)} »` : ''}`,
+  rematch: (n) => `${n.actorName} prend sa revanche : une séance avant la fin du délai`,
 };
 
 function NoticeAnswer({ n, onAnswered }: { n: Notice; onAnswered: (n: Notice) => void }) {
@@ -1613,6 +1651,10 @@ const NOTICE_ICON: Record<Notice['type'], string> = {
   mention: 'at',
   challenge: 'bolt',
   challengeDone: 'bolt',
+  challengeFailed: 'dunce',
+  challengeExpired: 'plate',
+  gageDone: 'check',
+  rematch: 'bolt',
   comment: 'chat',
 };
 
@@ -1662,16 +1704,94 @@ function NoticesSheet({
 
 /* ---------- Défis ---------- */
 
-function ChallengeSheet({ m, onClose }: { m: Member; onClose: () => void }) {
+const GAGES = ['50 burpees filmés', 'Payer le café', '2 min de gainage en vidéo', 'Selfie en sueur au club'];
+
+/** Les disques : le solde en haut du club, et les règles en un coup d'œil. */
+function PlatesButton() {
+  const wallet = useWallet();
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!wallet) void loadChallenges().catch(() => undefined);
+  }, [wallet]);
+  return (
+    <>
+      <button className="plates-pill" onClick={() => setOpen(true)} aria-label={`Disques : ${wallet?.plates ?? 'chargement'}`}>
+        <Icon name="plate" size={17} />
+        <span className="num">{wallet ? <RollingNumber value={wallet.plates} /> : '–'}</span>
+      </button>
+      {open && <PlatesSheet onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function PlatesSheet({ onClose }: { onClose: () => void }) {
+  const s = useApp();
+  const wallet = useWallet();
+  const streak = flameInfo(s, dayKey()).current;
+  const next = nextBonus(streak);
+  const full = wallet ? wallet.plates >= wallet.cap : false;
+  return (
+    <Sheet title="Disques" onClose={onClose}>
+      <div className="stack plates-sheet" style={{ gap: 18 }}>
+        <div className="plates-total">
+          <Icon name="plate" size={30} />
+          <b className="display num">{wallet?.plates ?? '–'}</b>
+          <span className="small muted">{full ? 'plein : lance des défis' : `sur ${PLATES.cap} au plus`}</span>
+        </div>
+        <dl className="plates-rules">
+          <dt>Gagner</dt>
+          <dd>
+            +1 par journée validée, et un bonus à chaque palier de série. Prochain : {next.days} jours, +{next.plates}
+            {next.days > streak ? `, dans ${next.days - streak} jour${next.days - streak > 1 ? 's' : ''}` : ''}.
+          </dd>
+          <dt>Miser</dt>
+          <dd>
+            Un défi coûte {PLATES.challenge} disque, {stakeOf(true)} avec un gage. Relevé dans les temps : ta mise est pour la personne défiée. Raté : elle
+            te revient.
+          </dd>
+          <dt>Rater</dt>
+          <dd>
+            Le bonnet de Nulos s’affiche à côté de ton nom pendant {NULOS_HOURS} h, ou jusqu’à ce que tu fasses ton gage. Tu as droit à une revanche gratuite.
+          </dd>
+        </dl>
+      </div>
+    </Sheet>
+  );
+}
+
+function ChallengeSheet({ m, rematch, onClose }: { m: Pick<Member, 'id' | 'name'>; rematch?: Challenge; onClose: () => void }) {
+  const wallet = useWallet();
   const [hours, setHours] = useState(48);
   const [text, setText] = useState('');
+  const [withGage, setWithGage] = useState(false);
+  const [gage, setGage] = useState('');
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!wallet) void loadChallenges().catch(() => undefined);
+  }, [wallet]);
+  const stake = stakeOf(withGage && Boolean(gage.trim()), Boolean(rematch));
+  const short = wallet !== null && wallet.plates < stake;
+  const send = async () => {
+    setBusy(true);
+    try {
+      const r = await club.challenge(m.id, hours, text.trim(), rematch ? { rematch: rematch.id } : withGage && gage.trim() ? { gage: gage.trim() } : {});
+      setWallet(r.wallet);
+      toast(rematch ? `Revanche lancée contre ${m.name}` : `Défi envoyé à ${m.name}`);
+      window.dispatchEvent(new Event('shred:challenges'));
+      onClose();
+    } catch (e) {
+      toast(errorText(e), true);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
-    <Sheet title={`Défier ${m.name}`} onClose={onClose}>
+    <Sheet title={rematch ? `Revanche contre ${m.name}` : `Défier ${m.name}`} onClose={onClose}>
       <div className="stack" style={{ gap: 16 }}>
         <p className="small muted" style={{ margin: 0 }}>
-          {m.name} reçoit une notification. Le défi est relevé dès qu’une séance est validée dans le délai : +{CHALLENGE_XP} XP pour {m.name}, et tu es
-          prévenu.
+          {rematch
+            ? `Gratuite. ${m.name} doit valider une séance avant la fin du délai, sinon c’est à son tour de porter le bonnet de Nulos.`
+            : `${m.name} doit valider une séance avant la fin du délai. Relevé : ta mise est pour ${m.name}, avec +${CHALLENGE_XP} XP. Raté : ta mise te revient et ${m.name} porte le bonnet de Nulos ${NULOS_HOURS} h.`}
         </p>
         <Field label="Délai">
           <div className="chips" role="group" aria-label="Délai">
@@ -1685,70 +1805,145 @@ function ChallengeSheet({ m, onClose }: { m: Member; onClose: () => void }) {
         <Field label="Un mot (facultatif)">
           <input className="input" value={text} maxLength={140} placeholder="Jambes avant jeudi ?" onChange={(e) => setText(e.target.value)} />
         </Field>
-        <button
-          className="btn primary block"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await club.challenge(m.id, hours, text.trim());
-              toast(`Défi envoyé à ${m.name}`);
-              window.dispatchEvent(new Event('shred:challenges'));
-              onClose();
-            } catch (e) {
-              toast(errorText(e), true);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <Icon name="bolt" size={18} /> Lancer le défi
+        {!rematch && (
+          <div className="stack" style={{ gap: 10 }}>
+            <div className="group">
+              <Toggle title="Ajouter un gage" text={`+${PLATES.gage} disques. À faire s’il rate, le bonnet tombe une fois fait.`} on={withGage} onChange={setWithGage} />
+            </div>
+            {withGage && (
+              <>
+                <input className="input" value={gage} maxLength={GAGE_MAX} placeholder="Le gage" aria-label="Le gage" onChange={(e) => setGage(e.target.value)} />
+                <div className="chips" role="group" aria-label="Idées de gage">
+                  {GAGES.map((g) => (
+                    <button key={g} type="button" className={`chip ${gage === g ? 'on' : ''}`} onClick={() => setGage(g)}>
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        <div className={`stake-line ${short ? 'short' : ''}`}>
+          <Icon name="plate" size={18} />
+          <span className="grow">{rematch ? 'Revanche gratuite' : `Mise : ${stake} disque${stake > 1 ? 's' : ''}`}</span>
+          {wallet && <span className="small muted num">tu en as {wallet.plates}</span>}
+        </div>
+        <button className="btn primary block" disabled={busy || short || (withGage && !gage.trim())} onClick={send}>
+          <Icon name="bolt" size={18} /> {rematch ? 'Lancer la revanche' : short ? 'Pas assez de disques' : 'Lancer le défi'}
         </button>
+        {short && (
+          <p className="small muted" style={{ margin: '-6px 0 0' }}>
+            Valide tes journées : +1 disque par jour, un bonus à chaque palier de série.
+          </p>
+        )}
       </div>
     </Sheet>
   );
 }
 
-/** En haut du fil : les défis reçus en cours, ceux envoyés, et ceux relevés ces dernières 24 h. */
-function ChallengeStrip({ me }: { me: string | null }) {
-  const [list, setList] = useState<Challenge[]>([]);
+const RECENT = 24 * 3600_000;
+
+/** En haut du fil : les défis en cours, relevés ou ratés ces dernières 24 h, avec le gage et la revanche. */
+function ChallengeStrip({ me, onUpdate }: { me: string | null; onUpdate: () => void }) {
+  const [state, setState] = useState<ChallengeState | null>(null);
+  const [rematch, setRematch] = useState<Challenge | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   useEffect(() => {
-    const load = () => club.challenges().then((r) => setList(r.challenges), () => undefined);
+    const load = () => loadChallenges().then(setState, () => undefined);
     void load();
     window.addEventListener('shred:challenges', load);
     return () => window.removeEventListener('shred:challenges', load);
   }, []);
   const now = Date.now();
-  const shown = list.filter((c) => (c.status === 'open' && c.due > now) || (c.status === 'done' && (c.doneAt ?? 0) > now - 24 * 3600_000)).slice(0, 4);
+  const shown = (state?.challenges ?? [])
+    .filter(
+      (c) =>
+        (c.status === 'open' && now <= c.due + GRACE_MS) ||
+        (c.status === 'done' && (c.doneAt ?? 0) > now - RECENT) ||
+        (c.status === 'failed' && (c.failedAt ?? c.due) > now - RECENT),
+    )
+    .slice(0, 4);
   if (!me || !shown.length) return null;
+  const gageDone = async (c: Challenge) => {
+    setBusy(c.id);
+    try {
+      await club.gageDone(c.id);
+      toast('Gage fait : le bonnet tombe');
+      window.dispatchEvent(new Event('shred:challenges'));
+      onUpdate();
+    } catch (e) {
+      toast(errorText(e), true);
+    } finally {
+      setBusy(null);
+    }
+  };
   return (
     <section className="challenges" aria-label="Défis">
       {shown.map((c) => {
         const received = c.to === me;
-        const done = c.status === 'done';
+        const other = received ? c.fromName : c.toName;
+        const stake = c.stake ?? 0;
+        const plates = stake ? `${stake} disque${stake > 1 ? 's' : ''}` : '';
+        let title: string;
+        let sub: string;
+        if (c.status === 'open') {
+          title = received ? (c.rematch ? `${other} prend sa revanche` : `${other} te défie`) : c.rematch ? `Revanche contre ${other}` : `Défi envoyé à ${other}`;
+          sub = c.text ? `« ${c.text} »` : 'Une séance avant la fin du délai';
+        } else if (c.status === 'done') {
+          title = received ? `Défi de ${other} relevé` : `${other} a relevé ton défi`;
+          sub = plates ? (received ? `+${plates} pour toi` : `Ta mise de ${plates} est pour ${other}`) : 'Séance validée dans les temps';
+        } else {
+          title = received ? `Défi de ${other} raté` : `${other} n’a pas relevé ton défi`;
+          const until = (c.failedAt ?? c.due) + NULOS_HOURS * 3600_000;
+          sub = received
+            ? c.gageDone
+              ? 'Gage fait, le bonnet est tombé'
+              : `Bonnet de Nulos ${untilText(until)}`
+            : plates
+              ? `Ta mise de ${plates} te revient`
+              : 'Pas de séance dans les temps';
+        }
+        const revenge = canRematch(c, me, now);
+        const owesGage = received && c.status === 'failed' && c.gage && !c.gageDone;
         return (
-          <div key={c.id} className={`challenge ${received ? 'in' : 'out'} ${done ? 'done' : ''}`}>
+          <div key={c.id} className={`challenge ${received ? 'in' : 'out'} ${c.status}`}>
             <span className="challenge-icon">
-              <Icon name={done ? 'check' : 'bolt'} size={16} />
+              <Icon name={c.status === 'done' ? 'check' : c.status === 'failed' ? (received ? 'dunce' : 'plate') : 'bolt'} size={16} />
             </span>
             <div className="grow" style={{ minWidth: 0 }}>
               <div className="small challenge-head">
-                <b className="ellipsis">
-                {done
-                  ? received
-                    ? `Défi de ${c.fromName} relevé`
-                    : `${c.toName} a relevé ton défi`
-                  : received
-                    ? `${c.fromName} te défie`
-                    : `Défi envoyé à ${c.toName}`}
-                </b>
-                {!done && <span className="faint">{timeLeft(c.due, now)}</span>}
+                <b className="ellipsis">{title}</b>
+                {c.status === 'open' && <span className="faint">{timeLeft(c.due, now)}</span>}
               </div>
-              <div className="small muted ellipsis">{c.text ? `« ${c.text} »` : 'Une séance avant la fin du délai'}</div>
+              <div className="small muted ellipsis">{sub}</div>
+              {c.gage && (c.status === 'open' || c.status === 'failed') && (
+                <div className="small challenge-gage">
+                  {c.status === 'open' ? (received ? 'Gage si tu rates : ' : 'Gage : ') : received ? 'Ton gage : ' : 'Son gage : '}
+                  <b>{c.gage}</b>
+                  {c.gageDone ? ', fait' : ''}
+                </div>
+              )}
+              {c.status === 'open' && plates && <div className="small faint">Mise : {plates}</div>}
+              {(owesGage || revenge) && (
+                <div className="challenge-actions">
+                  {owesGage && (
+                    <button className="btn small" disabled={busy === c.id} onClick={() => gageDone(c)}>
+                      <Icon name="check" size={15} /> Gage fait
+                    </button>
+                  )}
+                  {revenge && (
+                    <button className="btn small primary" onClick={() => setRematch(c)}>
+                      <Icon name="bolt" size={15} /> Revanche
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         );
       })}
+      {rematch && <ChallengeSheet m={{ id: rematch.from, name: rematch.fromName }} rematch={rematch} onClose={() => setRematch(null)} />}
     </section>
   );
 }

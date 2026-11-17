@@ -61,6 +61,8 @@ export interface DayLog {
   form?: Form;
   /** Séance express : minutes disponibles. */
   express?: number;
+  /** Échauffement du jour : fait, ou passé exprès. */
+  warmup?: 'done' | 'skipped';
   sets: Record<string, SetLog[]>;
   /** Sorties importées (Strava, montre via Apple Santé) ce jour-là. */
   activities?: Activity[];
@@ -130,6 +132,8 @@ export interface Settings {
   broken?: Record<string, { since: string; until: string }>;
   /** Thème de saison : selon le calendrier (par défaut), jamais, ou un thème choisi pour l'essayer. */
   season?: SeasonPref;
+  /** Échauffement proposé avant chaque séance (oui par défaut). */
+  warmup?: boolean;
 }
 
 export interface PublicProfileSettings {

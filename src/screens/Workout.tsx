@@ -27,6 +27,8 @@ import { LiftChart } from '../components/Charts';
 import { StorySheet } from '../components/StorySheet';
 import { FocusMode } from '../components/FocusMode';
 import { isRecord, moment } from '../lib/moments';
+import { dayWarmup } from '../lib/warmupDay';
+import { WarmupCard } from '../components/Warmup';
 
 const fmtRest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60}` : ''}` : `${sec} s`);
 
@@ -39,7 +41,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
   const [demo, setDemo] = useState<Exercise | null>(null);
   const [timer, setTimer] = useState<{ end: number; total: number } | null>(null);
   const [story, setStory] = useState(false);
-  const [focus, setFocus] = useState(false);
+  const [focus, setFocus] = useState<false | 'session' | 'warmup'>(false);
   const [swap, setSwap] = useState<Exercise | null>(null);
   const [adding, setAdding] = useState(false);
   const tweaks = programTweaks(s, today);
@@ -47,6 +49,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
   const hint = formHint(s, today);
   const planned = scheduleFor(s.program, today)[weekdayOf(today)];
   const endurance = hasProfile(session.exercises);
+  const warm = session.type !== 'rest' && !day.mainDone ? dayWarmup(s, today) : null;
   // Le choix de séance : celles de la semaine en cours et celles qu'on peut faire n'importe quand.
   const thisWeek = new Set(scheduleFor(s.program, today));
   const inPlan = planWeek(s.program, today) !== null;
@@ -118,13 +121,15 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
         </div>
       )}
       {session.type !== 'rest' && session.exercises.length > 0 && !day.mainDone && (
-        <button className="focus-cta" onClick={() => setFocus(true)}>
+        <button className="focus-cta" onClick={() => setFocus('session')}>
           <span className="focus-cta-play" aria-hidden="true">
             <Icon name="play" size={18} filled />
           </span>
           <span className="grow" style={{ minWidth: 0 }}>
             <b>{prog.done > 0 ? 'Reprendre en mode séance' : 'Lancer le mode séance'}</b>
-            <span className="small">Une série à la fois, en grand. Écran allumé, bip à la fin du repos.</span>
+            <span className="small">
+              {warm && !day.warmup && prog.done === 0 ? 'Échauffement guidé, puis une série à la fois.' : 'Une série à la fois, en grand. Écran allumé, bip à la fin du repos.'}
+            </span>
           </span>
         </button>
       )}
@@ -242,6 +247,8 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
         </div>
       )}
 
+      {warm && <WarmupCard today={today} warm={warm} status={day.warmup} started={prog.done > 0} onLaunch={() => setFocus('warmup')} />}
+
       <div className="stack">
         {session.exercises.map((ex) => (
           <ExerciseCard key={ex.key} ex={ex} date={today} logs={day.sets[ex.key] ?? []} onSet={onSet} onDemo={() => setDemo(ex)} onSwap={() => setSwap(ex)} />
@@ -296,6 +303,7 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
       {focus && (
         <FocusMode
           today={today}
+          warmFirst={focus === 'warmup'}
           rest={timer}
           setRest={setTimer}
           onSet={onSet}

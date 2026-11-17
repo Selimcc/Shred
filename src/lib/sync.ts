@@ -2,6 +2,7 @@ import { closeDeload } from './recovery';
 import { api, DEMO } from './api';
 import { startBackup } from './backup';
 import { startProfileSync } from './profile';
+import { startWallet } from './wallet';
 import { lastWeekMonday } from './report';
 import { addDays, dayKey, mondayOf } from './date';
 import { syncHealth } from './health';
@@ -68,6 +69,7 @@ export function startSync() {
   subscribe(() => schedule());
   startBackup();
   startProfileSync();
+  startWallet();
   setTimeout(() => void autoMailReport(), 8000);
   void syncHealth(true);
   void syncNativeHealth(true).then(announce);

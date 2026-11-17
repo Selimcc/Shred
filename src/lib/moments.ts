@@ -10,7 +10,7 @@ import { signedIn } from './session';
 import { type AppState, getState, setState, subscribe } from './store';
 import { e1rm } from './strength';
 
-export type MomentKind = 'session' | 'record' | 'habits' | 'steps' | 'post' | 'spark' | 'challenge' | 'trophy';
+export type MomentKind = 'session' | 'record' | 'habits' | 'steps' | 'post' | 'spark' | 'challenge' | 'trophy' | 'plates';
 
 export interface Moment {
   id: number;
@@ -88,12 +88,14 @@ export function startMoments() {
       );
       // Une séance validée relève aussi les défis reçus encore ouverts.
       if (DEMO || signedIn()) {
-        void completeChallenges()
+        void completeChallenges(getState())
           .then((done) => {
             if (!done.length) return;
             setState((d) => void (d.club = { sparks: d.club?.sparks ?? 0, challenges: (d.club?.challenges ?? 0) + done.length }));
             const who = done.map((c) => c.fromName).join(', ');
-            setTimeout(() => moment('challenge', done.length > 1 ? `${done.length} défis relevés` : 'Défi relevé', `${who} est prévenu. +${CHALLENGE_XP * done.length} XP`), 3600);
+            const plates = done.reduce((n, c) => n + (c.stake ?? 0), 0);
+            const won = plates ? `, +${plates} disque${plates > 1 ? 's' : ''}` : '';
+            setTimeout(() => moment('challenge', done.length > 1 ? `${done.length} défis relevés` : 'Défi relevé', `${who} est prévenu. +${CHALLENGE_XP * done.length} XP${won}`), 3600);
           })
           .catch(() => undefined);
       }

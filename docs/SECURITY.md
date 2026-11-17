@@ -146,6 +146,15 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 | Design | A grant outliving a password change. | The grant records the account's epoch; a mismatch revokes the grant and answers `401 invalid_token`. Members can also disconnect a client in Settings, AI. Tested. |
 | Low | Card HTML rendered by the host. | Self-contained, no external script, data rendered with `textContent`, colours checked against a pattern before use, only `https://assets.claude.ai` allowed (Claude's font). |
 
+## Version 0.30
+
+| Severity | Finding | Fix |
+| --- | --- | --- |
+| Design | A currency that the app earns by declaring validated days. | The balance lives in the club Durable Object and only the server moves it, in the same transaction as the challenge it pays for. A claim is accepted for today or yesterday (UTC ± 1 day), once per day; milestone bonuses need a streak that advances no faster than the calendar since the previous claim; the balance is capped at 30. Faking the streak (which the club already trusts for the leaderboard) cannot earn more than a perfect streak. Tested over a simulated calendar. |
+| Design | Challenge outcomes decided by the client. | Success needs the challenged member, an open challenge, and a validation time inside the window (offline validations count only if they reach the server within 30 minutes of the deadline). Failure is decided by the server's clock (lazy on read, and the cron). Stakes, refunds, the Nulos cap and the record are written by the Durable Object only. A rematch is free only for the loser, against the winner, once, while the cap is on. Tested with a moving clock. |
+| Low | Forfeit text written by another member. | 80 characters, trimmed, shown with `textContent` like comments; notifications and pushes carry it as plain text. Only people who can already be challenged (public accounts, or private ones you follow) can receive one. |
+| Design | Warm-ups. | Computed on the phone from the program; `warmup` is a two-value field in the backup. Nothing new is sent, except a line in the connector's `get_today` for the member's own Claude. |
+
 ## Accepted
 
 | Severity | Finding | Why |

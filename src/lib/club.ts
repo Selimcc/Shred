@@ -9,6 +9,7 @@ import { fmtKg, sessionFor } from './logic';
 import { authToken } from './session';
 import { authHeaders } from './api';
 import type { AppState } from './store';
+import { addPlates, claimPlates, GRACE_MS, NULOS_HOURS, OPEN_MAX, PLATES, stakeOf, type Wallet } from '../../shared/plates';
 import { dayTraining, liftSeries, totalMinutes } from './training';
 
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';
@@ -37,6 +38,8 @@ export interface ClubPost {
   /** Pseudo et photo de l'auteur, pour les auteurs hors de tes relations. */
   authorHandle?: string | null;
   authorAvatar?: string | null;
+  /** L'auteur porte le bonnet de Nulos jusqu'à cette heure. */
+  authorNulos?: number;
   at: number;
   text: string;
   mentions: Mention[];
@@ -88,10 +91,17 @@ export interface Member {
   /** Étincelles reçues au total. */
   sparks: number;
   avatar: string | null;
+  /** Fin du bonnet de Nulos (défi raté dans les dernières 24 h). */
+  nulos?: number;
+  /** Défis relevés et ratés. */
+  record?: { won: number; lost: number };
   profile?: { streak?: number; best?: number; flames?: number; tier?: number; level?: number; program?: string; radar?: { id: string; name: string; short: string; grade: string | null; score: number | null }[] };
 }
 
-/** Défi entre membres : une séance à valider avant l'échéance. */
+/**
+ * Défi entre membres : une séance à valider avant l'échéance. Relevé, la mise est pour toi ; raté, elle revient à
+ * son auteur et tu portes le bonnet de Nulos 24 h (avec le gage, s'il y en a un). Une revanche est possible.
+ */
 export interface Challenge {
   id: string;
   from: string;
@@ -101,9 +111,36 @@ export interface Challenge {
   at: number;
   due: number;
   text?: string;
-  status: 'open' | 'done';
+  stake?: number;
+  gage?: string;
+  rematch?: string;
+  status: 'open' | 'done' | 'failed';
   doneAt?: number;
+  failedAt?: number;
+  gageDone?: number;
+  revenge?: string;
 }
+
+/** Ce que l'app sait de son porte-monnaie. */
+export interface WalletView {
+  plates: number;
+  cap: number;
+}
+
+export interface ChallengeState {
+  challenges: Challenge[];
+  wallet: WalletView;
+  /** Fin de mon bonnet de Nulos, 0 sinon. */
+  nulos: number;
+  record: { won: number; lost: number };
+}
+
+/** Le bonnet de Nulos est-il encore porté ? */
+export const isNulos = (until?: number, now = Date.now()) => Boolean(until && until > now);
+
+/** La revanche est encore possible sur ce défi raté (par la personne qui l'a raté). */
+export const canRematch = (c: Challenge, me: string | null, now = Date.now()) =>
+  c.status === 'failed' && c.to === me && !c.revenge && (c.failedAt ?? c.due) + NULOS_HOURS * 3600_000 > now;
 
 export const CHALLENGE_DELAYS: { hours: number; label: string }[] = [
   { hours: 24, label: '24 h' },
@@ -121,7 +158,7 @@ export function timeLeft(due: number, now = Date.now()): string {
 
 export interface Notice {
   id: string;
-  type: 'mention' | 'comment' | 'spark' | 'follow' | 'request' | 'accepted' | 'challenge' | 'challengeDone';
+  type: 'mention' | 'comment' | 'spark' | 'follow' | 'request' | 'accepted' | 'challenge' | 'challengeDone' | 'challengeFailed' | 'challengeExpired' | 'gageDone' | 'rematch';
   actor: string;
   actorName: string;
   post?: string;
@@ -138,6 +175,7 @@ export interface BoardRow {
   week: number;
   volume: number;
   streak: number;
+  nulos?: number;
   /** Jours de la semaine avec une séance (bit 0 = lundi) ; absent si l'app de la personne est trop ancienne. */
   days?: number;
 }
@@ -350,27 +388,43 @@ export const club = {
   notices: () => (DEMO ? demo.notices() : api<{ notices: Notice[]; unread: number; readAt: number }>('/api/club/notifications')),
   read: () => (DEMO ? demo.read() : api('/api/club/notifications/read', { body: {} })),
   avatar: (photo: string | null) => (DEMO ? demo.setAvatar(photo) : api<{ avatar: string | null }>('/api/club/avatar', { method: 'PUT', body: { photo } })),
-  challenge: (to: string, hours: number, text: string) =>
-    DEMO ? demo.challenge(to, hours, text) : api<{ challenge: Challenge }>('/api/club/challenges', { body: { to, hours, text } }),
-  challenges: () => (DEMO ? demo.challenges() : api<{ challenges: Challenge[] }>('/api/club/challenges')),
-  challengeDone: (id: string) => (DEMO ? demo.challengeDone(id) : api<{ challenge: Challenge; already: boolean }>(`/api/club/challenges/${id}/done`, { body: {} })),
+  /** Défi (avec un gage facultatif), ou revanche sur un défi raté. */
+  challenge: (to: string, hours: number, text: string, opts: { gage?: string; rematch?: string } = {}) =>
+    DEMO ? demo.challenge(to, hours, text, opts) : api<{ challenge: Challenge; wallet: WalletView }>('/api/club/challenges', { body: { to, hours, text, ...opts } }),
+  challenges: () => (DEMO ? demo.challenges() : api<ChallengeState>('/api/club/challenges')),
+  challengeDone: (id: string, at?: number) =>
+    DEMO ? demo.challengeDone(id) : api<{ challenge: Challenge; already: boolean; wallet?: WalletView }>(`/api/club/challenges/${id}/done`, { body: at ? { at } : {} }),
+  gageDone: (id: string) => (DEMO ? demo.gageDone(id) : api<{ challenge: Challenge; already: boolean; nulos: number }>(`/api/club/challenges/${id}/gage`, { body: {} })),
+  /** Une journée validée de plus : le serveur ajoute les disques (une fois par jour). */
+  claimPlates: (day: string, streak: number) =>
+    DEMO ? demo.claim(day, streak) : api<{ wallet: WalletView; gained: number; bonus: number }>('/api/club/wallet', { body: { day, streak } }),
 };
 
 /**
  * Séance validée : chaque défi reçu encore ouvert est relevé. Renvoie le nombre de défis relevés
  * (le serveur ne compte un défi qu'une fois, même si deux téléphones l'envoient).
  */
-export async function completeChallenges(): Promise<Challenge[]> {
+export async function completeChallenges(s: Pick<AppState, 'days'>): Promise<Challenge[]> {
   if (!myId) myId = (await club.members()).members.find((m) => m.me)?.id ?? null;
   const { challenges } = await club.challenges();
   const now = Date.now();
-  const open = challenges.filter((c) => c.status === 'open' && c.due > now && c.to === myId);
+  const open = challenges.filter((c) => c.status === 'open' && c.to === myId && now <= c.due + GRACE_MS);
   const done: Challenge[] = [];
   for (const c of open) {
-    const r = await club.challengeDone(c.id).catch(() => null);
+    // Une séance validée pendant le délai, même hors ligne : l'heure notée par l'app fait foi (demi-heure de grâce).
+    const at = validatedBetween(s, c.at, Math.min(c.due, now));
+    if (at === null) continue;
+    const r = await club.challengeDone(c.id, at).catch(() => null);
     if (r && !r.already) done.push(r.challenge);
   }
   return done;
+}
+
+/** L'heure de la première séance validée entre deux instants, ou null. */
+export function validatedBetween(s: Pick<AppState, 'days'>, from: number, to: number): number | null {
+  let best: number | null = null;
+  for (const d of Object.values(s.days)) if (d.mainDone && d.mainDoneAt && d.mainDoneAt >= from && d.mainDoneAt <= to && (best === null || d.mainDoneAt < best)) best = d.mainDoneAt;
+  return best;
 }
 
 let myId: string | null = null;
@@ -471,12 +525,25 @@ const demo = (() => {
   ];
   let readAt = now - 40 * H;
   const challenges: Challenge[] = [
-    { id: 'c-camille', from: 'm-camille', fromName: 'Camille', to: me, toName: 'Toi', at: now - 3 * H, due: now + 21 * H, text: 'Une séance jambes avant demain soir ?', status: 'open' },
+    { id: 'c-camille', from: 'm-camille', fromName: 'Camille', to: me, toName: 'Toi', at: now - 3 * H, due: now + 21 * H, text: 'Une séance jambes avant demain soir ?', stake: 3, gage: '50 burpees filmés', status: 'open' },
+    { id: 'c-leo', from: 'm-leo', fromName: 'Léo', to: me, toName: 'Toi', at: now - 27 * H, due: now - 3 * H, stake: 3, gage: 'Payer le café', status: 'failed', failedAt: now - 3 * H },
+    { id: 'c-yanis', from: me, fromName: 'Toi', to: 'm-yanis', toName: 'Yanis', at: now - 30 * H, due: now - 6 * H, stake: 1, status: 'failed', failedAt: now - 6 * H },
   ];
+  // Yanis a raté son défi il y a 6 h : il porte le bonnet de Nulos jusqu'à demain.
+  members.find((m) => m.id === 'm-yanis')!.nulos = now + 18 * H;
+  members.find((m) => m.id === 'm-yanis')!.record = { won: 4, lost: 1 };
+  members.find((m) => m.id === 'm-camille')!.record = { won: 7, lost: 0 };
+  let wallet: Wallet = { bal: 7, day: addDays(dayKey(), -1), streak: 22 };
+  // Et toi, tu as raté celui de Léo : bonnet jusqu'à demain, ou jusqu'au gage.
+  let nulos = now + 21 * H;
+  members[0].nulos = nulos;
+  const record = { won: 3, lost: 1 };
+  const purse = (w: Wallet): WalletView => ({ plates: w.bal, cap: PLATES.cap });
   const images = new Map<string, string>();
   const view = (p: Stored): ClubPost => {
     const { sparksBy, ...rest } = p;
-    return { ...rest, sparks: sparksBy.length, sparked: sparksBy.includes(me), mine: p.author === me };
+    const nul = members.find((m) => m.id === p.author)?.nulos;
+    return { ...rest, sparks: sparksBy.length, sparked: sparksBy.includes(me), mine: p.author === me, ...(nul && nul > Date.now() ? { authorNulos: nul } : {}) };
   };
   const find = (id: string) => {
     const p = posts.find((x) => x.id === id);
@@ -550,8 +617,8 @@ const demo = (() => {
       wait({
         week,
         rows: [
-          { id: 'm-yanis', name: 'Yanis', handle: 'yanis_ppl', avatar: null, me: false, week: 5, volume: 38_400, streak: 31, days: 0b0011111 },
-          { id: me, name: 'Toi', handle: 'toi', avatar: null, me: true, week: 4, volume: 29_800, streak: 23, days: 0b0011011 },
+          { id: 'm-yanis', name: 'Yanis', handle: 'yanis_ppl', avatar: null, me: false, week: 5, volume: 38_400, streak: 31, days: 0b0011111, nulos: members.find((m) => m.id === 'm-yanis')?.nulos },
+          { id: me, name: 'Toi', handle: 'toi', avatar: null, me: true, week: 4, volume: 29_800, streak: 23, days: 0b0011011, nulos: members[0].nulos },
           { id: 'm-camille', name: 'Camille', handle: 'camille.run', avatar: null, me: false, week: 4, volume: 6_200, streak: 12, days: 0b0010111 },
           { id: 'm-ines', name: 'Inès', handle: 'ines.swim', avatar: null, me: false, week: 2, volume: 0, streak: 5, days: 0b0000101 },
         ] as BoardRow[],
@@ -581,19 +648,46 @@ const demo = (() => {
     rename: (name: string) => {
       members[0].name = name || 'Toi';
     },
-    challenge: (to: string, hours: number, text: string) => {
+    challenge: (to: string, hours: number, text: string, opts: { gage?: string; rematch?: string } = {}) => {
       const m = members.find((x) => x.id === to)!;
-      const c: Challenge = { id: `c-${Date.now()}`, from: me, fromName: members[0].name, to, toName: m.name, at: Date.now(), due: Date.now() + hours * H, status: 'open', ...(text ? { text } : {}) };
+      const open = challenges.filter((x) => x.from === me && x.status === 'open');
+      if (open.some((x) => x.to === to)) return Promise.reject(new Error('Un défi est déjà en cours avec cette personne : attends qu’il se termine'));
+      if (open.length >= OPEN_MAX) return Promise.reject(new Error(`Déjà ${OPEN_MAX} défis lancés en cours : attends qu’ils se terminent`));
+      const stake = stakeOf(Boolean(opts.gage), Boolean(opts.rematch));
+      if (wallet.bal < stake) return Promise.reject(new Error('Pas assez de disques : valide tes journées pour en gagner'));
+      wallet = addPlates(wallet, -stake);
+      const c: Challenge = { id: `c-${Date.now()}`, from: me, fromName: members[0].name, to, toName: m.name, at: Date.now(), due: Date.now() + hours * H, status: 'open', stake, ...(text ? { text } : {}), ...(opts.gage && !opts.rematch ? { gage: opts.gage } : {}), ...(opts.rematch ? { rematch: opts.rematch } : {}) };
+      if (opts.rematch) {
+        const origin = challenges.find((x) => x.id === opts.rematch);
+        if (origin) origin.revenge = c.id;
+      }
       challenges.unshift(c);
-      return wait({ challenge: c });
+      return wait({ challenge: c, wallet: purse(wallet) });
     },
-    challenges: () => wait({ challenges: challenges.map((c) => ({ ...c })) }),
+    challenges: () => wait({ challenges: challenges.map((c) => ({ ...c })), wallet: purse(wallet), nulos: nulos > Date.now() ? nulos : 0, record: { ...record } }),
     challengeDone: (id: string) => {
       const c = challenges.find((x) => x.id === id)!;
       const already = c.status === 'done';
-      c.status = 'done';
-      c.doneAt = c.doneAt ?? Date.now();
-      return wait({ challenge: { ...c }, already });
+      if (!already) {
+        c.status = 'done';
+        c.doneAt = Date.now();
+        wallet = addPlates(wallet, c.stake ?? 0);
+        record.won++;
+      }
+      return wait({ challenge: { ...c }, already, wallet: purse(wallet) });
+    },
+    gageDone: (id: string) => {
+      const c = challenges.find((x) => x.id === id)!;
+      const already = Boolean(c.gageDone);
+      c.gageDone ??= Date.now();
+      nulos = 0;
+      members[0].nulos = undefined;
+      return wait({ challenge: { ...c }, already, nulos });
+    },
+    claim: (day: string, streak: number) => {
+      const r = claimPlates(wallet, day, streak);
+      wallet = r.wallet;
+      return wait({ wallet: purse(wallet), gained: r.gained, bonus: r.bonus });
     },
   };
 })();
