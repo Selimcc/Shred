@@ -1,0 +1,3000 @@
+/* ==========================================================================
+   Fêtes : thèmes (jetons de couleur), décor, Pulse déguisé, scènes de la
+   troupe, réglages et labo des admins. Chargé après styles.css.
+   ========================================================================== */
+
+/* ---------- Thèmes de saison ---------- */
+/* Chaque fête redéfinit les jetons de couleur ; les règles communes plus bas s'en servent pour les boutons,
+   la barre d'onglets, les feuilles et la lueur d'ambiance. */
+
+html[data-season='halloween'] {
+  --bg: #0f0b12;
+  --surface: #19131c;
+  --surface-2: #241b28;
+  --surface-3: #2f2434;
+  --line: rgba(255, 214, 170, 0.07);
+  --line-2: rgba(255, 214, 170, 0.13);
+  --ink: #f6efe6;
+  --ink-2: #b6a89d;
+  --ink-3: #7c6e71;
+  --amber: #ff8a1f;
+  --amber-soft: rgba(255, 138, 31, 0.15);
+  --flame-2: #ffb45c;
+  --flame-deep: #e0640b;
+  --glacier: #b48cff;
+  --glacier-soft: rgba(180, 140, 255, 0.14);
+  --mint: #8be36b;
+  --mint-soft: rgba(139, 227, 107, 0.13);
+  --rose: #ff4d5e;
+  --rose-soft: rgba(255, 77, 94, 0.14);
+  --gold: #ffc94d;
+  --gold-soft: rgba(255, 201, 77, 0.14);
+  --purple: #c8a2ff;
+  --on-accent: #1a0f08;
+  --veil: rgba(15, 11, 18, 0.96);
+  --sheen: linear-gradient(180deg, rgba(255, 170, 90, 0.05), rgba(255, 170, 90, 0) 46%);
+  --s-btn-a: #ffb35c;
+  --s-btn-b: #ff7a1a;
+  --s-btn-ink: #1a0f08;
+  --s-btn-glow: rgba(255, 122, 26, 0.7);
+  --s-tab: rgba(26, 18, 28, 0.86);
+  --s-pill: rgba(255, 138, 31, 0.18);
+  --s-tab-ink: #ffb35c;
+  --s-sheet: #1d1520;
+  --s-ambient:
+    radial-gradient(42% 26% at 94% -2%, rgba(255, 236, 200, 0.1), transparent 70%),
+    radial-gradient(60% 34% at -8% 12%, rgba(155, 107, 255, 0.1), transparent 70%),
+    radial-gradient(90% 40% at 50% 112%, rgba(255, 122, 26, 0.1), transparent 70%);
+}
+
+html[data-season='noel'] {
+  --bg: #0b1214;
+  --surface: #131c1f;
+  --surface-2: #1b2629;
+  --surface-3: #253235;
+  --line: rgba(220, 240, 255, 0.07);
+  --line-2: rgba(220, 240, 255, 0.13);
+  --ink: #f3f6f8;
+  --ink-2: #a3b1b6;
+  --ink-3: #6b7b80;
+  --amber: #ffcf6b;
+  --amber-soft: rgba(255, 207, 107, 0.14);
+  --flame-2: #ffe2a0;
+  --glacier: #9fd4ff;
+  --glacier-soft: rgba(159, 212, 255, 0.13);
+  --mint: #4fd18b;
+  --mint-soft: rgba(79, 209, 139, 0.14);
+  --rose: #ff4d5e;
+  --rose-soft: rgba(255, 77, 94, 0.14);
+  --gold: #ffd166;
+  --purple: #c5b4ff;
+  --veil: rgba(11, 18, 20, 0.96);
+  --sheen: linear-gradient(180deg, rgba(220, 240, 255, 0.05), rgba(220, 240, 255, 0) 46%);
+  --s-btn-a: #ff5f6f;
+  --s-btn-b: #d62839;
+  --s-btn-ink: #ffffff;
+  --s-btn-glow: rgba(232, 56, 79, 0.7);
+  --s-tab: rgba(14, 22, 24, 0.86);
+  --s-pill: rgba(232, 56, 79, 0.2);
+  --s-tab-ink: #ffffff;
+  --s-sheet: #16211f;
+  --s-ambient:
+    radial-gradient(60% 30% at 50% -6%, rgba(255, 207, 107, 0.08), transparent 70%),
+    radial-gradient(55% 34% at -8% 30%, rgba(79, 209, 139, 0.07), transparent 70%),
+    radial-gradient(55% 34% at 108% 60%, rgba(232, 56, 79, 0.06), transparent 70%),
+    radial-gradient(90% 40% at 50% 112%, rgba(159, 212, 255, 0.08), transparent 70%);
+}
+
+html[data-season='nouvel-an'] {
+  --bg: #0e0d12;
+  --surface: #17151d;
+  --surface-2: #211e28;
+  --surface-3: #2c2834;
+  --line: rgba(255, 220, 150, 0.07);
+  --line-2: rgba(255, 220, 150, 0.13);
+  --ink: #f7f3ea;
+  --ink-2: #b4ac9d;
+  --ink-3: #787066;
+  --amber: #f5c451;
+  --amber-soft: rgba(245, 196, 81, 0.14);
+  --flame-2: #ffe08a;
+  --gold: #ffe08a;
+  --gold-soft: rgba(255, 224, 138, 0.14);
+  --glacier: #c9a7ff;
+  --glacier-soft: rgba(201, 167, 255, 0.14);
+  --mint: #6fdcb0;
+  --rose: #ff6b8b;
+  --purple: #c9a7ff;
+  --on-accent: #1a1608;
+  --veil: rgba(14, 13, 18, 0.96);
+  --sheen: linear-gradient(180deg, rgba(255, 224, 160, 0.05), rgba(255, 224, 160, 0) 46%);
+  --s-btn-a: #ffe9a8;
+  --s-btn-b: #e5b443;
+  --s-btn-ink: #1a1608;
+  --s-btn-glow: rgba(245, 196, 81, 0.7);
+  --s-tab: rgba(22, 20, 28, 0.86);
+  --s-pill: rgba(245, 196, 81, 0.18);
+  --s-tab-ink: #ffe08a;
+  --s-sheet: #1b1922;
+  --s-ambient:
+    radial-gradient(50% 30% at 80% -4%, rgba(245, 196, 81, 0.11), transparent 70%),
+    radial-gradient(55% 32% at 0% 10%, rgba(201, 167, 255, 0.09), transparent 70%),
+    radial-gradient(90% 40% at 50% 112%, rgba(245, 196, 81, 0.06), transparent 70%);
+}
+
+html[data-season='saint-valentin'] {
+  --bg: #130c10;
+  --surface: #1d1318;
+  --surface-2: #281a21;
+  --surface-3: #33222b;
+  --line: rgba(255, 200, 220, 0.07);
+  --line-2: rgba(255, 200, 220, 0.13);
+  --ink: #fbf0f3;
+  --ink-2: #c1a6af;
+  --ink-3: #866c75;
+  --amber: #ff9a76;
+  --amber-soft: rgba(255, 154, 118, 0.14);
+  --rose: #ff4d7d;
+  --rose-soft: rgba(255, 77, 125, 0.15);
+  --glacier: #c3a2ff;
+  --glacier-soft: rgba(195, 162, 255, 0.14);
+  --mint: #6fdcb0;
+  --gold: #ffcf86;
+  --purple: #d6b8ff;
+  --veil: rgba(19, 12, 16, 0.96);
+  --sheen: linear-gradient(180deg, rgba(255, 180, 210, 0.05), rgba(255, 180, 210, 0) 46%);
+  --s-btn-a: #ff8fab;
+  --s-btn-b: #ff4d7d;
+  --s-btn-ink: #ffffff;
+  --s-btn-glow: rgba(255, 77, 125, 0.7);
+  --s-tab: rgba(28, 16, 22, 0.86);
+  --s-pill: rgba(255, 77, 125, 0.2);
+  --s-tab-ink: #ffb3c7;
+  --s-sheet: #21151b;
+  --s-ambient:
+    radial-gradient(55% 30% at 90% -4%, rgba(255, 77, 125, 0.12), transparent 70%),
+    radial-gradient(55% 32% at -6% 18%, rgba(195, 162, 255, 0.08), transparent 70%),
+    radial-gradient(90% 40% at 50% 112%, rgba(255, 143, 171, 0.08), transparent 70%);
+}
+
+html[data-season='paques'] {
+  --bg: #0f1316;
+  --surface: #171d21;
+  --surface-2: #20282d;
+  --surface-3: #2a3339;
+  --line: rgba(220, 255, 230, 0.07);
+  --line-2: rgba(220, 255, 230, 0.13);
+  --ink: #f3f7f2;
+  --ink-2: #a9b4ac;
+  --ink-3: #6f7b74;
+  --amber: #ffd36e;
+  --amber-soft: rgba(255, 211, 110, 0.14);
+  --mint: #7fe0a8;
+  --mint-soft: rgba(127, 224, 168, 0.14);
+  --glacier: #a7c8ff;
+  --rose: #ff8fa3;
+  --gold: #ffe08a;
+  --purple: #cdb4ff;
+  --on-accent: #1a1a0c;
+  --veil: rgba(15, 19, 22, 0.96);
+  --sheen: linear-gradient(180deg, rgba(220, 255, 230, 0.05), rgba(220, 255, 230, 0) 46%);
+  --s-btn-a: #fff3b8;
+  --s-btn-b: #ffd36e;
+  --s-btn-ink: #1a1a0c;
+  --s-btn-glow: rgba(255, 211, 110, 0.65);
+  --s-tab: rgba(20, 26, 30, 0.86);
+  --s-pill: rgba(127, 224, 168, 0.18);
+  --s-tab-ink: #c8f2d6;
+  --s-sheet: #19211f;
+  --s-ambient:
+    radial-gradient(55% 30% at 88% -4%, rgba(255, 211, 110, 0.1), transparent 70%),
+    radial-gradient(55% 32% at -6% 16%, rgba(205, 180, 255, 0.09), transparent 70%),
+    radial-gradient(90% 40% at 50% 112%, rgba(127, 224, 168, 0.08), transparent 70%);
+}
+
+/* Règles communes à toutes les fêtes. */
+html[data-season] body::before {
+  background: var(--s-ambient);
+}
+html[data-season] .btn.primary,
+html[data-season] .btn.go,
+html[data-season] .focus-cta {
+  background: linear-gradient(180deg, var(--s-btn-a), var(--s-btn-b));
+  color: var(--s-btn-ink);
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 10px 26px -14px var(--s-btn-glow);
+}
+html[data-season] .btn.primary:active:not(:disabled),
+html[data-season] .btn.go:active:not(:disabled) {
+  background: var(--s-btn-b);
+}
+html[data-season] .focus-cta .small {
+  color: color-mix(in srgb, var(--s-btn-ink) 68%, transparent);
+}
+html[data-season] .focus-cta-play {
+  background: var(--s-btn-ink);
+  color: var(--s-btn-b);
+}
+html[data-season] .tabbar nav {
+  background: var(--s-tab);
+}
+html[data-season] .tab.active {
+  color: var(--s-tab-ink);
+}
+html[data-season] .tab.active .pill {
+  background: var(--s-pill);
+}
+html[data-season] .sheet {
+  background: linear-gradient(180deg, var(--s-sheet), var(--bg) 30%);
+}
+html[data-season] .focus,
+html[data-season] .recap {
+  background: var(--bg);
+}
+html[data-season] .hero-title {
+  background: linear-gradient(180deg, #ffffff 30%, color-mix(in srgb, var(--s-btn-a) 55%, #c9ccd2));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+html[data-season] :focus-visible {
+  outline-color: var(--s-btn-b);
+}
+
+/* ---------- Décor des fêtes (v0.27) ---------- */
+/* Derrière le contenu : le ciel, le paysage en silhouette au-dessus des onglets, ce qui flotte. Devant (sous
+   la barre d'onglets) : quelques éléments proches. Tout bouge en transform / opacity ; en pause quand une
+   feuille ou un plein écran est ouvert (html[data-overlay], posé par lib/motion.ts). */
+
+.season-layer,
+.season-front {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.season-front {
+  z-index: 15;
+}
+html[data-overlay] .season-layer *,
+html[data-overlay] .season-front *,
+html[data-overlay] .sl-garland2 *,
+html[data-overlay] .season-layer *::before,
+html[data-overlay] .season-layer *::after {
+  animation-play-state: paused !important;
+}
+
+/* Étoiles qui scintillent. */
+.sl-stars i {
+  position: absolute;
+  width: calc(2px * var(--s));
+  height: calc(2px * var(--s));
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 calc(4px * var(--s)) rgba(255, 255, 255, 0.7);
+  opacity: 0.2;
+  animation: star-tw 4s ease-in-out infinite;
+}
+.sl-stars.warm i {
+  background: #fff3dc;
+  box-shadow: 0 0 calc(4px * var(--s)) rgba(255, 214, 170, 0.6);
+}
+@keyframes star-tw {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}
+
+/* Ce qui tombe ou qui monte : chaque élément a sa taille, sa dérive, sa durée (posées par le composant). */
+.sl-drift i {
+  position: absolute;
+  top: -24px;
+  width: var(--size);
+  height: var(--size);
+  opacity: var(--o);
+  animation: drift-fall 14s linear infinite;
+}
+@keyframes drift-fall {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(var(--sway), 52vh, 0) rotate(calc(var(--spin) / 2));
+  }
+  100% {
+    transform: translate3d(0, calc(100vh + 40px), 0) rotate(var(--spin));
+  }
+}
+@keyframes drift-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  12% {
+    opacity: var(--o);
+  }
+  50% {
+    transform: translate3d(var(--sway), -40vh, 0);
+  }
+  80% {
+    opacity: var(--o);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -78vh, 0);
+  }
+}
+@keyframes petal-fall {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg);
+  }
+  25% {
+    transform: translate3d(calc(var(--sway) * 0.6), 26vh, 0) rotate(calc(var(--spin) * 0.25)) rotateX(150deg);
+  }
+  50% {
+    transform: translate3d(var(--sway), 52vh, 0) rotate(calc(var(--spin) * 0.5)) rotateX(40deg);
+  }
+  75% {
+    transform: translate3d(calc(var(--sway) * 0.4), 78vh, 0) rotate(calc(var(--spin) * 0.75)) rotateX(220deg);
+  }
+  100% {
+    transform: translate3d(0, calc(100vh + 40px), 0) rotate(var(--spin)) rotateX(360deg);
+  }
+}
+
+/* Neige : trois profondeurs. Loin, de petits points nets ; au milieu, des flocons doux ; devant, quelques
+   gros flocons flous qui passent sur le contenu. */
+.sl-drift.snow i {
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 40%, rgba(255, 255, 255, 0) 72%);
+}
+.sl-drift.snow.far i {
+  background: #e8f3ff;
+}
+.sl-drift.snow.near i {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 26%, rgba(255, 255, 255, 0.35) 48%, rgba(255, 255, 255, 0) 70%);
+}
+
+/* Braises d'Halloween et paillettes du Nouvel an : elles montent du paysage en vacillant. */
+.sl-drift.ember i,
+.sl-drift.spark i {
+  top: auto;
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 30px);
+  border-radius: 50%;
+  animation-name: drift-rise;
+}
+/* Le halo est dans le dégradé de la braise elle-même : un halo animé à part, imbriqué dans une braise qui
+   monte, obligerait le navigateur à recalculer la page à chaque image. */
+.sl-drift.ember i,
+.sl-drift.spark i {
+  width: calc(var(--size) * 3);
+  height: calc(var(--size) * 3);
+  margin-left: calc(var(--size) * -1);
+}
+.sl-drift.ember i {
+  background: radial-gradient(circle, #fff1c4 0 8%, #ff8a1f 17%, rgba(255, 138, 31, 0.28) 26%, rgba(255, 138, 31, 0) 50%);
+}
+.sl-drift.spark i {
+  background: radial-gradient(circle, #fffbe6 0 8%, #ffd166 17%, rgba(255, 209, 102, 0.25) 26%, rgba(255, 209, 102, 0) 50%);
+}
+
+/* Pétales de Pâques, pétales de rose de la Saint-Valentin : ils tombent en se retournant. */
+.sl-drift.petal i,
+.sl-drift.rose i {
+  height: calc(var(--size) * 1.3);
+  border-radius: 100% 0 100% 0 / 100% 0 100% 0;
+  animation-name: petal-fall;
+}
+.sl-drift.petal i {
+  background: linear-gradient(135deg, #ffffff, #ffc2d1);
+}
+.sl-drift.petal i:nth-child(3n) {
+  background: linear-gradient(135deg, #fff9e0, #ffe08a);
+}
+.sl-drift.petal i:nth-child(4n) {
+  background: linear-gradient(135deg, #f4efff, #d8c8ff);
+}
+.sl-drift.rose i {
+  background: linear-gradient(135deg, #ff8fab, #c2185b 85%);
+  box-shadow: inset 2px 2px 3px rgba(255, 255, 255, 0.25);
+}
+
+/* Le paysage : posé juste au-dessus de la barre d'onglets, sa base descend sous elle. */
+.sl-ground {
+  position: absolute;
+  left: 0;
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 4px);
+  width: 100%;
+  height: 150px;
+  overflow: visible;
+}
+/* Fenêtres et lanternes : deux calques de lumière posés sur le paysage, qui vacillent à leur rythme. */
+.sl-ground.lights {
+  animation: win-flick 6s steps(1, end) infinite;
+}
+.sl-ground.lights.l1 {
+  animation-duration: 8.5s;
+  animation-delay: -3s;
+}
+@keyframes win-flick {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  38% {
+    opacity: 0.55;
+  }
+  42% {
+    opacity: 1;
+  }
+  71% {
+    opacity: 0.75;
+  }
+}
+
+/* ----- Halloween : lune voilée, toile, araignée, cimetière et maison hantée, brume, braises ----- */
+.sl-moon2 {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) - 30px);
+  right: -34px;
+  width: 156px;
+  height: 156px;
+}
+.sl-moon2 .halo {
+  position: absolute;
+  inset: -70px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 236, 200, 0.16), rgba(255, 236, 200, 0.05) 60%, transparent);
+}
+.sl-moon2 .disc {
+  position: absolute;
+  inset: 16px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 38%, rgba(110, 80, 50, 0.2) 0 8%, transparent 9%),
+    radial-gradient(circle at 62% 64%, rgba(110, 80, 50, 0.16) 0 6%, transparent 7%),
+    radial-gradient(circle at 50% 24%, rgba(110, 80, 50, 0.14) 0 4%, transparent 5%),
+    radial-gradient(circle at 70% 40%, rgba(110, 80, 50, 0.12) 0 3%, transparent 4%),
+    radial-gradient(circle at 40% 66%, #fff8e6, #f0d9a8 68%, #d9b97a);
+  opacity: 0.32;
+  box-shadow: 0 0 46px rgba(255, 236, 200, 0.22);
+}
+.sl-moon2 .cloud {
+  position: absolute;
+  left: -110px;
+  top: 76px;
+  width: 210px;
+  animation: cloud-pass 52s linear infinite;
+}
+@keyframes cloud-pass {
+  from {
+    transform: translateX(-80px);
+  }
+  to {
+    transform: translateX(300px);
+  }
+}
+.sl-web2 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 150px;
+  height: 150px;
+  color: rgba(246, 239, 230, 0.13);
+}
+.sl-spider2 {
+  position: absolute;
+  top: 0;
+  left: 98px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #2a2030;
+  animation: spider-drop2 11s ease-in-out infinite;
+}
+.sl-spider2 i {
+  width: 1px;
+  height: 150px;
+  background: linear-gradient(rgba(246, 239, 230, 0.04), rgba(246, 239, 230, 0.26));
+}
+.sl-spider2 svg {
+  width: 22px;
+  margin-top: -4px;
+  filter: drop-shadow(0 0 4px rgba(255, 138, 31, 0.4));
+}
+@keyframes spider-drop2 {
+  0%,
+  100% {
+    transform: translateY(-96px);
+  }
+  38% {
+    transform: translateY(0);
+  }
+  46% {
+    transform: translateY(-12px);
+  }
+  54% {
+    transform: translateY(-2px);
+  }
+  72% {
+    transform: translateY(-6px);
+  }
+}
+.sl-fog2 {
+  position: absolute;
+  left: -30%;
+  width: 160%;
+  height: 220px;
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) - 70px);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(180, 140, 255, 0.11), transparent 70%);
+  animation: fog-drift2 30s ease-in-out infinite alternate;
+}
+.sl-fog2.b {
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) - 110px);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(255, 138, 31, 0.08), transparent 70%);
+  animation-duration: 38s;
+  animation-direction: alternate-reverse;
+}
+@keyframes fog-drift2 {
+  from {
+    transform: translate3d(-12%, 0, 0);
+  }
+  to {
+    transform: translate3d(14%, -10px, 0);
+  }
+}
+/* Chauves-souris : chacune traverse l'écran en six secondes, puis disparaît jusqu'au tour suivant. */
+.sl-bat2 {
+  position: absolute;
+  left: 100%;
+  width: calc(54px * var(--s));
+  animation: bat-cross 24s linear infinite backwards;
+}
+.sl-bat2 .bob {
+  animation: bat-bob 0.9s ease-in-out infinite alternate;
+}
+.bat-body {
+  position: relative;
+  aspect-ratio: 64 / 30;
+}
+.bat-body::before {
+  content: '';
+  position: absolute;
+  inset: -40% -10%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(180, 140, 255, 0.16), transparent);
+}
+.bat-body svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+/* Battement : chaque aile tourne autour de l'épaule (calques composés). */
+.bat-wing {
+  animation: bat-flap-l 0.3s ease-in-out infinite alternate;
+}
+.bat-wing.l {
+  transform-origin: 46.9% 40%;
+}
+.bat-wing.r {
+  transform-origin: 53.1% 40%;
+  animation-name: bat-flap-r;
+}
+@keyframes bat-flap-l {
+  to {
+    transform: scaleY(0.3) rotate(6deg);
+  }
+}
+@keyframes bat-flap-r {
+  to {
+    transform: scaleY(0.3) rotate(-6deg);
+  }
+}
+@keyframes bat-bob {
+  to {
+    transform: translateY(-9px);
+  }
+}
+@keyframes bat-cross {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  8% {
+    transform: translate3d(-36vw, -30px, 0);
+  }
+  17% {
+    transform: translate3d(-72vw, 16px, 0);
+  }
+  25%,
+  100% {
+    transform: translate3d(calc(-100vw - 150px), -34px, 0);
+  }
+}
+
+/* ----- Noël : ciel étoilé, étoile filante, chalet et sapins enneigés, neige, guirlande ----- */
+.sl-shooting {
+  position: absolute;
+  top: 14%;
+  left: 72%;
+  width: 130px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #fff, rgba(255, 255, 255, 0));
+  opacity: 0;
+  transform-origin: 0 50%;
+  animation: shoot 19s ease-out 5s infinite;
+}
+@keyframes shoot {
+  0% {
+    opacity: 0;
+    transform: rotate(-22deg) translateX(0) scaleX(0.2);
+  }
+  1.5% {
+    opacity: 1;
+  }
+  6% {
+    opacity: 0;
+    transform: rotate(-22deg) translateX(-240px) scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(-22deg) translateX(-240px) scaleX(1);
+  }
+}
+.sl-garland2 {
+  position: fixed;
+  top: env(safe-area-inset-top);
+  left: 0;
+  right: 0;
+  height: 42px;
+  z-index: -1;
+  pointer-events: none;
+}
+.sl-garland2 > div {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat-x;
+  background-position: center top;
+  background-size: 140px 42px;
+}
+/* Trois groupes d'ampoules s'allument l'un après l'autre : la lumière court le long du fil. */
+.g-glow {
+  opacity: 0.2;
+  animation: chase 2.7s ease-in-out infinite;
+}
+.g-glow.b {
+  animation-delay: -0.9s;
+}
+.g-glow.c {
+  animation-delay: -1.8s;
+}
+@keyframes chase {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  30% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.35;
+  }
+}
+/* La guirlande prend le haut de l'écran : le contenu descend d'autant. */
+html[data-season='noel'] .app {
+  padding-top: calc(env(safe-area-inset-top) + 38px);
+}
+/* Neige posée sur la carte du jour et sur la barre d'onglets. */
+html[data-season='noel'] .today-hero::before,
+html[data-season='noel'] .tabbar nav::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: -7px;
+  height: 16px;
+  z-index: 1;
+  pointer-events: none;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='16' viewBox='0 0 120 16'><path d='M0 8 C6 1 14 1 20 6 C26 10 31 3 39 4 C47 5 50 11 58 9 C65 7 68 1 77 2 C86 3 88 10 96 9 C104 8 108 2 115 4 C118 5 120 7 120 8 L120 16 L0 16 Z' fill='%23f4f8fb'/><path d='M0 12 C20 9 40 13 60 11 C80 9 100 13 120 11 L120 16 L0 16 Z' fill='%23cfe2ee' opacity='0.6'/></svg>")
+    repeat-x left top / 120px 16px;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
+}
+html[data-season='noel'] .today-hero::before {
+  top: -1px;
+  left: 0;
+  right: 0;
+}
+
+/* ----- Nouvel an : feux d'artifice au loin au-dessus de la ville, paillettes qui montent ----- */
+.sl-fw {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.sl-fw .shell {
+  position: absolute;
+  left: -1.5px;
+  top: -1.5px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff6d6;
+  box-shadow: 0 0 6px 1px currentColor;
+  opacity: 0;
+  animation: fw-shell 7.4s ease-out var(--d) infinite;
+}
+.sl-fw .flash {
+  position: absolute;
+  left: -46px;
+  top: -46px;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, currentColor, transparent);
+  opacity: 0;
+  animation: fw-flash 7.4s ease-out var(--d) infinite;
+}
+.sl-fw i {
+  position: absolute;
+  left: -1.5px;
+  top: -1.5px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 5px currentColor;
+  opacity: 0;
+  animation: fw-spark 7.4s var(--d) infinite;
+}
+@keyframes fw-shell {
+  0% {
+    opacity: 0;
+    transform: translateY(34vh);
+  }
+  2% {
+    opacity: 1;
+  }
+  16% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  17%,
+  100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+@keyframes fw-flash {
+  0%,
+  16% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  18% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  32%,
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+@keyframes fw-spark {
+  0%,
+  16% {
+    opacity: 0;
+    transform: translateY(0) rotate(var(--a)) translateY(0) scale(1);
+  }
+  17% {
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.1, 0.8, 0.3, 1);
+  }
+  34% {
+    opacity: 0.95;
+    transform: translateY(4px) rotate(var(--a)) translateY(calc(var(--r) * -1)) scale(1);
+    animation-timing-function: ease-in;
+  }
+  54%,
+  100% {
+    opacity: 0;
+    transform: translateY(30px) rotate(var(--a)) translateY(calc(var(--r) * -1.1)) scale(0.4);
+  }
+}
+
+/* ----- Saint-Valentin : lumières floues, cœurs à deux profondeurs, pétales de rose devant ----- */
+.sl-bokeh i {
+  position: absolute;
+  width: var(--size);
+  height: var(--size);
+  margin: calc(var(--size) / -2);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--c), transparent);
+  animation: bokeh 36s ease-in-out infinite alternate;
+}
+@keyframes bokeh {
+  0% {
+    opacity: 0.35;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.65;
+  }
+  100% {
+    opacity: 0.4;
+    transform: translate3d(var(--dx), var(--dy), 0) scale(1.15);
+  }
+}
+.sl-hearts i {
+  position: absolute;
+  bottom: -34px;
+  width: var(--size);
+  opacity: 0.2;
+  animation: heart-rise 22s linear infinite;
+}
+.sl-hearts.near i {
+  opacity: 0.4;
+  filter: drop-shadow(0 2px 6px rgba(255, 77, 125, 0.35));
+}
+.sl-hearts svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+@keyframes heart-rise {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-10deg);
+  }
+  50% {
+    transform: translate3d(var(--sway), -55vh, 0) rotate(10deg);
+  }
+  100% {
+    transform: translate3d(0, calc(-100vh - 50px), 0) rotate(-10deg);
+  }
+}
+
+/* ----- Pâques : soleil aux rayons qui tournent, collines fleuries, pétales, papillons ----- */
+.sl-sun {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) - 100px);
+  right: -100px;
+  width: 280px;
+  height: 280px;
+}
+.sl-sun .rays {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 226, 140, 0.13) 0deg 6deg, transparent 6deg 18deg);
+  -webkit-mask: radial-gradient(closest-side, #000 25%, transparent 100%);
+  mask: radial-gradient(closest-side, #000 25%, transparent 100%);
+  animation: sun-spin 90s linear infinite;
+}
+.sl-sun .core {
+  position: absolute;
+  inset: 76px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 240, 180, 0.55), rgba(255, 211, 110, 0.2) 60%, transparent);
+}
+@keyframes sun-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.sl-fly {
+  position: absolute;
+  left: -70px;
+  width: calc(30px * var(--s));
+  animation: fly-cross 22s linear infinite backwards;
+}
+.sl-fly .bob {
+  animation: fly-bob 1.5s ease-in-out infinite alternate;
+}
+.fly-body {
+  position: relative;
+  height: calc(28px * var(--s));
+  perspective: 140px;
+}
+.fly-body .wing {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  animation: wing-l 0.17s ease-in-out infinite alternate;
+}
+.fly-body .wing.l {
+  left: 0;
+  transform-origin: 100% 50%;
+}
+.fly-body .wing.r {
+  right: 0;
+  transform-origin: 0% 50%;
+  animation-name: wing-r;
+}
+.fly-body i {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  width: 3px;
+  height: 58%;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: #3a2a1a;
+}
+@keyframes wing-l {
+  to {
+    transform: rotateY(72deg);
+  }
+}
+@keyframes wing-r {
+  to {
+    transform: rotateY(-72deg);
+  }
+}
+@keyframes fly-bob {
+  to {
+    transform: translateY(-16px) rotate(8deg);
+  }
+}
+@keyframes fly-cross {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  8% {
+    transform: translate3d(32vw, -44px, 0);
+  }
+  17% {
+    transform: translate3d(66vw, 18px, 0);
+  }
+  26%,
+  100% {
+    transform: translate3d(calc(100vw + 140px), -26px, 0);
+  }
+}
+
+/* Moins d'animations : le décor reste, immobile ; ce qui traverse l'écran n'apparaît pas. */
+@media (prefers-reduced-motion: reduce) {
+  .season-layer *,
+  .season-front *,
+  .sl-garland2 *,
+  .season-layer *::after {
+    animation: none !important;
+  }
+  .sl-bat2,
+  .sl-fly,
+  .sl-fw,
+  .sl-shooting,
+  .sl-drift.ember,
+  .sl-drift.spark {
+    display: none;
+  }
+  .sl-drift i,
+  .sl-hearts i {
+    transform: translateY(calc(var(--y, 30) * 1vh));
+  }
+  .sl-hearts i {
+    bottom: auto;
+    top: 0;
+  }
+}
+
+/* Pulse déguisé : chaque partie animée est un calque à part (voir Pulse.tsx). */
+.pulse-carve {
+  animation: flicker 3.2s ease-in-out infinite;
+}
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  18% {
+    opacity: 0.82;
+  }
+  22% {
+    opacity: 1;
+  }
+  57% {
+    opacity: 0.9;
+  }
+  61% {
+    opacity: 0.74;
+  }
+  64% {
+    opacity: 1;
+  }
+}
+.pulse-heart {
+  transform-origin: 82.5% 16.7%;
+  animation: heart-beat 1.6s ease-in-out infinite;
+}
+@keyframes heart-beat {
+  0%,
+  40%,
+  100% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(1.22);
+  }
+  28% {
+    transform: scale(1.06);
+  }
+}
+.pulse-ears {
+  transform-origin: 50% 24%;
+  animation: ears 5s ease-in-out infinite;
+}
+@keyframes ears {
+  0%,
+  86%,
+  100% {
+    transform: rotate(0deg);
+  }
+  90% {
+    transform: rotate(-4deg);
+  }
+  95% {
+    transform: rotate(3deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse-carve,
+  .pulse-heart,
+  .pulse-ears {
+    animation: none;
+  }
+}
+
+/* Réglages : cartes d'aperçu des thèmes, chacune dans les couleurs de sa fête. */
+.season-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 10px;
+}
+.season-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  color: #f6f2ee;
+  text-align: center;
+  overflow: hidden;
+  transition:
+    transform 0.2s var(--spring),
+    border-color 0.2s;
+}
+.season-card:active {
+  transform: scale(0.96);
+}
+.season-card b {
+  margin-top: 4px;
+  font-size: 1rem;
+  font-weight: 760;
+}
+.season-card .small {
+  color: rgba(255, 255, 255, 0.6);
+}
+.season-card.on {
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+}
+.season-card.on::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+.sc-halloween {
+  background:
+    radial-gradient(70% 60% at 50% 30%, rgba(255, 138, 31, 0.28), transparent 70%),
+    linear-gradient(180deg, #241828, #120c14);
+}
+.sc-noel {
+  background:
+    radial-gradient(3px 3px at 20% 30%, #fff 50%, transparent 51%),
+    radial-gradient(2px 2px at 78% 22%, #fff 50%, transparent 51%),
+    radial-gradient(2.5px 2.5px at 66% 70%, #fff 50%, transparent 51%),
+    radial-gradient(2px 2px at 14% 76%, #fff 50%, transparent 51%),
+    radial-gradient(70% 60% at 50% 30%, rgba(232, 56, 79, 0.25), transparent 70%),
+    linear-gradient(180deg, #16272a, #0b1214);
+}
+.sc-nouvel-an {
+  background:
+    radial-gradient(70% 60% at 50% 30%, rgba(245, 196, 81, 0.28), transparent 70%),
+    linear-gradient(180deg, #221f2c, #0e0d12);
+}
+.sc-saint-valentin {
+  background:
+    radial-gradient(70% 60% at 50% 30%, rgba(255, 77, 125, 0.3), transparent 70%),
+    linear-gradient(180deg, #2b1922, #130c10);
+}
+.sc-paques {
+  background:
+    radial-gradient(70% 60% at 50% 30%, rgba(255, 211, 110, 0.26), transparent 70%),
+    linear-gradient(180deg, #1d2a27, #0f1316);
+}
+
+/* ---------- Scènes de fête : la troupe de Pulse passe devant l'écran quelques secondes ---------- */
+
+.season-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  overflow: hidden;
+  pointer-events: none;
+}
+.season-scene svg {
+  display: block;
+  overflow: visible;
+}
+.season-scene > div > svg,
+.cupid svg,
+.cupid-arrow svg,
+.cupid-target svg,
+.cupid-burst svg {
+  width: 100%;
+}
+
+/* Saint-Valentin : Cupidon (une sphère de verre comme Pulse) arrive, ferme un œil pour viser, bande son arc,
+   la flèche traverse l'écran et transperce un cœur qui éclate. Dessin à l'échelle 224 / 276. */
+.cupid {
+  position: absolute;
+  left: 6vw;
+  top: 30vh;
+  width: 224px;
+  animation: cupid-path 6.2s ease-in-out both;
+}
+/* Lueur rose peinte une fois sous Cupidon (pas de filtre recalculé à chaque image). */
+.cupid::before {
+  content: '';
+  position: absolute;
+  inset: 4% 22% -6% 8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 77, 125, 0.2), transparent);
+}
+.cupid-bob {
+  position: relative;
+  aspect-ratio: 276 / 169;
+}
+/* Les calques de Cupidon, superposés exactement. */
+.cupid-l {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+/* Battement des ailes autour de chaque épaule (68, 72 et 124, 72 dans le dessin). */
+.cupid-wing.l {
+  transform-origin: 37.68% 44.97%;
+  animation: cupid-wing-l 0.42s ease-in-out infinite;
+}
+.cupid-wing.r {
+  transform-origin: 57.97% 44.97%;
+  animation: cupid-wing-r 0.42s ease-in-out infinite;
+}
+@keyframes cupid-wing-l {
+  0%,
+  100% {
+    transform: rotate(6deg);
+  }
+  50% {
+    transform: rotate(-16deg);
+  }
+}
+@keyframes cupid-wing-r {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(16deg);
+  }
+}
+@keyframes cupid-path {
+  0% {
+    transform: translate(-240px, 50px) rotate(8deg);
+  }
+  18%,
+  74% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  100% {
+    transform: translate(-260px, -320px) rotate(-14deg);
+  }
+}
+.cupid-bob {
+  animation: cupid-bob 1.1s ease-in-out infinite alternate;
+}
+@keyframes cupid-bob {
+  to {
+    transform: translateY(-7px);
+  }
+}
+.cupid-core {
+  animation: cupid-core 1.4s ease-in-out infinite alternate;
+}
+@keyframes cupid-core {
+  from {
+    opacity: 0.7;
+  }
+}
+.cupid-halo {
+  animation: cupid-core 2.2s ease-in-out infinite alternate;
+}
+.cupid-twinkle {
+  animation: cupid-twinkle 1.6s ease-in-out infinite;
+}
+.cupid-twinkle.t1 {
+  animation-delay: -0.8s;
+}
+@keyframes cupid-twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.cupid-eyes {
+  opacity: 0;
+}
+.cupid-eyes.open {
+  animation: eyes-open 6.2s both;
+}
+.cupid-eyes.aim {
+  animation: eyes-aim 6.2s both;
+}
+.cupid-eyes.happy {
+  animation: eyes-happy 6.2s both;
+}
+@keyframes eyes-open {
+  0%,
+  29% {
+    opacity: 1;
+  }
+  30%,
+  42% {
+    opacity: 0;
+  }
+  42.5%,
+  53% {
+    opacity: 1;
+  }
+  54%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes eyes-aim {
+  0%,
+  29% {
+    opacity: 0;
+  }
+  30%,
+  42% {
+    opacity: 1;
+  }
+  42.5%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes eyes-happy {
+  0%,
+  53% {
+    opacity: 0;
+  }
+  54%,
+  100% {
+    opacity: 1;
+  }
+}
+.cupid-held {
+  animation: cupid-draw 6.2s ease both;
+}
+@keyframes cupid-draw {
+  0%,
+  28% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40%,
+  42% {
+    transform: translateX(-7.25%);
+    opacity: 1;
+  }
+  42.5%,
+  100% {
+    transform: translateX(-7.25%);
+    opacity: 0;
+  }
+}
+.cupid-string.drawn {
+  opacity: 0;
+  animation: string-drawn 6.2s both;
+}
+.cupid-string.rest {
+  animation: string-rest 6.2s both;
+}
+@keyframes string-drawn {
+  0%,
+  31% {
+    opacity: 0;
+  }
+  33%,
+  42% {
+    opacity: 1;
+  }
+  42.5%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes string-rest {
+  0%,
+  31% {
+    opacity: 1;
+  }
+  33%,
+  42% {
+    opacity: 0;
+  }
+  42.5%,
+  100% {
+    opacity: 1;
+  }
+}
+.cupid-arrow {
+  position: absolute;
+  left: calc(6vw + 147.7px);
+  top: calc(30vh + 64.9px);
+  width: 74.7px;
+  opacity: 0;
+  animation: arrow-fly 6.2s both;
+}
+.arrow-trail {
+  animation: trail 6.2s both;
+}
+@keyframes trail {
+  0%,
+  42% {
+    opacity: 0;
+  }
+  44%,
+  50% {
+    opacity: 1;
+  }
+  52%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes arrow-fly {
+  0%,
+  42% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  42.5% {
+    opacity: 1;
+    transform: translateX(0);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.9, 0.6);
+  }
+  51%,
+  74% {
+    opacity: 1;
+    transform: translateX(calc(72vw - 155px));
+  }
+  78%,
+  100% {
+    opacity: 0;
+    transform: translateX(calc(72vw - 155px));
+  }
+}
+.cupid-target {
+  position: absolute;
+  left: 78vw;
+  top: calc(30vh + 43.5px);
+  width: 60px;
+  opacity: 0;
+  filter: drop-shadow(0 0 14px rgba(255, 77, 125, 0.7));
+  animation: cupid-target 6.2s ease both;
+}
+@keyframes cupid-target {
+  0%,
+  22% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  27% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  30%,
+  40%,
+  51% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  35%,
+  45% {
+    transform: scale(1.08);
+  }
+  54% {
+    transform: scale(1.32) rotate(-6deg);
+  }
+  58% {
+    transform: scale(1.05) rotate(3deg);
+  }
+  72% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  77%,
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+.cupid-burst {
+  position: absolute;
+  left: calc(78vw + 30px);
+  top: calc(30vh + 71.4px);
+}
+.cupid-burst i {
+  position: absolute;
+  width: calc(18px * var(--s, 1));
+  margin: calc(-9px * var(--s, 1));
+  opacity: 0;
+  animation: heart-burst 6.2s ease-out both;
+}
+@keyframes heart-burst {
+  0%,
+  74% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(0) scale(0.4);
+  }
+  76% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 0.9;
+    transform: rotate(var(--a)) translateY(-84px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(-98px) scale(0.8);
+  }
+}
+
+/* ----- La troupe : calques superposés, même boîte, animés séparément (voir SeasonCast.tsx) ----- */
+.actor {
+  position: absolute;
+}
+.actor .lay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+/* Traînées : deux calques d'étincelles qui scintillent en alternance. */
+.actor .trail {
+  animation: tw-s 0.5s ease-in-out infinite alternate;
+}
+.actor .trail.t1 {
+  animation-delay: -0.25s;
+}
+@keyframes tw-s {
+  from {
+    opacity: 0.25;
+  }
+}
+/* Ce que dit le personnage : une ligne, sans bulle, qui surgit et s'en va. */
+.scene-say {
+  position: absolute;
+  font-size: 1.08rem;
+  font-weight: 820;
+  letter-spacing: -0.01em;
+  color: #fff;
+  white-space: nowrap;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.6),
+    0 0 16px var(--say-glow, rgba(255, 209, 102, 0.8));
+  opacity: 0;
+}
+
+/* ----- Noël : le traîneau traverse le ciel en ondulant, Pulse salue, lâche un cadeau ----- */
+.sleigh2 {
+  left: 100%;
+  top: calc(env(safe-area-inset-top) + 8vh);
+  width: min(340px, 86vw);
+  aspect-ratio: 340 / 160;
+  animation: sleigh-path 8s linear both;
+}
+.sleigh2::before,
+.witch2::before,
+.sleigh2::after,
+.witch2::after {
+  z-index: -1;
+}
+.sleigh2::before,
+.witch2::before {
+  content: '';
+  position: absolute;
+  inset: -4% -2% -14% 8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(4, 6, 10, 0.5), rgba(4, 6, 10, 0.18) 65%, transparent);
+}
+.sleigh2::after,
+.witch2::after {
+  content: '';
+  position: absolute;
+  inset: 4% 12% 8% 40%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 209, 102, 0.22), transparent);
+}
+.witch2::after {
+  inset: -6% 30% 16% 14%;
+  background: radial-gradient(closest-side, rgba(255, 138, 31, 0.26), transparent);
+}
+@keyframes sleigh-path {
+  0% {
+    transform: translate3d(0, 46px, 0) rotate(-5deg);
+  }
+  20% {
+    transform: translate3d(calc(-24vw - 80px), 24px, 0) rotate(2deg);
+  }
+  46% {
+    transform: translate3d(calc(-50vw - 170px), 52px, 0) rotate(-1deg);
+  }
+  72% {
+    transform: translate3d(calc(-76vw - 250px), 18px, 0) rotate(3deg);
+  }
+  100% {
+    transform: translate3d(calc(-100vw - 370px), -80px, 0) rotate(-9deg);
+  }
+}
+.sleigh2 .deer {
+  animation: deer-gallop 0.46s ease-in-out infinite alternate;
+}
+.sleigh2 .deer.b {
+  animation-delay: -0.23s;
+}
+@keyframes deer-gallop {
+  from {
+    transform: translateY(-4%) rotate(-4deg);
+  }
+  to {
+    transform: translateY(3%) rotate(3deg);
+  }
+}
+.sleigh2 .reins {
+  animation: reins-bob 0.46s ease-in-out -0.12s infinite alternate;
+}
+@keyframes reins-bob {
+  from {
+    transform: translateY(-1.5%);
+  }
+  to {
+    transform: translateY(1.5%);
+  }
+}
+.sleigh2 .wave {
+  animation: wave 0.46s ease-in-out infinite alternate;
+}
+@keyframes wave {
+  from {
+    transform: rotate(-18deg);
+  }
+  to {
+    transform: rotate(16deg);
+  }
+}
+.sleigh2 .deer.nose {
+  animation:
+    deer-gallop 0.46s ease-in-out infinite alternate,
+    nose-glow 0.8s ease-in-out infinite alternate;
+}
+@keyframes nose-glow {
+  from {
+    opacity: 0.65;
+  }
+}
+.sleigh2 .eyes.open {
+  animation: sleigh-open 8s linear both;
+}
+.sleigh2 .eyes.happy {
+  opacity: 0;
+  animation: sleigh-happy 8s linear both;
+}
+@keyframes sleigh-open {
+  0%,
+  13%,
+  14.6%,
+  29% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  13.8% {
+    opacity: 1;
+    transform: scaleY(0.1);
+  }
+  29.5%,
+  62% {
+    opacity: 0;
+  }
+  62.5%,
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+@keyframes sleigh-happy {
+  0%,
+  29% {
+    opacity: 0;
+  }
+  29.5%,
+  62% {
+    opacity: 1;
+  }
+  62.5%,
+  100% {
+    opacity: 0;
+  }
+}
+.sleigh-say {
+  left: 52%;
+  top: -18%;
+  --say-glow: rgba(255, 77, 94, 0.85);
+  animation: say-noel 8s both;
+}
+@keyframes say-noel {
+  0%,
+  29% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.7) rotate(-6deg);
+  }
+  32% {
+    opacity: 1;
+    transform: translateY(0) scale(1.12) rotate(-6deg);
+  }
+  35%,
+  58% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(-6deg);
+  }
+  63%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95) rotate(-6deg);
+  }
+}
+/* Le cadeau : lâché au passage de la hotte, il tombe, rebondit au-dessus des onglets, puis s'efface. */
+.scene-noel {
+  --fall: calc(91vh - 236px - env(safe-area-inset-bottom) - env(safe-area-inset-top));
+}
+.gift-drop {
+  position: absolute;
+  left: calc(50vw + 88px);
+  top: calc(env(safe-area-inset-top) + 8vh + 110px);
+  width: 40px;
+  opacity: 0;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.45));
+  animation: gift-fall 8s both;
+}
+.gift-drop svg {
+  display: block;
+  width: 100%;
+}
+@keyframes gift-fall {
+  0%,
+  45% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  46% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(-6deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 0.6);
+  }
+  58% {
+    transform: translate3d(-58px, var(--fall), 0) rotate(-14deg) scale(1.14, 0.84);
+    animation-timing-function: cubic-bezier(0, 0.5, 0.5, 1);
+  }
+  62% {
+    transform: translate3d(-68px, calc(var(--fall) - 28px), 0) rotate(-5deg) scale(0.95, 1.06);
+    animation-timing-function: cubic-bezier(0.5, 0, 1, 0.5);
+  }
+  66% {
+    transform: translate3d(-73px, var(--fall), 0) rotate(2deg) scale(1.06, 0.93);
+    animation-timing-function: ease-out;
+  }
+  69% {
+    transform: translate3d(-75px, calc(var(--fall) - 8px), 0) rotate(0deg) scale(1);
+  }
+  72%,
+  90% {
+    opacity: 1;
+    transform: translate3d(-76px, var(--fall), 0) rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-76px, var(--fall), 0) scale(0.6);
+  }
+}
+.gift-sparks {
+  position: absolute;
+  left: calc(50vw + 88px + 20px - 76px);
+  top: calc(env(safe-area-inset-top) + 8vh + 110px + 36px);
+  transform: translate3d(0, var(--fall), 0);
+}
+.gift-sparks i {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px;
+  border-radius: 50%;
+  background: #ffd166;
+  box-shadow: 0 0 6px #ffd166;
+  opacity: 0;
+  animation: gift-spark 8s both;
+}
+.gift-sparks i:nth-child(2n) {
+  background: #fff;
+}
+@keyframes gift-spark {
+  0%,
+  57.5% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(0) scale(1);
+  }
+  58% {
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.1, 0.8, 0.3, 1);
+  }
+  66% {
+    opacity: 0.9;
+    transform: rotate(var(--a)) translateY(-34px) scale(0.9);
+  }
+  71%,
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(-40px) scale(0.3);
+  }
+}
+
+/* ----- Halloween : la citrouille-sorcière vole en vagues, cape au vent, le chat remue la queue ----- */
+.witch2 {
+  left: 100%;
+  top: calc(env(safe-area-inset-top) + 6vh);
+  width: min(290px, 76vw);
+  aspect-ratio: 290 / 170;
+  animation: witch-path 7s linear both;
+}
+@keyframes witch-path {
+  0% {
+    transform: translate3d(0, 54px, 0) rotate(-6deg);
+  }
+  22% {
+    transform: translate3d(calc(-28vw - 70px), 6px, 0) rotate(5deg);
+  }
+  46% {
+    transform: translate3d(calc(-52vw - 140px), 50px, 0) rotate(-4deg);
+  }
+  70% {
+    transform: translate3d(calc(-75vw - 210px), 12px, 0) rotate(5deg);
+  }
+  100% {
+    transform: translate3d(calc(-100vw - 330px), -70px, 0) rotate(-11deg);
+  }
+}
+.witch2 .cape {
+  animation: cape-flap 0.32s ease-in-out infinite alternate;
+}
+@keyframes cape-flap {
+  to {
+    transform: scaleX(1.08) skewY(5deg);
+  }
+}
+.witch2 .tail {
+  animation: tail-swish 0.66s ease-in-out infinite alternate;
+}
+@keyframes tail-swish {
+  from {
+    transform: rotate(-12deg);
+  }
+  to {
+    transform: rotate(16deg);
+  }
+}
+.witch2 .carve {
+  animation: carve-flicker 1.5s ease-in-out infinite;
+}
+@keyframes carve-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  18% {
+    opacity: 0.76;
+  }
+  22% {
+    opacity: 1;
+  }
+  58% {
+    opacity: 0.86;
+  }
+  62% {
+    opacity: 0.66;
+  }
+  66% {
+    opacity: 1;
+  }
+}
+.witch2 .cat-eyes {
+  animation: cat-blink 7s linear both;
+}
+@keyframes cat-blink {
+  0%,
+  34%,
+  36%,
+  70%,
+  72%,
+  100% {
+    transform: scaleY(1);
+  }
+  35%,
+  71% {
+    transform: scaleY(0.1);
+  }
+}
+.witch-say {
+  left: 4%;
+  top: -14%;
+  color: #ffd2a1;
+  --say-glow: rgba(255, 138, 31, 0.95);
+  animation: say-witch 7s both;
+}
+@keyframes say-witch {
+  0%,
+  26% {
+    opacity: 0;
+    transform: scale(0.7) rotate(5deg);
+  }
+  29% {
+    opacity: 1;
+    transform: scale(1.14) rotate(5deg);
+  }
+  32%,
+  58% {
+    opacity: 1;
+    transform: scale(1) rotate(5deg);
+  }
+  64%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95) rotate(5deg);
+  }
+}
+
+/* ----- Nouvel an : Pulse surgit du bas, souffle dans sa langue de belle-mère, trois bouquets, l'année,
+   pluie de confettis, Pulse saute de joie et redescend ----- */
+.party {
+  left: 50%;
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) - 8px);
+  width: min(250px, 66vw);
+  aspect-ratio: 260 / 210;
+  margin-left: calc(min(250px, 66vw) / -2);
+  transform-origin: 50% 100%;
+  animation: party-pop 7.2s both;
+}
+@keyframes party-pop {
+  0% {
+    transform: translate3d(0, calc(100% + var(--tabbar) + 40px), 0);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+  11%,
+  50% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  54% {
+    transform: translate3d(0, -8%, 0) scale(0.97, 1.04);
+  }
+  58% {
+    transform: translate3d(0, 0, 0) scale(1.04, 0.96);
+  }
+  62% {
+    transform: translate3d(0, -5%, 0) scale(0.98, 1.02);
+  }
+  66%,
+  86% {
+    transform: translate3d(0, 0, 0) scale(1);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5);
+  }
+  100% {
+    transform: translate3d(0, calc(100% + var(--tabbar) + 40px), 0);
+  }
+}
+.party .horn.blow {
+  opacity: 0;
+  animation: horn-blow 7.2s both;
+}
+@keyframes horn-blow {
+  0%,
+  15.5% {
+    opacity: 0;
+    transform: scaleX(0.15) rotate(8deg);
+  }
+  16% {
+    opacity: 1;
+    transform: scaleX(0.15) rotate(8deg);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.3);
+  }
+  19% {
+    transform: scaleX(1) rotate(0deg);
+  }
+  23% {
+    opacity: 1;
+    transform: scaleX(0.96) rotate(-2deg);
+  }
+  25.5% {
+    opacity: 1;
+    transform: scaleX(0.15) rotate(8deg);
+  }
+  26%,
+  53.5% {
+    opacity: 0;
+    transform: scaleX(0.15) rotate(8deg);
+  }
+  54% {
+    opacity: 1;
+    transform: scaleX(0.15) rotate(8deg);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.3);
+  }
+  57% {
+    transform: scaleX(1) rotate(0deg);
+  }
+  61% {
+    opacity: 1;
+    transform: scaleX(0.97) rotate(-2deg);
+  }
+  63.5% {
+    opacity: 1;
+    transform: scaleX(0.15) rotate(8deg);
+  }
+  64%,
+  100% {
+    opacity: 0;
+    transform: scaleX(0.15) rotate(8deg);
+  }
+}
+.party .horn.coil {
+  animation: horn-coil 7.2s linear both;
+}
+@keyframes horn-coil {
+  0%,
+  15.5% {
+    opacity: 1;
+  }
+  16%,
+  25.5% {
+    opacity: 0;
+  }
+  26%,
+  53.5% {
+    opacity: 1;
+  }
+  54%,
+  63.5% {
+    opacity: 0;
+  }
+  64%,
+  100% {
+    opacity: 1;
+  }
+}
+.party .eyes.open {
+  animation: party-open 7.2s linear both;
+}
+.party .eyes.happy {
+  opacity: 0;
+  animation: party-happy 7.2s linear both;
+}
+@keyframes party-open {
+  0%,
+  15.5%,
+  26%,
+  49.5%,
+  88%,
+  100% {
+    opacity: 1;
+  }
+  16%,
+  25.5%,
+  50%,
+  87.5% {
+    opacity: 0;
+  }
+}
+@keyframes party-happy {
+  0%,
+  15.5%,
+  26%,
+  49.5%,
+  88%,
+  100% {
+    opacity: 0;
+  }
+  16%,
+  25.5%,
+  50%,
+  87.5% {
+    opacity: 1;
+  }
+}
+.party .sparkler {
+  animation: sparkler-sway 1.1s ease-in-out infinite alternate;
+}
+@keyframes sparkler-sway {
+  from {
+    transform: rotate(-6deg);
+  }
+  to {
+    transform: rotate(8deg);
+  }
+}
+.party .sparkler.sparks {
+  animation:
+    sparkler-sway 1.1s ease-in-out infinite alternate,
+    spark-flick 0.14s steps(2, end) infinite;
+}
+.party .sparkler.sparks.s1 {
+  animation-delay: 0s, -0.07s;
+}
+@keyframes spark-flick {
+  50% {
+    opacity: 0.15;
+  }
+}
+.party-say {
+  left: 70%;
+  top: 30%;
+  color: #ffe3ec;
+  --say-glow: rgba(255, 107, 139, 0.9);
+  animation: say-party 7.2s both;
+}
+@keyframes say-party {
+  0%,
+  16% {
+    opacity: 0;
+    transform: scale(0.6) rotate(-10deg);
+  }
+  18.5% {
+    opacity: 1;
+    transform: scale(1.18) rotate(-10deg);
+  }
+  21%,
+  24% {
+    opacity: 1;
+    transform: scale(1) rotate(-10deg);
+  }
+  27%,
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.9) rotate(-10deg);
+  }
+}
+/* La nuit tombe le temps du spectacle : les bouquets ressortent et l'année se lit. */
+.ny-dim {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 80% at 50% 30%, rgba(6, 5, 12, 0.66), rgba(6, 5, 12, 0.42));
+  opacity: 0;
+  animation: ny-dim 7.2s ease both;
+}
+@keyframes ny-dim {
+  0%,
+  18% {
+    opacity: 0;
+  }
+  28%,
+  84% {
+    opacity: 1;
+  }
+  97%,
+  100% {
+    opacity: 0;
+  }
+}
+/* Trois bouquets : une même animation, décalée pour chacun (--t). */
+.ny-shell {
+  position: absolute;
+  top: calc(100vh - var(--tabbar) - env(safe-area-inset-bottom) - 60px);
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: #fff6d6;
+  box-shadow: 0 0 10px 2px #ffd166;
+  opacity: 0;
+  animation: ny-rise 0.64s cubic-bezier(0.25, 0.6, 0.4, 1) var(--t) both;
+}
+.ny-shell::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 4px;
+  width: 2px;
+  height: 70px;
+  background: linear-gradient(#ffd166, transparent);
+}
+.ny-shell.s1,
+.ny-burst2.b1 {
+  --t: 1.85s;
+  --to: 22vh;
+  left: 22%;
+}
+.ny-shell.s2,
+.ny-burst2.b2 {
+  --t: 2.45s;
+  --to: 16vh;
+  left: 78%;
+}
+.ny-shell.s3,
+.ny-burst2.b3 {
+  --t: 3.15s;
+  --to: 27vh;
+  left: 50%;
+}
+@keyframes ny-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  4%,
+  96% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(calc(var(--to) - 100vh + var(--tabbar) + env(safe-area-inset-bottom) + 60px));
+  }
+}
+.ny-burst2 {
+  position: absolute;
+  top: var(--to);
+}
+.ny-burst2 .flash {
+  position: absolute;
+  left: -60px;
+  top: -60px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 243, 196, 0.8), rgba(255, 209, 102, 0.2) 60%, transparent);
+  opacity: 0;
+  animation: ny-flash 1.2s ease-out calc(var(--t) + 0.62s) both;
+}
+.ny-burst2.b3 .flash {
+  left: -100px;
+  top: -100px;
+  width: 200px;
+  height: 200px;
+}
+@keyframes ny-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  10% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+.ny-burst2 i {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  margin: -3px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 9px currentColor;
+  opacity: 0;
+  animation: ny-spark2 2.6s calc(var(--t) + 0.62s) both;
+}
+@keyframes ny-spark2 {
+  0% {
+    opacity: 0;
+    transform: translateY(0) rotate(var(--a)) translateY(0) scale(1.3);
+  }
+  1% {
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.1, 0.8, 0.3, 1);
+  }
+  28% {
+    opacity: 1;
+    transform: translateY(6px) rotate(var(--a)) translateY(calc(var(--r) * -1)) scale(1);
+    animation-timing-function: ease-in;
+  }
+  70% {
+    opacity: 0.7;
+    transform: translateY(38px) rotate(var(--a)) translateY(calc(var(--r) * -1.06)) scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(66px) rotate(var(--a)) translateY(calc(var(--r) * -1.08)) scale(0.3);
+  }
+}
+.ny-year2 {
+  position: absolute;
+  left: 50%;
+  top: 27vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  animation: ny-year2 7.2s both;
+}
+.ny-year2::before {
+  content: '';
+  position: absolute;
+  inset: -70px -150px;
+  z-index: -1;
+  background: radial-gradient(closest-side, rgba(8, 7, 12, 0.92) 50%, transparent);
+}
+.ny-year2 span {
+  color: #fff3c4;
+  font-weight: 720;
+  font-size: 0.95rem;
+}
+.ny-year2 b {
+  font-size: 5rem;
+  font-weight: 830;
+  font-stretch: 70%;
+  line-height: 1;
+  background: linear-gradient(100deg, #e5b443 30%, #fff9e6 46%, #e5b443 62%);
+  background-size: 260% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px rgba(245, 196, 81, 0.65));
+  animation: year-shine 1.5s ease-in-out 4.3s both;
+}
+@keyframes ny-year2 {
+  0%,
+  51% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  55% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+  59%,
+  84% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  93%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.04);
+  }
+}
+@keyframes year-shine {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -40% 0;
+  }
+}
+.ny-confetti i {
+  position: absolute;
+  top: -24px;
+  width: var(--w);
+  height: calc(var(--w) * 1.6);
+  border-radius: 1.5px;
+  opacity: 0;
+  animation: confetti-fall2 2.5s linear both;
+}
+@keyframes confetti-fall2 {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg);
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--x), 100vh, 0) rotate(var(--spin)) rotateX(720deg);
+  }
+}
+
+/* ----- Pâques : le lapin arrive en bondissant, dépose un œuf, repart ; l'œuf se fend, un poussin sort ----- */
+.bunny2 {
+  left: 0;
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 16px);
+  width: min(150px, 40vw);
+  aspect-ratio: 210 / 200;
+  animation: bunny-path 7.6s linear both;
+}
+.bunny2::after {
+  content: '';
+  position: absolute;
+  left: 22%;
+  right: 30%;
+  bottom: -3px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.45), transparent);
+}
+@keyframes bunny-path {
+  0% {
+    transform: translate3d(-110%, 0, 0);
+  }
+  30%,
+  46% {
+    transform: translate3d(calc(34vw - 50%), 0, 0);
+  }
+  76%,
+  100% {
+    transform: translate3d(calc(100vw + 10%), 0, 0);
+  }
+}
+.bunny2 .hop {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+  animation: bunny-hops 7.6s linear both;
+}
+.bunny2 .ear {
+  animation: bunny-ears 7.6s linear both;
+}
+.bunny2 .ear.r {
+  animation-delay: -0.05s;
+}
+.bunny2 .eyes.open {
+  animation: bunny-open 7.6s linear both;
+}
+.bunny2 .eyes.happy {
+  opacity: 0;
+  animation: bunny-happy 7.6s linear both;
+}
+@keyframes bunny-open {
+  0%,
+  20%,
+  21.4%,
+  37.5%,
+  48%,
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  20.7% {
+    opacity: 1;
+    transform: scaleY(0.1);
+  }
+  38%,
+  47.5% {
+    opacity: 0;
+  }
+}
+@keyframes bunny-happy {
+  0%,
+  37.5%,
+  48%,
+  100% {
+    opacity: 0;
+  }
+  38%,
+  47.5% {
+    opacity: 1;
+  }
+}
+.egg2 {
+  left: calc(34vw + 20px);
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 14px);
+  width: 56px;
+  aspect-ratio: 80 / 96;
+  opacity: 0;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.4));
+  animation: egg-life 7.6s both;
+}
+@keyframes egg-life {
+  0%,
+  35.5% {
+    opacity: 0;
+    transform: translate3d(0, -52px, 0);
+  }
+  36% {
+    opacity: 1;
+    transform: translate3d(0, -52px, 0);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.5);
+  }
+  40% {
+    transform: translate3d(0, 0, 0) scale(1.1, 0.88);
+    animation-timing-function: ease-out;
+  }
+  42% {
+    transform: translate3d(0, -6px, 0) scale(0.96, 1.05);
+  }
+  44%,
+  48% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  51% {
+    transform: rotate(-12deg);
+  }
+  54% {
+    transform: rotate(10deg);
+  }
+  57% {
+    transform: rotate(-6deg);
+  }
+  60%,
+  62% {
+    transform: rotate(0deg);
+  }
+  64% {
+    transform: rotate(-4deg);
+  }
+  65% {
+    transform: rotate(4deg);
+  }
+  66% {
+    transform: rotate(-3deg);
+  }
+  67%,
+  92% {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+.egg2 .crack {
+  transform-origin: 50% 48%;
+  animation: egg-crack 7.6s linear both;
+}
+@keyframes egg-crack {
+  0%,
+  63% {
+    transform: scale(0, 1);
+  }
+  65%,
+  69.5% {
+    transform: scale(1, 1);
+  }
+  70%,
+  100% {
+    transform: scale(1, 0);
+  }
+}
+.egg2 .shell-top {
+  animation: shell-pop 7.6s both;
+}
+@keyframes shell-pop {
+  0%,
+  69.5% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  71% {
+    transform: translate3d(0, -52%, 0) rotate(-26deg);
+    animation-timing-function: ease-out;
+  }
+  74%,
+  100% {
+    transform: translate3d(-3%, -38%, 0) rotate(-12deg);
+  }
+}
+.egg2 .chick {
+  animation: chick-pop 7.6s both;
+}
+@keyframes chick-pop {
+  0%,
+  69.5% {
+    transform: translate3d(0, 8%, 0);
+  }
+  71.5% {
+    transform: translate3d(0, -28%, 0) scale(0.96, 1.06);
+    animation-timing-function: ease-out;
+  }
+  74%,
+  100% {
+    transform: translate3d(0, -24%, 0) scale(1);
+  }
+}
+.egg-say {
+  left: 92%;
+  top: -46%;
+  color: #fff6c4;
+  --say-glow: rgba(255, 211, 110, 0.95);
+  animation: say-egg 7.6s both;
+}
+@keyframes say-egg {
+  0%,
+  71% {
+    opacity: 0;
+    transform: scale(0.6) rotate(8deg);
+  }
+  73.5% {
+    opacity: 1;
+    transform: scale(1.16) rotate(8deg);
+  }
+  76%,
+  88% {
+    opacity: 1;
+    transform: scale(1) rotate(8deg);
+  }
+  93%,
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.9) rotate(8deg);
+  }
+}
+
+/* ----- Le bouton de la fête, à côté de la date sur Aujourd'hui : il rejoue la scène ----- */
+.season-replay {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 10px 0 6px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--s-btn-b, #ffffff) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--s-btn-b, #ffffff) 30%, transparent);
+  color: var(--s-tab-ink, var(--ink));
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: transform 0.38s var(--spring);
+}
+/* Zone de toucher de 44 px sans grossir la pastille. */
+.season-replay::after {
+  content: '';
+  position: absolute;
+  inset: -9px -4px;
+}
+.season-replay:active {
+  transform: scale(0.94);
+  transition-duration: 0.08s;
+}
+.season-replay svg {
+  flex: none;
+  overflow: visible;
+  animation: replay-nudge 9s ease-in-out 3s infinite;
+}
+@keyframes replay-nudge {
+  0%,
+  88%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  91% {
+    transform: rotate(-12deg) scale(1.12);
+  }
+  94% {
+    transform: rotate(9deg) scale(1.08);
+  }
+  97% {
+    transform: rotate(-4deg) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .season-scene,
+  .season-replay {
+    display: none;
+  }
+}
+
+@keyframes bunny-hops {
+  0% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  0.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  2.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  4.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  5% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  5.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  7.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  9.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  10% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  10.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  12.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  14.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  15% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  15.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  17.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  19.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  20% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  20.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  22.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  24.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  25% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  25.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  27.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  29.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  30% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  32% {
+    transform: translateY(0) scale(1);
+  }
+  36% {
+    transform: translateY(0) scale(1.03, 0.96) rotate(5deg);
+  }
+  39% {
+    transform: translateY(0) scale(1) rotate(5deg);
+  }
+  42% {
+    transform: translateY(-4%) scale(0.98, 1.03) rotate(0deg);
+  }
+  44% {
+    transform: translateY(0) scale(1);
+  }
+  46% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  46.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  48.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  50.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  51% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  51.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  53.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  55.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  56% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  56.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  58.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  60.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  61% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  61.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  63.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  65.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  66% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  66.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  68.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  70.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  71% {
+    transform: translateY(0) scale(1.07, 0.9);
+  }
+  71.8% {
+    transform: translateY(-7%) scale(0.94, 1.08);
+  }
+  73.5% {
+    transform: translateY(-30%) scale(1) rotate(-4deg);
+  }
+  75.3% {
+    transform: translateY(-5%) scale(0.97, 1.04) rotate(2deg);
+  }
+  76% {
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes bunny-ears {
+  0% {
+    transform: rotate(0deg);
+  }
+  1% {
+    transform: rotate(-16deg);
+  }
+  2.75% {
+    transform: rotate(7deg);
+  }
+  4.3% {
+    transform: rotate(-5deg);
+  }
+  5% {
+    transform: rotate(0deg);
+  }
+  6% {
+    transform: rotate(-16deg);
+  }
+  7.75% {
+    transform: rotate(7deg);
+  }
+  9.3% {
+    transform: rotate(-5deg);
+  }
+  10% {
+    transform: rotate(0deg);
+  }
+  11% {
+    transform: rotate(-16deg);
+  }
+  12.75% {
+    transform: rotate(7deg);
+  }
+  14.3% {
+    transform: rotate(-5deg);
+  }
+  15% {
+    transform: rotate(0deg);
+  }
+  16% {
+    transform: rotate(-16deg);
+  }
+  17.75% {
+    transform: rotate(7deg);
+  }
+  19.3% {
+    transform: rotate(-5deg);
+  }
+  20% {
+    transform: rotate(0deg);
+  }
+  21% {
+    transform: rotate(-16deg);
+  }
+  22.75% {
+    transform: rotate(7deg);
+  }
+  24.3% {
+    transform: rotate(-5deg);
+  }
+  25% {
+    transform: rotate(0deg);
+  }
+  26% {
+    transform: rotate(-16deg);
+  }
+  27.75% {
+    transform: rotate(7deg);
+  }
+  29.3% {
+    transform: rotate(-5deg);
+  }
+  30% {
+    transform: rotate(0deg);
+  }
+  36% {
+    transform: rotate(-6deg);
+  }
+  40% {
+    transform: rotate(4deg);
+  }
+  43% {
+    transform: rotate(-2deg);
+  }
+  45% {
+    transform: rotate(0deg);
+  }
+  46% {
+    transform: rotate(0deg);
+  }
+  47% {
+    transform: rotate(-16deg);
+  }
+  48.75% {
+    transform: rotate(7deg);
+  }
+  50.3% {
+    transform: rotate(-5deg);
+  }
+  51% {
+    transform: rotate(0deg);
+  }
+  52% {
+    transform: rotate(-16deg);
+  }
+  53.75% {
+    transform: rotate(7deg);
+  }
+  55.3% {
+    transform: rotate(-5deg);
+  }
+  56% {
+    transform: rotate(0deg);
+  }
+  57% {
+    transform: rotate(-16deg);
+  }
+  58.75% {
+    transform: rotate(7deg);
+  }
+  60.3% {
+    transform: rotate(-5deg);
+  }
+  61% {
+    transform: rotate(0deg);
+  }
+  62% {
+    transform: rotate(-16deg);
+  }
+  63.75% {
+    transform: rotate(7deg);
+  }
+  65.3% {
+    transform: rotate(-5deg);
+  }
+  66% {
+    transform: rotate(0deg);
+  }
+  67% {
+    transform: rotate(-16deg);
+  }
+  68.75% {
+    transform: rotate(7deg);
+  }
+  70.3% {
+    transform: rotate(-5deg);
+  }
+  71% {
+    transform: rotate(0deg);
+  }
+  72% {
+    transform: rotate(-16deg);
+  }
+  73.75% {
+    transform: rotate(7deg);
+  }
+  75.3% {
+    transform: rotate(-5deg);
+  }
+  76% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+/* Panneau admin : labo des fêtes. */
+.season-lab-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.season-lab-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  color: #f6f2ee;
+}
+.season-lab-pick .small {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.season-lab-pick.on {
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+}
+.season-lab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}

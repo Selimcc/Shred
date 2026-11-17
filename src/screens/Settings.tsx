@@ -331,7 +331,7 @@ function ThemePage() {
   return (
     <div className="stack">
       <p className="small muted" style={{ margin: 0 }}>
-        Aux fêtes, toute l’app change de couleurs, un décor s’installe en fond et Pulse se déguise. Le thème arrive et repart tout seul avec le calendrier.
+        Aux fêtes, toute l’app change de couleurs, un décor s’installe en fond et Pulse se déguise. Une fois par jour, sa troupe joue une courte scène sur Aujourd’hui ; la pastille de la fête, à côté de la date, la rejoue. Le thème arrive et repart tout seul avec le calendrier.
       </p>
       <div className="seg" role="group" aria-label="Thème de saison">
         <button type="button" className={pref !== 'off' ? 'on' : ''} onClick={() => set('auto')}>

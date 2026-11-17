@@ -76,6 +76,11 @@ export function useSeason(): SeasonId | null {
   return activeSeason(useApp(), dayKey());
 }
 
+/** Le jour J de la fête affichée : le décor est plus riche ce jour-là. */
+export function seasonPeak(season: SeasonId | null, day: string): boolean {
+  return season !== null && holidayOn(day) === season;
+}
+
 /** Le titre d'Aujourd'hui : le vœu le jour J de la fête affichée, sinon « Salut ». */
 export function greeting(season: SeasonId | null, today: string, name: string): string {
   const wish = season && holidayOn(today) === season ? SEASONS[season].wish : 'Salut';

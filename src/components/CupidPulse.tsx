@@ -1,9 +1,7 @@
 // Cupidon façon Pulse : la même sphère de verre fumé, la lumière rose à l'intérieur en forme de cœur, les yeux
 // lumineux (un œil se ferme pour viser), de vraies ailes à plumes, deux mains de verre qui tiennent un arc doré,
 // et un carquois dans le dos. Il tire une flèche qui transperce un cœur, puis s'envole. Dessin original.
-import type { CSSProperties } from 'react';
-
-const css = (o: Record<string, string | number>) => o as CSSProperties;
+import type { ReactNode } from 'react';
 
 export const HEART = 'M12 21s-8.5-5.4-10.6-10.3C-.1 5.8 3.5 1 7.8 1c2 0 3.4 1 4.2 2.4C12.8 2 14.2 1 16.2 1c4.3 0 7.9 4.8 6.4 9.7C20.5 15.6 12 21 12 21Z';
 
@@ -40,8 +38,6 @@ const COVERTS: [number, number, number][] = [
 function Wing({ id }: { id: string }) {
   return (
     <g>
-      {/* Battement : une rotation autour de l'épaule (SMIL, coordonnées locales). */}
-      <animateTransform attributeName="transform" type="rotate" values="6 0 0;-16 0 0;6 0 0" dur="0.42s" repeatCount="indefinite" />
       {PRIMARIES.map(([x, y, a, l, w], i) => (
         <g key={`p${i}`} transform={`translate(${x} ${y}) rotate(${a})`}>
           <path d={feather(l, w)} fill={`url(#${id}feather)`} stroke="#eab3c4" strokeWidth="0.6" />
@@ -179,95 +175,134 @@ function Hand({ id, x, y }: { id: string; x: number; y: number }) {
   );
 }
 
+/** Un calque de Cupidon : tous partagent le même viewBox, superposés exactement (voir .cupid-l). */
+function L({ cls, children }: { cls?: string; children: ReactNode }) {
+  return (
+    <svg className={`cupid-l${cls ? ` ${cls}` : ''}`} viewBox="-36 -4 276 169" aria-hidden="true">
+      {children}
+    </svg>
+  );
+}
+
+/**
+ * Cupidon en calques : ce qui bouge (battement des ailes, lumière, yeux, corde, flèche encochée, paillettes)
+ * anime un calque entier ; le verre et ses flous ne sont dessinés qu'une fois.
+ */
 export function CupidPulse({ id }: { id: string }) {
   const u = (k: string) => `url(#${id}${k})`;
   return (
-    <svg viewBox="-36 -4 276 169" aria-hidden="true">
-      <CupidDefs id={id} />
-      <circle cx="96" cy="84" r="60" fill={u('halo')} className="cupid-halo" />
+    <>
+      <L cls="cupid-halo">
+        <CupidDefs id={id} />
+        <circle cx="96" cy="84" r="60" fill={u('halo')} />
+      </L>
 
-      {/* Ailes derrière la sphère : la droite est le miroir de la gauche. */}
-      <g transform="translate(68 72) rotate(22)">
-        <Wing id={id} />
-      </g>
-      <g transform="translate(124 72) scale(-1 1) rotate(22)">
-        <Wing id={id} />
-      </g>
+      {/* Ailes derrière la sphère : la droite est le miroir de la gauche ; chacune bat autour de l'épaule. */}
+      <L cls="cupid-wing l">
+        <g transform="translate(68 72) rotate(22)">
+          <Wing id={id} />
+        </g>
+      </L>
+      <L cls="cupid-wing r">
+        <g transform="translate(124 72) scale(-1 1) rotate(22)">
+          <Wing id={id} />
+        </g>
+      </L>
 
-      {/* Carquois dans le dos, deux flèches qui dépassent. */}
-      <g transform="rotate(-32 70 56)">
-        <path d="M64 20h4v18h-4z" fill={u('shaft')} />
-        <path d={HEART} transform="translate(60.5 12) scale(0.45)" fill={u('heart')} />
-        <path d="M72 16h4v22h-4z" fill={u('shaft')} />
-        <path d={HEART} transform="translate(68.5 8) scale(0.45)" fill={u('heart')} />
-        <rect x="58" y="34" width="24" height="44" rx="7" fill={u('leather')} />
-        <rect x="58" y="38" width="24" height="3.4" fill={u('gold')} />
-        <rect x="58" y="70" width="24" height="3.4" fill={u('gold')} />
-        <path d={HEART} transform="translate(65.6 50) scale(0.37)" fill="#ffd1dc" opacity="0.85" />
-      </g>
-
-      {/* La sphère, comme Pulse : verre fumé, lumière en cœur à l'intérieur, reflet. */}
-      <circle cx="96" cy="84" r="38" fill={u('glass')} />
-      <g clipPath={u('clip')}>
-        <circle className="cupid-core" cx="96" cy="92" r="32" fill={u('core')} filter={u('blur')} opacity="0.85" />
-        <path className="cupid-core" d={HEART} transform="translate(77.5 78) scale(1.55)" fill={u('core')} filter={u('soft')} />
-      </g>
-      <circle cx="96" cy="84" r="37.3" fill="none" stroke={u('rim')} strokeWidth="1.4" />
-      <path d="M68 73c4-13 15-21 28-21s24 8 28 21c-7-7-16-11-28-11s-21 4-28 11Z" fill={u('shine')} opacity="0.7" />
-      <ellipse cx="80" cy="96" rx="6" ry="3.2" fill="#ff8fab" opacity="0.45" filter={u('blur')} />
-      <ellipse cx="112" cy="96" rx="6" ry="3.2" fill="#ff8fab" opacity="0.45" filter={u('blur')} />
+      <L>
+        {/* Carquois dans le dos, deux flèches qui dépassent. */}
+        <g transform="rotate(-32 70 56)">
+          <path d="M64 20h4v18h-4z" fill={u('shaft')} />
+          <path d={HEART} transform="translate(60.5 12) scale(0.45)" fill={u('heart')} />
+          <path d="M72 16h4v22h-4z" fill={u('shaft')} />
+          <path d={HEART} transform="translate(68.5 8) scale(0.45)" fill={u('heart')} />
+          <rect x="58" y="34" width="24" height="44" rx="7" fill={u('leather')} />
+          <rect x="58" y="38" width="24" height="3.4" fill={u('gold')} />
+          <rect x="58" y="70" width="24" height="3.4" fill={u('gold')} />
+          <path d={HEART} transform="translate(65.6 50) scale(0.37)" fill="#ffd1dc" opacity="0.85" />
+        </g>
+        {/* La sphère, comme Pulse : verre fumé. */}
+        <circle cx="96" cy="84" r="38" fill={u('glass')} />
+      </L>
+      {/* La lumière en cœur, à l'intérieur, qui respire. */}
+      <L cls="cupid-core">
+        <g clipPath={u('clip')}>
+          <circle cx="96" cy="92" r="32" fill={u('core')} filter={u('blur')} opacity="0.85" />
+          <path d={HEART} transform="translate(77.5 78) scale(1.55)" fill={u('core')} filter={u('soft')} />
+        </g>
+      </L>
+      <L>
+        <circle cx="96" cy="84" r="37.3" fill="none" stroke={u('rim')} strokeWidth="1.4" />
+        <path d="M68 73c4-13 15-21 28-21s24 8 28 21c-7-7-16-11-28-11s-21 4-28 11Z" fill={u('shine')} opacity="0.7" />
+        <ellipse cx="80" cy="96" rx="6" ry="3.2" fill="#ff8fab" opacity="0.45" filter={u('blur')} />
+        <ellipse cx="112" cy="96" rx="6" ry="3.2" fill="#ff8fab" opacity="0.45" filter={u('blur')} />
+        <path d="M92 99q4 3 8 0" stroke="#ffd1dc" strokeOpacity="0.8" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+      </L>
 
       {/* Yeux : ouverts, un œil fermé pour viser, puis contents après le tir. */}
-      <g filter={u('glow')}>
-        <g className="cupid-eyes open" fill="#ffffff">
+      <L cls="cupid-eyes open">
+        <g filter={u('glow')} fill="#ffffff">
           <rect x="81.5" y="75" width="8" height="14" rx="4" />
           <rect x="102.5" y="75" width="8" height="14" rx="4" />
         </g>
-        <g className="cupid-eyes aim">
+      </L>
+      <L cls="cupid-eyes aim">
+        <g filter={u('glow')}>
           <path d="M80.5 83q5 3 10 0" stroke="#ffffff" strokeWidth="3.4" fill="none" strokeLinecap="round" />
           <rect x="102.5" y="74" width="8" height="15" rx="4" fill="#ffffff" />
         </g>
-        <g className="cupid-eyes happy" stroke="#ffffff" strokeWidth="3.6" fill="none" strokeLinecap="round">
+      </L>
+      <L cls="cupid-eyes happy">
+        <g filter={u('glow')} stroke="#ffffff" strokeWidth="3.6" fill="none" strokeLinecap="round">
           <path d="M80.5 84q5-6.5 10 0" />
           <path d="M101.5 84q5-6.5 10 0" />
         </g>
-      </g>
-      <path d="M92 99q4 3 8 0" stroke="#ffd1dc" strokeOpacity="0.8" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+      </L>
 
-      {/* L'arc doré, à double courbure, et sa corde au repos ou tendue. */}
-      <path d="M184 84C192 72 194 52 186 40C183 35 179 33 175 32" stroke="#8a5a17" strokeWidth="5.4" fill="none" strokeLinecap="round" />
-      <path d="M184 84C192 96 194 116 186 128C183 133 179 135 175 136" stroke="#8a5a17" strokeWidth="5.4" fill="none" strokeLinecap="round" />
-      <path d="M184 84C192 72 194 52 186 40C183 35 179 33 175 32" stroke={u('gold')} strokeWidth="3.6" fill="none" strokeLinecap="round" />
-      <path d="M184 84C192 96 194 116 186 128C183 133 179 135 175 136" stroke={u('gold')} strokeWidth="3.6" fill="none" strokeLinecap="round" />
-      <path d="M188 66C190 58 189 50 185 43" stroke="#fff6cc" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.8" />
-      <circle cx="175" cy="32" r="2.3" fill="#fff1b8" />
-      <circle cx="175" cy="136" r="2.3" fill="#fff1b8" />
-      <path className="cupid-string rest" d="M175 32L168 84L175 136" stroke="#fff6e8" strokeWidth="0.9" fill="none" />
-      <path className="cupid-string drawn" d="M175 32L148 84L175 136" stroke="#fff6e8" strokeWidth="0.9" fill="none" />
-
+      {/* L'arc doré, à double courbure. */}
+      <L>
+        <path d="M184 84C192 72 194 52 186 40C183 35 179 33 175 32" stroke="#8a5a17" strokeWidth="5.4" fill="none" strokeLinecap="round" />
+        <path d="M184 84C192 96 194 116 186 128C183 133 179 135 175 136" stroke="#8a5a17" strokeWidth="5.4" fill="none" strokeLinecap="round" />
+        <path d="M184 84C192 72 194 52 186 40C183 35 179 33 175 32" stroke={u('gold')} strokeWidth="3.6" fill="none" strokeLinecap="round" />
+        <path d="M184 84C192 96 194 116 186 128C183 133 179 135 175 136" stroke={u('gold')} strokeWidth="3.6" fill="none" strokeLinecap="round" />
+        <path d="M188 66C190 58 189 50 185 43" stroke="#fff6cc" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.8" />
+        <circle cx="175" cy="32" r="2.3" fill="#fff1b8" />
+        <circle cx="175" cy="136" r="2.3" fill="#fff1b8" />
+      </L>
+      {/* La corde, au repos ou tendue. */}
+      <L cls="cupid-string rest">
+        <path d="M175 32L168 84L175 136" stroke="#fff6e8" strokeWidth="0.9" fill="none" />
+      </L>
+      <L cls="cupid-string drawn">
+        <path d="M175 32L148 84L175 136" stroke="#fff6e8" strokeWidth="0.9" fill="none" />
+      </L>
       {/* La flèche encochée et la main qui tire la corde ; l'autre main tient l'arc. */}
-      <g className="cupid-held">
+      <L cls="cupid-held">
         <Arrow id={id} x={168} y={84} len={58} />
         <Hand id={id} x={166} y={84} />
-      </g>
-      <Hand id={id} x={187} y={84} />
+      </L>
+      <L>
+        <Hand id={id} x={187} y={84} />
+      </L>
 
-      {/* Paillettes autour de lui. */}
-      {[
-        [30, 40, 0],
-        [150, 18, 0.5],
-        [40, 128, 1],
-        [214, 150, 1.4],
-      ].map(([x, y, d], i) => (
-        <path
-          key={i}
-          className="cupid-twinkle"
-          style={css({ animationDelay: `${d}s` })}
-          d={`M${x} ${y - 4}l1.2 2.8 2.8 1.2-2.8 1.2-1.2 2.8-1.2-2.8-2.8-1.2 2.8-1.2Z`}
-          fill="#ffe3ec"
-        />
+      {/* Paillettes autour de lui, deux par deux. */}
+      {[0, 1].map((k) => (
+        <L key={k} cls={`cupid-twinkle t${k}`}>
+          {(
+            [
+              [30, 40],
+              [150, 18],
+              [40, 128],
+              [214, 150],
+            ] as const
+          )
+            .filter((_, i) => i % 2 === k)
+            .map(([x, y]) => (
+              <path key={x} d={`M${x} ${y - 4}l1.2 2.8 2.8 1.2-2.8 1.2-1.2 2.8-1.2-2.8-2.8-1.2 2.8-1.2Z`} fill="#ffe3ec" />
+            ))}
+        </L>
       ))}
-    </svg>
+    </>
   );
 }
 

@@ -22,7 +22,8 @@ export function leave(el: HTMLElement | null, cls: string, ms = 220, scrollers: 
     if (n) n.scrollTop = s.top;
   }
   const done = () => ghost.remove();
-  ghost.addEventListener('animationend', (e) => e.target === ghost && done());
+  // Seule l'animation de la copie elle-même compte (pas celle d'un ::before ni d'un enfant).
+  ghost.addEventListener('animationend', (e) => e.target === ghost && !e.pseudoElement && done());
   setTimeout(done, ms + 120);
 }
 
@@ -36,6 +37,6 @@ export function leaveInPlace(el: HTMLElement | null, cls: string, ms = 200) {
   ghost.setAttribute('aria-hidden', 'true');
   ghost.classList.add('leaving', cls);
   document.body.appendChild(ghost);
-  ghost.addEventListener('animationend', () => ghost.remove());
+  ghost.addEventListener('animationend', (e) => e.target === ghost && !e.pseudoElement && ghost.remove());
   setTimeout(() => ghost.remove(), ms + 120);
 }

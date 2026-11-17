@@ -6,14 +6,18 @@ import { DEMO } from './lib/api';
 import { isNative } from './lib/native';
 import { startSync } from './lib/sync';
 import './styles.css';
+import './styles/season.css';
+import './styles/motion.css';
 import { carryInvite } from './lib/install';
 import { startUpdates } from './lib/update';
 import { moveSessionToCookie } from './lib/account';
+import { startGlide } from './lib/motion';
 
 carryInvite();
 
 startSync();
 startUpdates();
+startGlide();
 void moveSessionToCookie();
 
 // Dans l'app iPhone, pas de service worker : l'app est déjà installée et hors ligne.

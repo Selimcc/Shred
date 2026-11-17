@@ -13,6 +13,7 @@ import { flameInfo } from '../lib/flames';
 import { lastWeekMonday, reportPending } from '../lib/report';
 import { planSummary } from '../../shared/plans';
 import { ReportSheet } from '../components/ReportSheet';
+import { SeasonReplay } from '../components/SeasonScene';
 import { photoDue } from '../components/BodyPhotos';
 import { gymDuration, runShortcut, STEP_GOAL, timeOf } from '../lib/health';
 import { SessionProfile } from '../components/SessionProfile';
@@ -133,8 +134,12 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
   return (
     <>
       <header className="home-top">
+        {/* La date prend toute la largeur : le bouton de la fête s'y range sans serrer le titre. */}
+        <div className="date">
+          {formatLong(today)}
+          {season && <SeasonReplay season={season} />}
+        </div>
         <div className="who">
-          <div className="date">{formatLong(today)}</div>
           <h1>{greeting(season, seasonDay(today), s.settings.name)}</h1>
         </div>
         <span className="stat-pill flame" title={`Jours de série, ${flames.tierInfo.name}`} aria-label={`${st.current} jours de série`}>

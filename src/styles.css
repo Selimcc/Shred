@@ -691,40 +691,45 @@ input[type='time'].input {
   display: block;
 }
 
-.pulse-body,
-.pulse-halo,
-.pulse-core {
-  transform-box: fill-box;
-  transform-origin: 50% 50%;
+/* Les calques de Pulse se superposent exactement ; ce qui bouge anime un calque entier (composé par le
+   navigateur, sans redessiner le verre). Repères : le centre de la sphère est à 50 % 48 %, les yeux à 50 % 47 %. */
+.pulse .pulse-l {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
-
 .pulse-body {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 48.3%;
   animation: breathe 4.2s ease-in-out infinite;
 }
 
 .pulse-halo {
+  transform-origin: 50% 48.3%;
   animation: halo 4.2s ease-in-out infinite;
 }
 
 .pulse-core {
+  transform-origin: 50% 55%;
   animation: core 4.2s ease-in-out infinite;
 }
 
 @keyframes core {
   0%,
   100% {
-    transform: scale(0.94) translateY(2%);
-    opacity: 0.85;
+    transform: scale(0.97);
+    opacity: 0.82;
   }
   50% {
-    transform: scale(1.04) translateY(-2%);
+    transform: scale(1.02);
     opacity: 1;
   }
 }
 
 .pulse-eyes.blink {
-  transform-box: fill-box;
-  transform-origin: 50% 50%;
+  transform-origin: 50% 46.7%;
   animation: blink 5.2s infinite;
 }
 
@@ -808,9 +813,18 @@ input[type='time'].input {
 
 .home-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
-  gap: 8px;
+  gap: 0 8px;
   margin-bottom: 18px;
+}
+
+.home-top > .date {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .home-top .who {
@@ -1602,29 +1616,43 @@ input[type='time'].input {
 
 /* ---------- Feuille ---------- */
 
+/* Le voile (assombri et flou) est un ::before : quand on tire la feuille vers le bas, il s'éclaircit seul,
+   sans toucher à la feuille. */
 .sheet-backdrop {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  animation: fade 0.18s ease;
+}
+.sheet-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 6, 8, 0.6);
+  backdrop-filter: blur(6px) saturate(1.2);
+  -webkit-backdrop-filter: blur(6px) saturate(1.2);
+  opacity: var(--sheet-fade, 1);
+  animation: fade 0.32s ease backwards;
 }
 
 .sheet {
+  position: relative;
   width: 100%;
   max-width: 560px;
   max-height: var(--sheet-max, 92dvh);
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: #1a1c21;
   border-radius: 28px 28px 0 0;
   border-top: 1px solid var(--line-2);
   padding: 10px var(--gutter) calc(env(safe-area-inset-bottom) + 24px);
-  animation: rise 0.28s var(--ease);
+  animation: sheet-up 0.5s var(--spring) backwards;
+  transition: transform 0.46s var(--spring);
+}
+.sheet.dragging {
+  transition: none;
 }
 
 .sheet .card,
@@ -1665,15 +1693,31 @@ input[type='time'].input {
   }
 }
 
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
 /* ---------- Sorties et changements de page ---------- */
 
-/* Copie de l'élément qui part (voir lib/leave.ts) : on la voit s'en aller, en 0,2 s. */
+/* Copie de l'élément qui part (voir lib/leave.ts) : la feuille redescend d'un trait (depuis là où le doigt l'a
+   laissée, si on l'a tirée), le voile s'efface. La copie elle-même porte une animation vide de même durée :
+   c'est sa fin qui retire la copie. */
 .sheet-backdrop.leaving.sheet-out {
   z-index: 45;
-  animation: fade-out 0.22s ease forwards;
+  animation: hold 0.3s linear forwards;
+}
+.sheet-backdrop.leaving.sheet-out::before {
+  animation: fade-out 0.3s ease forwards;
 }
 .sheet-backdrop.leaving.sheet-out .sheet {
-  animation: sheet-down 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: sheet-down 0.3s cubic-bezier(0.4, 0, 0.9, 0.6) forwards;
+}
+@keyframes hold {
+  to {
+    visibility: visible;
+  }
 }
 .toast.leaving.toast-out {
   animation: toast-away 0.2s ease forwards;
@@ -1691,8 +1735,7 @@ input[type='time'].input {
 }
 @keyframes sheet-down {
   to {
-    transform: translateY(70%);
-    opacity: 0.4;
+    transform: translateY(105%);
   }
 }
 @keyframes toast-away {
@@ -1702,23 +1745,7 @@ input[type='time'].input {
   }
 }
 
-/* Nouvelle page ou nouvel onglet : le contenu arrive en fondu, à peine décalé. */
-.app > *,
-.sheet > :not(.grip):not(.sheet-head):not(.settings-back) {
-  animation: page-in 0.24s var(--ease) both;
-}
-@keyframes page-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .app > *,
-  .sheet > :not(.grip):not(.sheet-head):not(.settings-back) {
-    animation: none;
-  }
-}
+/* L'arrivée des blocs (onglets, feuilles) est dans styles/motion.css. */
 
 @keyframes drop {
   from {
@@ -3812,21 +3839,21 @@ span.roll.roll {
     box-shadow: 0 0 0 6px color-mix(in srgb, var(--amber) 25%, transparent);
   }
 }
-.skeleton {
+.m-skel {
   display: block;
   border-radius: 8px;
   background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 45%, var(--surface-2) 90%);
   background-size: 220% 100%;
-  animation: shimmer 1.2s ease-in-out infinite;
+  animation: shimmer-sweep 1.2s ease-in-out infinite;
 }
-.skeleton.line {
+.m-skel.line {
   height: 12px;
   border-radius: 6px;
 }
-.skeleton.line.short {
+.m-skel.line.short {
   height: 10px;
 }
-.skeleton.disc {
+.m-skel.disc {
   flex: none;
   width: 36px;
   height: 36px;
@@ -3840,7 +3867,7 @@ span.roll.roll {
   opacity: 0.55;
   transition: opacity 0.15s;
 }
-@keyframes shimmer {
+@keyframes shimmer-sweep {
   0% {
     background-position: 100% 0;
   }
@@ -3849,7 +3876,7 @@ span.roll.roll {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .skeleton,
+  .m-skel,
   .music-play.loading .music-disc {
     animation: none;
   }
@@ -5056,23 +5083,23 @@ h1 {
     0 28px 60px -32px rgba(0, 0, 0, 0.9),
     0 0 0 1px rgba(0, 0, 0, 0.25);
 }
+/* Le reflet glisse (transform) au lieu de déplacer un fond : rien n'est redessiné pendant qu'il passe. */
 .today-hero::after {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border-radius: inherit;
-  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.05) 48%, transparent 60%);
-  background-size: 260% 100%;
+  background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, 0.05) 50%, transparent 68%);
+  transform: translateX(-100%);
   animation: hero-sheen 7s ease-in-out 1.2s infinite;
 }
 @keyframes hero-sheen {
   0%,
   60% {
-    background-position: 130% 0;
+    transform: translateX(-100%);
   }
   100% {
-    background-position: -40% 0;
+    transform: translateX(100%);
   }
 }
 .hero-title {
@@ -5115,11 +5142,6 @@ h1 {
 .sheet {
   background: linear-gradient(180deg, #1c1f25, #16181d 30%);
   box-shadow: 0 -20px 60px -20px rgba(0, 0, 0, 0.8);
-}
-.sheet-backdrop {
-  background: rgba(5, 6, 8, 0.6);
-  backdrop-filter: blur(6px) saturate(1.2);
-  -webkit-backdrop-filter: blur(6px) saturate(1.2);
 }
 
 /* Champs : fond creusé, anneau net au focus. */
@@ -6582,1396 +6604,10 @@ h1 {
   }
 }
 
-/* ---------- Thèmes de saison ---------- */
-/* Chaque fête redéfinit les jetons de couleur ; les règles communes plus bas s'en servent pour les boutons,
-   la barre d'onglets, les feuilles et la lueur d'ambiance. */
-
-html[data-season='halloween'] {
-  --bg: #0f0b12;
-  --surface: #19131c;
-  --surface-2: #241b28;
-  --surface-3: #2f2434;
-  --line: rgba(255, 214, 170, 0.07);
-  --line-2: rgba(255, 214, 170, 0.13);
-  --ink: #f6efe6;
-  --ink-2: #b6a89d;
-  --ink-3: #7c6e71;
-  --amber: #ff8a1f;
-  --amber-soft: rgba(255, 138, 31, 0.15);
-  --flame-2: #ffb45c;
-  --flame-deep: #e0640b;
-  --glacier: #b48cff;
-  --glacier-soft: rgba(180, 140, 255, 0.14);
-  --mint: #8be36b;
-  --mint-soft: rgba(139, 227, 107, 0.13);
-  --rose: #ff4d5e;
-  --rose-soft: rgba(255, 77, 94, 0.14);
-  --gold: #ffc94d;
-  --gold-soft: rgba(255, 201, 77, 0.14);
-  --purple: #c8a2ff;
-  --on-accent: #1a0f08;
-  --veil: rgba(15, 11, 18, 0.96);
-  --sheen: linear-gradient(180deg, rgba(255, 170, 90, 0.05), rgba(255, 170, 90, 0) 46%);
-  --s-btn-a: #ffb35c;
-  --s-btn-b: #ff7a1a;
-  --s-btn-ink: #1a0f08;
-  --s-btn-glow: rgba(255, 122, 26, 0.7);
-  --s-tab: rgba(26, 18, 28, 0.86);
-  --s-pill: rgba(255, 138, 31, 0.18);
-  --s-tab-ink: #ffb35c;
-  --s-sheet: #1d1520;
-  --s-ambient:
-    radial-gradient(42% 26% at 94% -2%, rgba(255, 236, 200, 0.1), transparent 70%),
-    radial-gradient(60% 34% at -8% 12%, rgba(155, 107, 255, 0.1), transparent 70%),
-    radial-gradient(90% 40% at 50% 112%, rgba(255, 122, 26, 0.1), transparent 70%);
-}
-
-html[data-season='noel'] {
-  --bg: #0b1214;
-  --surface: #131c1f;
-  --surface-2: #1b2629;
-  --surface-3: #253235;
-  --line: rgba(220, 240, 255, 0.07);
-  --line-2: rgba(220, 240, 255, 0.13);
-  --ink: #f3f6f8;
-  --ink-2: #a3b1b6;
-  --ink-3: #6b7b80;
-  --amber: #ffcf6b;
-  --amber-soft: rgba(255, 207, 107, 0.14);
-  --flame-2: #ffe2a0;
-  --glacier: #9fd4ff;
-  --glacier-soft: rgba(159, 212, 255, 0.13);
-  --mint: #4fd18b;
-  --mint-soft: rgba(79, 209, 139, 0.14);
-  --rose: #ff4d5e;
-  --rose-soft: rgba(255, 77, 94, 0.14);
-  --gold: #ffd166;
-  --purple: #c5b4ff;
-  --veil: rgba(11, 18, 20, 0.96);
-  --sheen: linear-gradient(180deg, rgba(220, 240, 255, 0.05), rgba(220, 240, 255, 0) 46%);
-  --s-btn-a: #ff5f6f;
-  --s-btn-b: #d62839;
-  --s-btn-ink: #ffffff;
-  --s-btn-glow: rgba(232, 56, 79, 0.7);
-  --s-tab: rgba(14, 22, 24, 0.86);
-  --s-pill: rgba(232, 56, 79, 0.2);
-  --s-tab-ink: #ffffff;
-  --s-sheet: #16211f;
-  --s-ambient:
-    radial-gradient(60% 30% at 50% -6%, rgba(255, 207, 107, 0.08), transparent 70%),
-    radial-gradient(55% 34% at -8% 30%, rgba(79, 209, 139, 0.07), transparent 70%),
-    radial-gradient(55% 34% at 108% 60%, rgba(232, 56, 79, 0.06), transparent 70%),
-    radial-gradient(90% 40% at 50% 112%, rgba(159, 212, 255, 0.08), transparent 70%);
-}
-
-html[data-season='nouvel-an'] {
-  --bg: #0e0d12;
-  --surface: #17151d;
-  --surface-2: #211e28;
-  --surface-3: #2c2834;
-  --line: rgba(255, 220, 150, 0.07);
-  --line-2: rgba(255, 220, 150, 0.13);
-  --ink: #f7f3ea;
-  --ink-2: #b4ac9d;
-  --ink-3: #787066;
-  --amber: #f5c451;
-  --amber-soft: rgba(245, 196, 81, 0.14);
-  --flame-2: #ffe08a;
-  --gold: #ffe08a;
-  --gold-soft: rgba(255, 224, 138, 0.14);
-  --glacier: #c9a7ff;
-  --glacier-soft: rgba(201, 167, 255, 0.14);
-  --mint: #6fdcb0;
-  --rose: #ff6b8b;
-  --purple: #c9a7ff;
-  --on-accent: #1a1608;
-  --veil: rgba(14, 13, 18, 0.96);
-  --sheen: linear-gradient(180deg, rgba(255, 224, 160, 0.05), rgba(255, 224, 160, 0) 46%);
-  --s-btn-a: #ffe9a8;
-  --s-btn-b: #e5b443;
-  --s-btn-ink: #1a1608;
-  --s-btn-glow: rgba(245, 196, 81, 0.7);
-  --s-tab: rgba(22, 20, 28, 0.86);
-  --s-pill: rgba(245, 196, 81, 0.18);
-  --s-tab-ink: #ffe08a;
-  --s-sheet: #1b1922;
-  --s-ambient:
-    radial-gradient(50% 30% at 80% -4%, rgba(245, 196, 81, 0.11), transparent 70%),
-    radial-gradient(55% 32% at 0% 10%, rgba(201, 167, 255, 0.09), transparent 70%),
-    radial-gradient(90% 40% at 50% 112%, rgba(245, 196, 81, 0.06), transparent 70%);
-}
-
-html[data-season='saint-valentin'] {
-  --bg: #130c10;
-  --surface: #1d1318;
-  --surface-2: #281a21;
-  --surface-3: #33222b;
-  --line: rgba(255, 200, 220, 0.07);
-  --line-2: rgba(255, 200, 220, 0.13);
-  --ink: #fbf0f3;
-  --ink-2: #c1a6af;
-  --ink-3: #866c75;
-  --amber: #ff9a76;
-  --amber-soft: rgba(255, 154, 118, 0.14);
-  --rose: #ff4d7d;
-  --rose-soft: rgba(255, 77, 125, 0.15);
-  --glacier: #c3a2ff;
-  --glacier-soft: rgba(195, 162, 255, 0.14);
-  --mint: #6fdcb0;
-  --gold: #ffcf86;
-  --purple: #d6b8ff;
-  --veil: rgba(19, 12, 16, 0.96);
-  --sheen: linear-gradient(180deg, rgba(255, 180, 210, 0.05), rgba(255, 180, 210, 0) 46%);
-  --s-btn-a: #ff8fab;
-  --s-btn-b: #ff4d7d;
-  --s-btn-ink: #ffffff;
-  --s-btn-glow: rgba(255, 77, 125, 0.7);
-  --s-tab: rgba(28, 16, 22, 0.86);
-  --s-pill: rgba(255, 77, 125, 0.2);
-  --s-tab-ink: #ffb3c7;
-  --s-sheet: #21151b;
-  --s-ambient:
-    radial-gradient(55% 30% at 90% -4%, rgba(255, 77, 125, 0.12), transparent 70%),
-    radial-gradient(55% 32% at -6% 18%, rgba(195, 162, 255, 0.08), transparent 70%),
-    radial-gradient(90% 40% at 50% 112%, rgba(255, 143, 171, 0.08), transparent 70%);
-}
-
-html[data-season='paques'] {
-  --bg: #0f1316;
-  --surface: #171d21;
-  --surface-2: #20282d;
-  --surface-3: #2a3339;
-  --line: rgba(220, 255, 230, 0.07);
-  --line-2: rgba(220, 255, 230, 0.13);
-  --ink: #f3f7f2;
-  --ink-2: #a9b4ac;
-  --ink-3: #6f7b74;
-  --amber: #ffd36e;
-  --amber-soft: rgba(255, 211, 110, 0.14);
-  --mint: #7fe0a8;
-  --mint-soft: rgba(127, 224, 168, 0.14);
-  --glacier: #a7c8ff;
-  --rose: #ff8fa3;
-  --gold: #ffe08a;
-  --purple: #cdb4ff;
-  --on-accent: #1a1a0c;
-  --veil: rgba(15, 19, 22, 0.96);
-  --sheen: linear-gradient(180deg, rgba(220, 255, 230, 0.05), rgba(220, 255, 230, 0) 46%);
-  --s-btn-a: #fff3b8;
-  --s-btn-b: #ffd36e;
-  --s-btn-ink: #1a1a0c;
-  --s-btn-glow: rgba(255, 211, 110, 0.65);
-  --s-tab: rgba(20, 26, 30, 0.86);
-  --s-pill: rgba(127, 224, 168, 0.18);
-  --s-tab-ink: #c8f2d6;
-  --s-sheet: #19211f;
-  --s-ambient:
-    radial-gradient(55% 30% at 88% -4%, rgba(255, 211, 110, 0.1), transparent 70%),
-    radial-gradient(55% 32% at -6% 16%, rgba(205, 180, 255, 0.09), transparent 70%),
-    radial-gradient(90% 40% at 50% 112%, rgba(127, 224, 168, 0.08), transparent 70%);
-}
-
-/* Règles communes à toutes les fêtes. */
-html[data-season] body::before {
-  background: var(--s-ambient);
-}
-html[data-season] .btn.primary,
-html[data-season] .btn.go,
-html[data-season] .focus-cta {
-  background: linear-gradient(180deg, var(--s-btn-a), var(--s-btn-b));
-  color: var(--s-btn-ink);
-  box-shadow:
-    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 10px 26px -14px var(--s-btn-glow);
-}
-html[data-season] .btn.primary:active:not(:disabled),
-html[data-season] .btn.go:active:not(:disabled) {
-  background: var(--s-btn-b);
-}
-html[data-season] .focus-cta .small {
-  color: color-mix(in srgb, var(--s-btn-ink) 68%, transparent);
-}
-html[data-season] .focus-cta-play {
-  background: var(--s-btn-ink);
-  color: var(--s-btn-b);
-}
-html[data-season] .tabbar nav {
-  background: var(--s-tab);
-}
-html[data-season] .tab.active {
-  color: var(--s-tab-ink);
-}
-html[data-season] .tab.active .pill {
-  background: var(--s-pill);
-}
-html[data-season] .sheet {
-  background: linear-gradient(180deg, var(--s-sheet), var(--bg) 30%);
-}
-html[data-season] .focus,
-html[data-season] .recap {
-  background: var(--bg);
-}
-html[data-season] .hero-title {
-  background: linear-gradient(180deg, #ffffff 30%, color-mix(in srgb, var(--s-btn-a) 55%, #c9ccd2));
-  -webkit-background-clip: text;
-  background-clip: text;
-}
-html[data-season] :focus-visible {
-  outline-color: var(--s-btn-b);
-}
-
-/* Décor d'ambiance : derrière le contenu, jamais cliquable. */
-.season-layer,
-.season-front {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-}
-.season-front {
-  z-index: 15;
-}
-
-/* Halloween : lune, toile, araignée, chauves-souris, brume. */
-.sl-moon {
-  position: absolute;
-  top: -34px;
-  right: -26px;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 34% 40%, rgba(0, 0, 0, 0.1) 0 9%, transparent 10%),
-    radial-gradient(circle at 60% 66%, rgba(0, 0, 0, 0.08) 0 7%, transparent 8%),
-    radial-gradient(circle at 40% 70%, #fff6e0, #f2dfb4 70%);
-  opacity: 0.22;
-  box-shadow: 0 0 80px 30px rgba(255, 236, 200, 0.12);
-}
-.sl-web {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 150px;
-  height: 150px;
-  color: rgba(246, 239, 230, 0.12);
-}
-.sl-spider {
-  position: absolute;
-  top: 0;
-  left: 86px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  color: #2a2030;
-  transform-origin: top center;
-  animation: spider-drop 9s ease-in-out infinite;
-}
-.sl-spider i {
-  width: 1px;
-  height: 120px;
-  background: rgba(246, 239, 230, 0.2);
-}
-.sl-spider svg {
-  width: 18px;
-  height: 18px;
-  margin-top: -3px;
-  filter: drop-shadow(0 0 4px rgba(255, 138, 31, 0.35));
-}
-@keyframes spider-drop {
-  0%,
-  100% {
-    transform: translateY(-60px) rotate(0deg);
-  }
-  45% {
-    transform: translateY(0) rotate(4deg);
-  }
-  60% {
-    transform: translateY(-8px) rotate(-3deg);
-  }
-}
-.sl-bat {
-  position: absolute;
-  left: 100%;
-  width: calc(48px * var(--s, 1));
-  color: #050307;
-  filter: drop-shadow(0 0 6px rgba(180, 140, 255, 0.35));
-  animation: bat-fly 26s linear infinite;
-}
-.sl-bat svg {
-  width: 100%;
-  overflow: visible;
-}
-.bat-wings {
-  fill: #08050b;
-  stroke: rgba(180, 140, 255, 0.35);
-  stroke-width: 0.6;
-  transform-origin: 32px 14px;
-  animation: bat-flap 0.36s ease-in-out infinite alternate;
-}
-.bat-eye {
-  fill: #ff8a1f;
-}
-/* Une traversée en 7 secondes environ, puis la chauve-souris reste hors de l'écran jusqu'au tour suivant. */
-@keyframes bat-fly {
-  0% {
-    transform: translate(0, 0);
-  }
-  7% {
-    transform: translate(-38vw, -30px);
-  }
-  14% {
-    transform: translate(-76vw, 10px);
-  }
-  27%,
-  100% {
-    transform: translate(calc(-100vw - 160px), -40px);
-  }
-}
-@keyframes bat-flap {
-  to {
-    transform: scaleY(0.35);
-  }
-}
-.sl-fog {
-  position: absolute;
-  bottom: -40px;
-  width: 140%;
-  height: 220px;
-  background: radial-gradient(50% 50% at 50% 50%, rgba(180, 140, 255, 0.09), transparent 70%);
-  filter: blur(10px);
-  animation: fog-drift 26s ease-in-out infinite alternate;
-}
-.sl-fog.a {
-  left: -40%;
-}
-.sl-fog.b {
-  left: 0;
-  bottom: -70px;
-  background: radial-gradient(50% 50% at 50% 50%, rgba(255, 138, 31, 0.07), transparent 70%);
-  animation-duration: 34s;
-  animation-direction: alternate-reverse;
-}
-@keyframes fog-drift {
-  to {
-    transform: translateX(22%);
-  }
-}
-
-/* Noël : neige, guirlande lumineuse, neige posée sur la carte du jour et la barre d'onglets. */
-.sl-snow i {
-  position: absolute;
-  top: -12px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.55);
-  animation: snow-fall 14s linear infinite;
-}
-@keyframes snow-fall {
-  0% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(var(--sway), 52vh);
-  }
-  100% {
-    transform: translate(0, 106vh);
-  }
-}
-.sl-garland {
-  position: absolute;
-  top: env(safe-area-inset-top);
-  left: 0;
-  right: 0;
-  height: 40px;
-  z-index: -1;
-  pointer-events: none;
-}
-.sl-garland > div {
-  position: absolute;
-  inset: 0;
-  background-repeat: repeat-x;
-  background-position: center top;
-  background-size: 112px 34px;
-}
-/* La guirlande prend le haut de l'écran : le contenu descend d'autant. */
-html[data-season='noel'] .app {
-  padding-top: calc(env(safe-area-inset-top) + 36px);
-}
-.g-glow {
-  animation: twinkle 2.4s ease-in-out infinite;
-}
-.g-glow.b {
-  animation-delay: -1.2s;
-}
-@keyframes twinkle {
-  0%,
-  100% {
-    opacity: 0.25;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-html[data-season='noel'] .today-hero::before,
-html[data-season='noel'] .tabbar nav::before {
-  content: '';
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  top: -7px;
-  height: 16px;
-  z-index: 1;
-  pointer-events: none;
-  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='16' viewBox='0 0 120 16'><path d='M0 8 C6 1 14 1 20 6 C26 10 31 3 39 4 C47 5 50 11 58 9 C65 7 68 1 77 2 C86 3 88 10 96 9 C104 8 108 2 115 4 C118 5 120 7 120 8 L120 16 L0 16 Z' fill='%23f4f8fb'/><path d='M0 12 C20 9 40 13 60 11 C80 9 100 13 120 11 L120 16 L0 16 Z' fill='%23cfe2ee' opacity='0.6'/></svg>")
-    repeat-x left top / 120px 16px;
-  -webkit-mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-  mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
-}
-html[data-season='noel'] .tabbar nav {
-  position: relative;
-}
-html[data-season='noel'] .today-hero::before {
-  top: -1px;
-  left: 0;
-  right: 0;
-}
-
-/* Nouvel an : bouquets de feu d'artifice et paillettes qui montent. */
-.sl-burst {
-  position: absolute;
-  width: 0;
-  height: 0;
-}
-.sl-burst i {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 6px currentColor;
-  opacity: 0;
-  animation: burst 6.5s ease-out infinite;
-}
-@keyframes burst {
-  0% {
-    opacity: 0;
-    transform: rotate(var(--a)) translateY(0) scale(1);
-  }
-  3% {
-    opacity: 1;
-  }
-  22% {
-    opacity: 0.9;
-    transform: rotate(var(--a)) translateY(-46px) scale(0.9);
-  }
-  36%,
-  100% {
-    opacity: 0;
-    transform: rotate(var(--a)) translateY(-58px) scale(0.3);
-  }
-}
-.sl-rise i {
-  position: absolute;
-  bottom: -20px;
-  animation: rise 12s linear infinite;
-}
-.sl-rise.spark i {
-  width: calc(3px * var(--s));
-  height: calc(3px * var(--s));
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 8px currentColor;
-  opacity: 0.55;
-}
-.sl-rise.heart i {
-  width: calc(16px * var(--s));
-  opacity: 0.22;
-}
-.sl-rise.heart svg {
-  display: block;
-  width: 100%;
-}
-@keyframes rise {
-  0% {
-    transform: translate(0, 0) rotate(-8deg);
-  }
-  50% {
-    transform: translate(var(--sway), -55vh) rotate(8deg);
-  }
-  100% {
-    transform: translate(0, -110vh) rotate(-8deg);
-  }
-}
-
-/* Pâques : pétales pastel qui tombent en tournant. */
-.sl-petals i {
-  position: absolute;
-  top: -16px;
-  width: 9px;
-  height: 13px;
-  border-radius: 80% 0 80% 0;
-  opacity: 0.45;
-  animation: petal 16s linear infinite;
-}
-@keyframes petal {
-  0% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  50% {
-    transform: translate(var(--sway), 52vh) rotate(calc(var(--spin) / 2));
-  }
-  100% {
-    transform: translate(0, 106vh) rotate(var(--spin));
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .season-layer *,
-  .season-front *,
-  .sl-garland * {
-    animation: none !important;
-  }
-  .sl-bat,
-  .sl-burst {
-    display: none;
-  }
-  .sl-snow i,
-  .sl-petals i {
-    transform: translateY(calc(var(--y, 30) * 1vh));
-  }
-}
-
-/* Pulse déguisé. */
-.pulse-carve {
-  animation: flicker 3.2s ease-in-out infinite;
-}
-@keyframes flicker {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  18% {
-    opacity: 0.82;
-  }
-  22% {
-    opacity: 1;
-  }
-  57% {
-    opacity: 0.9;
-  }
-  61% {
-    opacity: 0.74;
-  }
-  64% {
-    opacity: 1;
-  }
-}
-.pulse-heart {
-  transform-box: fill-box;
-  transform-origin: 50% 50%;
-  animation: heart-beat 1.6s ease-in-out infinite;
-}
-@keyframes heart-beat {
-  0%,
-  40%,
-  100% {
-    transform: scale(1);
-  }
-  15% {
-    transform: scale(1.22);
-  }
-  28% {
-    transform: scale(1.06);
-  }
-}
-.pulse-paques .pulse-ears {
-  animation: ears 5s ease-in-out infinite;
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-}
-@keyframes ears {
-  0%,
-  86%,
-  100% {
-    transform: rotate(0deg);
-  }
-  90% {
-    transform: rotate(-4deg);
-  }
-  95% {
-    transform: rotate(3deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .pulse-carve,
-  .pulse-heart,
-  .pulse-paques .pulse-ears {
-    animation: none;
-  }
-}
-
-/* Réglages : cartes d'aperçu des thèmes, chacune dans les couleurs de sa fête. */
-.season-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
-  gap: 10px;
-}
-.season-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 14px 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  color: #f6f2ee;
-  text-align: center;
-  overflow: hidden;
-  transition:
-    transform 0.2s var(--spring),
-    border-color 0.2s;
-}
-.season-card:active {
-  transform: scale(0.96);
-}
-.season-card b {
-  margin-top: 4px;
-  font-size: 1rem;
-  font-weight: 760;
-}
-.season-card .small {
-  color: rgba(255, 255, 255, 0.6);
-}
-.season-card.on {
-  border-color: rgba(255, 255, 255, 0.55);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
-}
-.season-card.on::after {
-  content: '✓';
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  font-weight: 800;
-  font-size: 0.85rem;
-}
-.sc-halloween {
-  background:
-    radial-gradient(70% 60% at 50% 30%, rgba(255, 138, 31, 0.28), transparent 70%),
-    linear-gradient(180deg, #241828, #120c14);
-}
-.sc-noel {
-  background:
-    radial-gradient(3px 3px at 20% 30%, #fff 50%, transparent 51%),
-    radial-gradient(2px 2px at 78% 22%, #fff 50%, transparent 51%),
-    radial-gradient(2.5px 2.5px at 66% 70%, #fff 50%, transparent 51%),
-    radial-gradient(2px 2px at 14% 76%, #fff 50%, transparent 51%),
-    radial-gradient(70% 60% at 50% 30%, rgba(232, 56, 79, 0.25), transparent 70%),
-    linear-gradient(180deg, #16272a, #0b1214);
-}
-.sc-nouvel-an {
-  background:
-    radial-gradient(70% 60% at 50% 30%, rgba(245, 196, 81, 0.28), transparent 70%),
-    linear-gradient(180deg, #221f2c, #0e0d12);
-}
-.sc-saint-valentin {
-  background:
-    radial-gradient(70% 60% at 50% 30%, rgba(255, 77, 125, 0.3), transparent 70%),
-    linear-gradient(180deg, #2b1922, #130c10);
-}
-.sc-paques {
-  background:
-    radial-gradient(70% 60% at 50% 30%, rgba(255, 211, 110, 0.26), transparent 70%),
-    linear-gradient(180deg, #1d2a27, #0f1316);
-}
-
-/* ---------- Scènes de fête : elles passent devant l'écran quelques secondes ---------- */
-
-.season-scene {
-  position: fixed;
-  inset: 0;
-  z-index: 45;
-  overflow: hidden;
-  pointer-events: none;
-}
-.season-scene svg {
-  display: block;
-  width: 100%;
-  overflow: visible;
-}
-.scene-says {
-  opacity: 0;
-  animation: says 7s ease both;
-}
-.scene-halloween .scene-says {
-  animation-duration: 6.5s;
-}
-@keyframes says {
-  0%,
-  30% {
-    opacity: 0;
-  }
-  36%,
-  62% {
-    opacity: 1;
-  }
-  68%,
-  100% {
-    opacity: 0;
-  }
-}
-
-/* Saint-Valentin : Cupidon (une sphère de verre comme Pulse) arrive, ferme un œil pour viser, bande son arc,
-   la flèche traverse l'écran et transperce un cœur qui éclate. Dessin à l'échelle 224 / 276. */
-.cupid {
-  position: absolute;
-  left: 6vw;
-  top: 30vh;
-  width: 224px;
-  filter: drop-shadow(0 10px 18px rgba(255, 77, 125, 0.25));
-  animation: cupid-path 6.2s ease-in-out both;
-}
-@keyframes cupid-path {
-  0% {
-    transform: translate(-240px, 50px) rotate(8deg);
-  }
-  18%,
-  74% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  100% {
-    transform: translate(-260px, -320px) rotate(-14deg);
-  }
-}
-.cupid-bob {
-  animation: cupid-bob 1.1s ease-in-out infinite alternate;
-}
-@keyframes cupid-bob {
-  to {
-    transform: translateY(-7px);
-  }
-}
-.cupid-core {
-  animation: cupid-core 1.4s ease-in-out infinite alternate;
-}
-@keyframes cupid-core {
-  from {
-    opacity: 0.7;
-  }
-}
-.cupid-halo {
-  animation: cupid-core 2.2s ease-in-out infinite alternate;
-}
-.cupid-twinkle {
-  transform-box: fill-box;
-  transform-origin: 50% 50%;
-  animation: cupid-twinkle 1.6s ease-in-out infinite;
-}
-@keyframes cupid-twinkle {
-  0%,
-  100% {
-    opacity: 0.2;
-    transform: scale(0.6);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1);
-  }
-}
-.cupid-eyes {
-  opacity: 0;
-}
-.cupid-eyes.open {
-  animation: eyes-open 6.2s both;
-}
-.cupid-eyes.aim {
-  animation: eyes-aim 6.2s both;
-}
-.cupid-eyes.happy {
-  animation: eyes-happy 6.2s both;
-}
-@keyframes eyes-open {
-  0%,
-  29% {
-    opacity: 1;
-  }
-  30%,
-  42% {
-    opacity: 0;
-  }
-  42.5%,
-  53% {
-    opacity: 1;
-  }
-  54%,
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes eyes-aim {
-  0%,
-  29% {
-    opacity: 0;
-  }
-  30%,
-  42% {
-    opacity: 1;
-  }
-  42.5%,
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes eyes-happy {
-  0%,
-  53% {
-    opacity: 0;
-  }
-  54%,
-  100% {
-    opacity: 1;
-  }
-}
-.cupid-held {
-  animation: cupid-draw 6.2s ease both;
-}
-@keyframes cupid-draw {
-  0%,
-  28% {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  40%,
-  42% {
-    transform: translateX(-20px);
-    opacity: 1;
-  }
-  42.5%,
-  100% {
-    transform: translateX(-20px);
-    opacity: 0;
-  }
-}
-.cupid-string.drawn {
-  opacity: 0;
-  animation: string-drawn 6.2s both;
-}
-.cupid-string.rest {
-  animation: string-rest 6.2s both;
-}
-@keyframes string-drawn {
-  0%,
-  31% {
-    opacity: 0;
-  }
-  33%,
-  42% {
-    opacity: 1;
-  }
-  42.5%,
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes string-rest {
-  0%,
-  31% {
-    opacity: 1;
-  }
-  33%,
-  42% {
-    opacity: 0;
-  }
-  42.5%,
-  100% {
-    opacity: 1;
-  }
-}
-.cupid-arrow {
-  position: absolute;
-  left: calc(6vw + 147.7px);
-  top: calc(30vh + 64.9px);
-  width: 74.7px;
-  opacity: 0;
-  animation: arrow-fly 6.2s both;
-}
-.arrow-trail {
-  animation: trail 6.2s both;
-}
-@keyframes trail {
-  0%,
-  42% {
-    opacity: 0;
-  }
-  44%,
-  50% {
-    opacity: 1;
-  }
-  52%,
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes arrow-fly {
-  0%,
-  42% {
-    opacity: 0;
-    transform: translateX(0);
-  }
-  42.5% {
-    opacity: 1;
-    transform: translateX(0);
-    animation-timing-function: cubic-bezier(0.3, 0, 0.9, 0.6);
-  }
-  51%,
-  74% {
-    opacity: 1;
-    transform: translateX(calc(72vw - 155px));
-  }
-  78%,
-  100% {
-    opacity: 0;
-    transform: translateX(calc(72vw - 155px));
-  }
-}
-.cupid-target {
-  position: absolute;
-  left: 78vw;
-  top: calc(30vh + 43.5px);
-  width: 60px;
-  opacity: 0;
-  filter: drop-shadow(0 0 14px rgba(255, 77, 125, 0.7));
-  animation: cupid-target 6.2s ease both;
-}
-@keyframes cupid-target {
-  0%,
-  22% {
-    opacity: 0;
-    transform: scale(0);
-  }
-  27% {
-    opacity: 1;
-    transform: scale(1.15);
-  }
-  30%,
-  40%,
-  51% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  35%,
-  45% {
-    transform: scale(1.08);
-  }
-  54% {
-    transform: scale(1.32) rotate(-6deg);
-  }
-  58% {
-    transform: scale(1.05) rotate(3deg);
-  }
-  72% {
-    opacity: 1;
-    transform: scale(1.12);
-  }
-  77%,
-  100% {
-    opacity: 0;
-    transform: scale(1.8);
-  }
-}
-.cupid-burst {
-  position: absolute;
-  left: calc(78vw + 30px);
-  top: calc(30vh + 71.4px);
-}
-.cupid-burst i {
-  position: absolute;
-  width: calc(18px * var(--s, 1));
-  margin: calc(-9px * var(--s, 1));
-  opacity: 0;
-  animation: heart-burst 6.2s ease-out both;
-}
-@keyframes heart-burst {
-  0%,
-  74% {
-    opacity: 0;
-    transform: rotate(var(--a)) translateY(0) scale(0.4);
-  }
-  76% {
-    opacity: 1;
-  }
-  92% {
-    opacity: 0.9;
-    transform: rotate(var(--a)) translateY(-84px) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: rotate(var(--a)) translateY(-98px) scale(0.8);
-  }
-}
-
-/* Noël : le traîneau traverse le ciel de droite à gauche, rennes au galop, traînée d'étoiles. */
-.sleigh {
-  position: absolute;
-  left: 100%;
-  top: 9vh;
-  width: min(300px, 76vw);
-  filter: drop-shadow(0 0 10px rgba(255, 209, 102, 0.35));
-  animation: sleigh-fly 7s linear both;
-}
-@keyframes sleigh-fly {
-  0% {
-    transform: translate(0, 40px) rotate(-4deg);
-  }
-  50% {
-    transform: translate(calc(-50vw - 150px), -4px) rotate(2deg);
-  }
-  100% {
-    transform: translate(calc(-100vw - 330px), 16px) rotate(-3deg);
-  }
-}
-.leg {
-  transform-box: fill-box;
-  animation: gallop 0.34s ease-in-out infinite alternate;
-}
-.leg.front {
-  transform-origin: 100% 0;
-}
-.leg.back {
-  transform-origin: 0 0;
-}
-.leg.b {
-  animation-delay: -0.17s;
-}
-@keyframes gallop {
-  from {
-    transform: rotate(-16deg);
-  }
-  to {
-    transform: rotate(16deg);
-  }
-}
-.rudolph {
-  filter: drop-shadow(0 0 3px #ff3b3b);
-  animation: nose 0.7s ease-in-out infinite alternate;
-}
-@keyframes nose {
-  from {
-    opacity: 0.55;
-  }
-}
-.sleigh-trail circle,
-.witch-trail circle {
-  animation: trail-twinkle 0.5s ease-in-out infinite alternate;
-}
-@keyframes trail-twinkle {
-  from {
-    opacity: 0.25;
-  }
-}
-.santa-wave {
-  transform-box: fill-box;
-  transform-origin: 100% 100%;
-  animation: santa-wave 0.45s ease-in-out infinite alternate;
-}
-@keyframes santa-wave {
-  to {
-    transform: rotate(-16deg);
-  }
-}
-
-/* Halloween : la sorcière passe sur son balai devant la lune, son chat au bout, en ricanant. */
-.witch {
-  position: absolute;
-  left: 100%;
-  top: 6vh;
-  width: min(190px, 52vw);
-  filter: drop-shadow(0 0 1.5px rgba(255, 190, 120, 0.95)) drop-shadow(0 0 10px rgba(255, 138, 31, 0.65));
-  animation: witch-fly 6.5s ease-in-out both;
-}
-@keyframes witch-fly {
-  0% {
-    transform: translate(0, 34px);
-  }
-  25% {
-    transform: translate(calc(-25vw - 50px), -4px) rotate(-4deg);
-  }
-  50% {
-    transform: translate(calc(-50vw - 100px), 20px) rotate(3deg);
-  }
-  75% {
-    transform: translate(calc(-75vw - 150px), 2px) rotate(-3deg);
-  }
-  100% {
-    transform: translate(calc(-100vw - 210px), -26px);
-  }
-}
-.witch-cape {
-  transform-box: fill-box;
-  transform-origin: 0 50%;
-  animation: cape 0.38s ease-in-out infinite alternate;
-}
-@keyframes cape {
-  to {
-    transform: scaleX(1.08) skewY(4deg);
-  }
-}
-.cat-tail {
-  transform-box: fill-box;
-  transform-origin: 0 100%;
-  animation: cape 0.6s ease-in-out infinite alternate;
-}
-
-/* Nouvel an : une fusée monte, éclate en grand bouquet, et l'année apparaît au milieu. */
-.ny-rocket {
-  position: absolute;
-  left: 50%;
-  bottom: 16vh;
-  width: 5px;
-  height: 5px;
-  margin-left: -2.5px;
-  border-radius: 50%;
-  background: #fff3c4;
-  box-shadow: 0 0 12px 2px #ffd166;
-  animation: rocket 5.6s both;
-}
-.ny-rocket::after {
-  content: '';
-  position: absolute;
-  left: 1.5px;
-  top: 5px;
-  width: 2px;
-  height: 80px;
-  background: linear-gradient(#ffd166, transparent);
-}
-@keyframes rocket {
-  0% {
-    opacity: 1;
-    transform: translate(0, 0);
-    animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1);
-  }
-  14% {
-    transform: translate(4px, -30vh);
-  }
-  28% {
-    opacity: 1;
-    transform: translate(0, -57vh);
-  }
-  30%,
-  100% {
-    opacity: 0;
-    transform: translate(0, -57vh);
-  }
-}
-.ny-burst {
-  position: absolute;
-  left: 50%;
-  top: 27vh;
-}
-.ny-burst i {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  margin: -2.5px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 9px currentColor;
-  opacity: 0;
-  animation: ny-burst 5.6s both;
-}
-@keyframes ny-burst {
-  0%,
-  29% {
-    opacity: 0;
-    transform: translateY(0) rotate(var(--a)) translateY(0) scale(1);
-  }
-  30% {
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.1, 0.8, 0.3, 1);
-  }
-  46% {
-    opacity: 1;
-    transform: translateY(0) rotate(var(--a)) translateY(calc(var(--r) * -1)) scale(1);
-  }
-  72% {
-    opacity: 0.75;
-    transform: translateY(28px) rotate(var(--a)) translateY(calc(var(--r) * -1.06)) scale(0.8);
-  }
-  88%,
-  100% {
-    opacity: 0;
-    transform: translateY(52px) rotate(var(--a)) translateY(calc(var(--r) * -1.08)) scale(0.4);
-  }
-}
-.ny-year {
-  position: absolute;
-  left: 50%;
-  top: 27vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  opacity: 0;
-  animation: ny-year 5.6s both;
-}
-.ny-year::before {
-  content: '';
-  position: absolute;
-  inset: -60px -90px;
-  z-index: -1;
-  background: radial-gradient(closest-side, rgba(8, 7, 12, 0.88) 45%, transparent);
-}
-.ny-year span {
-  color: #fff3c4;
-  font-weight: 700;
-}
-.ny-year b {
-  font-size: 4.8rem;
-  font-weight: 820;
-  font-stretch: 70%;
-  line-height: 1;
-  background: linear-gradient(180deg, #fff6d6, #e5b443);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 0 18px rgba(245, 196, 81, 0.7));
-}
-@keyframes ny-year {
-  0%,
-  32% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.6);
-  }
-  42% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.06);
-  }
-  48%,
-  84% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1.03);
-  }
-}
-
-/* Pâques : un lapin traverse en bondissant au-dessus des onglets et laisse un œuf qui se dandine. */
-.bunny {
-  position: absolute;
-  left: -120px;
-  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 24px);
-  width: 96px;
-  animation: bunny-run 6.5s linear both;
-}
-@keyframes bunny-run {
-  to {
-    transform: translateX(calc(100vw + 240px));
-  }
-}
-.bunny-hop {
-  transform-origin: 50% 100%;
-  animation: bunny-hop 0.72s cubic-bezier(0.3, 0.6, 0.5, 1) infinite;
-}
-@keyframes bunny-hop {
-  0%,
-  100% {
-    transform: translateY(0) scale(1.05, 0.92);
-  }
-  45% {
-    transform: translateY(-38px) scale(0.97, 1.04) rotate(-6deg);
-  }
-}
-.easter-egg {
-  position: absolute;
-  left: calc(50vw + 4px);
-  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 24px);
-  width: 30px;
-  opacity: 0;
-  transform-origin: 50% 100%;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
-  animation: egg 6.5s both;
-}
-@keyframes egg {
-  0%,
-  49% {
-    opacity: 0;
-    transform: translateY(-26px) rotate(0deg);
-  }
-  53% {
-    opacity: 1;
-    transform: translateY(0) rotate(0deg);
-  }
-  57% {
-    transform: rotate(-10deg);
-  }
-  61% {
-    transform: rotate(8deg);
-  }
-  65% {
-    transform: rotate(-5deg);
-  }
-  69%,
-  90% {
-    opacity: 1;
-    transform: rotate(0deg);
-  }
-  100% {
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .season-scene {
-    display: none;
-  }
-}
-
 /* Publication modifiée : la mention reste discrète, à la suite du texte. */
 .post-edited {
   color: var(--ink-3);
   font-size: 0.78em;
   font-weight: 500;
   white-space: nowrap;
-}
-
-/* Panneau admin : labo des fêtes. */
-.season-lab-row {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-}
-.season-lab-pick {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  padding: 10px 2px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  color: #f6f2ee;
-}
-.season-lab-pick .small {
-  max-width: 100%;
-  overflow: hidden;
-  font-size: 0.68rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.season-lab-pick.on {
-  border-color: rgba(255, 255, 255, 0.6);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
-}
-.season-lab-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 12px;
 }

@@ -1,0 +1,222 @@
+/* ==========================================================================
+   Mouvement : un seul langage pour toute l'app (v0.27).
+   - Les entrées partent vite et se posent en douceur (ressort), les sorties
+     sont plus courtes et accélèrent : on voit ce qui arrive, on n'attend
+     jamais ce qui part.
+   - Seuls transform et opacity bougent (le navigateur les anime sans
+     recalculer la page).
+   - Remplissage « backwards » : une fois l'entrée finie, l'élément revient à
+     ses règles normales (appui, survol, transitions marchent comme avant).
+   ========================================================================== */
+
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.4, 0, 0.9, 0.6);
+  --press: 0.08s;
+}
+
+/* ---------- Blocs d'un écran ---------- */
+
+/* Un bloc qui apparaît plus tard (données chargées, carte qui s'ajoute) : fondu, à peine monté. */
+.app > * {
+  animation: block-in 0.38s var(--ease-out) backwards;
+}
+/* À l'ouverture de l'app et d'un onglet à l'autre : les blocs visibles arrivent l'un après l'autre
+   (délai posé par lib/motion.ts), du côté où l'on va dans la barre d'onglets. */
+.app > [data-in='up'] {
+  animation: blocks-up 0.62s var(--spring) var(--in-d, 0ms) backwards;
+}
+.app > [data-in='fwd'] {
+  animation: blocks-fwd 0.5s var(--spring) var(--in-d, 0ms) backwards;
+}
+.app > [data-in='back'] {
+  animation: blocks-back 0.5s var(--spring) var(--in-d, 0ms) backwards;
+}
+.app > [data-in='still'] {
+  animation: none;
+}
+@keyframes block-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes blocks-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+}
+@keyframes blocks-fwd {
+  from {
+    opacity: 0;
+    transform: translate3d(22px, 4px, 0);
+  }
+}
+@keyframes blocks-back {
+  from {
+    opacity: 0;
+    transform: translate3d(-22px, 4px, 0);
+  }
+}
+
+/* ---------- Feuilles ---------- */
+
+/* Le contenu suit la feuille qui monte, un peu après elle (les pages des réglages ont leur propre passage). */
+.sheet > :not(.grip, .sheet-head, .settings-back, .settings-pane) {
+  animation: block-in 0.42s var(--ease-out) 0.06s backwards;
+}
+.sheet > :not(.grip, .sheet-head, .settings-back, .settings-pane):nth-child(4) {
+  animation-delay: 0.1s;
+}
+.sheet > :not(.grip, .sheet-head, .settings-back, .settings-pane):nth-child(n + 5) {
+  animation-delay: 0.14s;
+}
+/* La poignée invite à tirer. */
+.sheet .grip {
+  transition:
+    background 0.2s,
+    transform 0.3s var(--spring);
+}
+.sheet.dragging .grip {
+  background: var(--ink-3);
+  transform: scaleX(1.3);
+}
+.sheet.dragging {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---------- Barre d'onglets : une pastille qui glisse ---------- */
+
+.tabbar nav {
+  position: relative;
+}
+.tab-glow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 44px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--s-pill, rgba(255, 255, 255, 0.1));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  pointer-events: none;
+  opacity: 0;
+}
+.tabbar nav[data-glide] .tab-glow {
+  opacity: 1;
+  transition:
+    transform 0.52s var(--spring),
+    width 0.3s var(--spring),
+    opacity 0.2s;
+}
+.tabbar nav[data-glide] .tab.active .pill {
+  background: transparent;
+  box-shadow: none;
+}
+.tab .pill {
+  position: relative;
+}
+.tab.active .pill svg {
+  animation: tab-pop 0.5s var(--spring);
+}
+@keyframes tab-pop {
+  0% {
+    transform: scale(0.82);
+  }
+  45% {
+    transform: scale(1.1);
+  }
+}
+
+/* ---------- Contrôles segmentés : la pastille suit le choix ---------- */
+
+.seg {
+  position: relative;
+}
+.seg[data-glide]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--glide-w);
+  height: var(--glide-h);
+  border-radius: 10px;
+  background: var(--surface-3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 4px 12px -6px rgba(0, 0, 0, 0.6);
+  transform: translate3d(var(--glide-x), var(--glide-y), 0);
+  pointer-events: none;
+}
+.seg[data-glide='ready']::before {
+  transition:
+    transform 0.42s var(--spring),
+    width 0.42s var(--spring);
+}
+.seg[data-glide] > button {
+  position: relative;
+  z-index: 1;
+}
+.seg[data-glide] > button.on {
+  background: transparent;
+}
+
+/* ---------- Appui : le même retour partout ---------- */
+
+/* On enfonce vite, on relâche en ressort. */
+.btn,
+.icon-btn,
+.chip,
+.seg > button,
+.season-card,
+.recap-card {
+  transition-property: transform, background-color, color, border-color, box-shadow, opacity;
+  transition-duration: 0.38s, 0.18s, 0.18s, 0.18s, 0.18s, 0.15s;
+  transition-timing-function: var(--spring), ease, ease, ease, ease, ease;
+}
+.btn:active:not(:disabled),
+.chip:active,
+.season-card:active,
+.recap-card:active {
+  transform: scale(0.965);
+  transition-duration: var(--press), 0.1s, 0.1s, 0.1s, 0.1s, 0.1s;
+}
+.icon-btn:active {
+  transform: scale(0.9);
+  transition-duration: var(--press), 0.1s, 0.1s, 0.1s, 0.1s, 0.1s;
+}
+.seg > button:active {
+  transform: scale(0.95);
+  transition-duration: var(--press), 0.1s, 0.1s, 0.1s, 0.1s, 0.1s;
+}
+
+/* Les lignes de réglages s'éclairent sous le doigt. */
+.settings-row {
+  transition: background-color 0.24s ease;
+}
+.settings-row:active {
+  background-color: rgba(255, 255, 255, 0.05);
+  transition-duration: 0.05s;
+}
+
+/* ---------- Moins d'animations ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .app > *,
+  .sheet > *,
+  .tab.active .pill svg {
+    animation: none !important;
+  }
+  .tab-glow,
+  .seg[data-glide]::before {
+    transition: none !important;
+  }
+}

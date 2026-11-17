@@ -1,10 +1,9 @@
 import { createPortal } from 'react-dom';
-import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type CSSProperties, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { leave, leaveInPlace } from '../lib/leave';
+import { holdOverlay } from '../lib/motion';
 import { loadPhoto } from '../lib/photos';
 import { Icon } from './Icon';
-
-let openSheets = 0;
 
 /**
  * Clavier ouvert sur iPhone : la partie visible de l'écran rétrécit, mais les éléments « fixed » restent
@@ -33,14 +32,104 @@ function useKeyboardView(): { top: number; height: number } | null {
 
 /** Bloque le défilement de la page derrière une feuille ou un plein écran (compteur partagé avec les feuilles). */
 export function useScrollLock() {
+  useEffect(() => holdOverlay(), []);
+}
+
+/** Un élément entre le doigt et la feuille fait défiler son contenu : le geste est pour lui, pas pour la feuille. */
+function scrolledBetween(target: Element | null, sheet: HTMLElement): boolean {
+  for (let n = target; n && n !== sheet.parentElement; n = n.parentElement) {
+    if (n instanceof HTMLElement && n.scrollTop > 0) return true;
+  }
+  return false;
+}
+
+/**
+ * Glisser la feuille vers le bas pour la fermer, comme sur iPhone : depuis la poignée, le titre, ou le contenu
+ * quand il est tout en haut. Lâchée assez bas (ou d'un geste vif), elle part ; sinon elle remonte en ressort.
+ * Les gestes de côté (carrousels, curseurs) et le défilement normal ne sont pas touchés.
+ */
+function useSheetDrag(sheetRef: RefObject<HTMLDivElement | null>, rootRef: RefObject<HTMLDivElement | null>, close: () => void) {
+  const closeRef = useRef(close);
+  closeRef.current = close;
   useEffect(() => {
-    openSheets += 1;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      openSheets -= 1;
-      if (openSheets === 0) document.body.style.overflow = '';
+    const sheet = sheetRef.current;
+    const root = rootRef.current;
+    if (!sheet || !root) return;
+    let start: { x: number; y: number } | null = null;
+    let owned = false;
+    let dy = 0;
+    let lastY = 0;
+    let lastT = 0;
+    let speed = 0;
+    const reset = () => {
+      sheet.classList.remove('dragging');
+      sheet.style.transform = '';
+      root.style.removeProperty('--sheet-fade');
     };
-  }, []);
+    const onStart = (e: TouchEvent) => {
+      start = null;
+      owned = false;
+      if (e.touches.length !== 1) return;
+      const target = e.target as Element;
+      // Pas depuis un champ (sélection de texte, curseur) ni un curseur de réglage.
+      if (target.closest('input, textarea, select, [contenteditable="true"], [data-no-drag]') || scrolledBetween(target, sheet)) return;
+      const t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY };
+      dy = 0;
+      speed = 0;
+      lastY = t.clientY;
+      lastT = e.timeStamp;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!start) return;
+      const t = e.touches[0];
+      const mx = t.clientX - start.x;
+      const my = t.clientY - start.y;
+      if (!owned) {
+        if (Math.abs(mx) < 7 && Math.abs(my) < 7) return;
+        // Vers le haut ou de côté : ce n'est pas pour la feuille.
+        if (my <= 0 || Math.abs(mx) > Math.abs(my)) {
+          start = null;
+          return;
+        }
+        owned = true;
+        sheet.classList.add('dragging');
+      }
+      if (e.cancelable) e.preventDefault();
+      dy = Math.max(0, my);
+      const dt = Math.max(1, e.timeStamp - lastT);
+      speed = 0.7 * speed + 0.3 * ((t.clientY - lastY) / dt);
+      lastY = t.clientY;
+      lastT = e.timeStamp;
+      sheet.style.transform = `translate3d(0, ${dy}px, 0)`;
+      root.style.setProperty('--sheet-fade', Math.max(0, 1 - dy / Math.max(240, sheet.offsetHeight)).toFixed(3));
+    };
+    const onEnd = () => {
+      if (!start || !owned) {
+        start = null;
+        return;
+      }
+      start = null;
+      owned = false;
+      sheet.classList.remove('dragging');
+      if (dy > Math.min(150, sheet.offsetHeight * 0.3) || (speed > 0.6 && dy > 24)) {
+        // La copie qui s'en va part de là où le doigt l'a laissée.
+        closeRef.current();
+      } else {
+        reset();
+      }
+    };
+    sheet.addEventListener('touchstart', onStart, { passive: true });
+    sheet.addEventListener('touchmove', onMove, { passive: false });
+    sheet.addEventListener('touchend', onEnd);
+    sheet.addEventListener('touchcancel', onEnd);
+    return () => {
+      sheet.removeEventListener('touchstart', onStart);
+      sheet.removeEventListener('touchmove', onMove);
+      sheet.removeEventListener('touchend', onEnd);
+      sheet.removeEventListener('touchcancel', onEnd);
+    };
+  }, [sheetRef, rootRef]);
 }
 
 /** `footer` : barre fixée en bas de la feuille (champ de commentaire…), hors de la zone qui défile. */
@@ -48,21 +137,18 @@ export function Sheet({ title, onClose, children, footer }: { title: string; onC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
-    openSheets += 1;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      openSheets -= 1;
-      if (openSheets === 0) document.body.style.overflow = '';
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+  useScrollLock();
   const view = useKeyboardView();
   const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const scroll = useRef(0);
+  useSheetDrag(panel, root, onClose);
   // En partant, la feuille glisse vers le bas et le fond s'efface (même si c'est le programme qui la ferme).
   useLayoutEffect(() => {
     const el = root.current;
-    return () => leave(el, 'sheet-out', 220, [{ selector: footer ? '.sheet-scroll' : '.sheet', top: scroll.current }]);
+    return () => leave(el, 'sheet-out', 300, [{ selector: footer ? '.sheet-scroll' : '.sheet', top: scroll.current }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Rendue à la racine du document : une carte animée (transformée) plus haut ne peut pas l'enfermer sous la
@@ -70,6 +156,7 @@ export function Sheet({ title, onClose, children, footer }: { title: string; onC
   return createPortal(
     <div ref={root} className="sheet-backdrop" onClick={onClose} style={view ? { top: view.top, height: view.height, bottom: 'auto', '--sheet-max': `${view.height - 12}px` } as CSSProperties : undefined}>
       <div
+        ref={panel}
         className={`sheet${footer ? ' has-foot' : ''}`}
         role="dialog"
         aria-modal="true"

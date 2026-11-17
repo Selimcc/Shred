@@ -261,12 +261,12 @@ function Ghosts({ n = 5 }: { n?: number }) {
     <div className="music-list" aria-hidden="true">
       {Array.from({ length: n }, (_, i) => (
         <div key={i} className="music-item ghost">
-          <span className="music-art skeleton" style={{ width: 48, height: 48 }} />
+          <span className="music-art m-skel" style={{ width: 48, height: 48 }} />
           <div className="grow" style={{ display: 'grid', gap: 7 }}>
-            <span className="skeleton line" style={{ width: `${62 - i * 7}%` }} />
-            <span className="skeleton line short" style={{ width: `${38 + (i % 3) * 8}%` }} />
+            <span className="m-skel line" style={{ width: `${62 - i * 7}%` }} />
+            <span className="m-skel line short" style={{ width: `${38 + (i % 3) * 8}%` }} />
           </div>
-          <span className="skeleton disc" />
+          <span className="m-skel disc" />
         </div>
       ))}
     </div>

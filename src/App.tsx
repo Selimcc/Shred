@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Celebration } from './components/Celebration';
 import { DemoInviteHost, demoInvite } from './components/DemoInvite';
 import { PulseMoment } from './components/PulseMoment';
 import { SeasonLayer } from './components/SeasonLayer';
 import { SeasonScene } from './components/SeasonScene';
-import { activeSeason, SEASON_BAR, seasonDay, useSeasonLab } from './lib/season';
+import { activeSeason, SEASON_BAR, seasonDay, seasonPeak, useSeasonLab } from './lib/season';
+import { type EnterDir, enterBlocks, reducedMotion } from './lib/motion';
 import { Icon } from './components/Icon';
 import { AskHost, ToastHost } from './components/ui';
 import { DEMO } from './lib/api';
@@ -43,6 +44,46 @@ function initialTab(): Tab {
   return TABS.some((x) => x.id === t) ? (t as Tab) : 'today';
 }
 
+/** Sens du passage d'un onglet à l'autre : vers la droite de la barre, ou vers la gauche. Pulse est « après ». */
+const rank = (t: Tab) => (t === 'coach' ? 99 : TABS.findIndex((x) => x.id === t));
+
+/**
+ * La pastille éclairée sous l'onglet actif glisse d'un onglet à l'autre (avec un léger étirement en route),
+ * au lieu de s'éteindre ici et de s'allumer là.
+ */
+function useTabGlow(nav: RefObject<HTMLElement | null>, glow: RefObject<HTMLElement | null>, key: string) {
+  const placed = useRef(false);
+  useLayoutEffect(() => {
+    const n = nav.current;
+    const g = glow.current;
+    if (!n || !g) return;
+    const place = (moved: boolean) => {
+      const pill = n.querySelector<HTMLElement>('.tab.active .pill');
+      if (!pill) {
+        g.style.opacity = '0';
+        return;
+      }
+      const a = pill.getBoundingClientRect();
+      const b = n.getBoundingClientRect();
+      g.style.opacity = '';
+      g.style.width = `${a.width}px`;
+      g.style.height = `${a.height}px`;
+      g.style.transform = `translate3d(${a.left - b.left - n.clientLeft}px, ${a.top - b.top - n.clientTop}px, 0)`;
+      if (moved && placed.current && !reducedMotion() && typeof g.animate === 'function') {
+        g.animate([{ scale: '1 1' }, { scale: '1.28 0.86', offset: 0.32 }, { scale: '1 1' }], { duration: 480, easing: 'cubic-bezier(0.3, 0.7, 0.2, 1)' });
+      }
+      if (!placed.current) {
+        placed.current = true;
+        requestAnimationFrame(() => n.setAttribute('data-glide', 'ready'));
+      }
+    };
+    place(true);
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => place(false));
+    ro?.observe(n);
+    return () => ro?.disconnect();
+  }, [nav, glow, key]);
+}
+
 export function App() {
   const s = useApp();
   const session = useSession();
@@ -56,6 +97,7 @@ export function App() {
   const [openMember] = useState(() => (new URLSearchParams(location.search).get('member') ?? '').toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 20) || null);
   useSeasonLab();
   const season = activeSeason(s, today);
+  const sceneDay = seasonDay(today);
 
   // Thème de saison : toute l'interface suit les jetons de couleur de la fête, et la barre d'état aussi.
   useEffect(() => {
@@ -65,15 +107,51 @@ export function App() {
     for (const m of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) m.content = season ? SEASON_BAR[season] : '#15171b';
   }, [season]);
 
+  // Pas de compte : écran d'accueil. Premier lancement : quelques questions.
+  const gate = DEMO ? null : !session.account && !session.local ? (
+    <Welcome />
+  ) : session.account?.expired ? (
+    <Welcome expired={session.account} />
+  ) : !s.settings.onboarded ? (
+    <Onboarding />
+  ) : null;
+  const gated = gate !== null;
+
+  // Chaque onglet retrouve l'endroit où on l'a laissé ; ses blocs arrivent du côté où l'on va.
+  const main = useRef<HTMLElement>(null);
+  const nav = useRef<HTMLElement>(null);
+  const glow = useRef<HTMLSpanElement>(null);
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
+  const scrolls = useRef<Partial<Record<Tab, number>>>({});
+  const move = useRef<{ dir: EnterDir; top: number } | null>({ dir: 'up', top: -1 });
+
   const go = (t: Tab) => {
+    const from = tabRef.current;
+    if (t === from) {
+      // Toucher l'onglet où l'on est : retour en haut, en douceur.
+      window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      return;
+    }
+    scrolls.current[from] = window.scrollY;
+    move.current = { dir: rank(t) > rank(from) ? 'fwd' : 'back', top: scrolls.current[t] ?? 0 };
     setTab(t);
-    window.scrollTo({ top: 0 });
     try {
       history.replaceState(null, '', t === 'today' ? location.pathname : `?tab=${t}`);
     } catch {
       // Navigation d'URL indisponible (aperçu intégré) : l'onglet change quand même.
     }
   };
+
+  useLayoutEffect(() => {
+    const m = move.current;
+    if (!m || !main.current) return;
+    move.current = null;
+    if (m.top >= 0) window.scrollTo({ top: m.top });
+    enterBlocks(main.current, m.dir);
+  }, [tab, gated]);
+
+  useTabGlow(nav, glow, `${tab}:${tabs.length}:${gated}`);
 
   useEffect(() => {
     // Ouverture depuis une notification alors que l'app tourne déjà.
@@ -94,14 +172,6 @@ export function App() {
     };
   }, []);
 
-  // Pas de compte : écran d'accueil. Premier lancement : quelques questions.
-  const gate = DEMO ? null : !session.account && !session.local ? (
-    <Welcome />
-  ) : session.account?.expired ? (
-    <Welcome expired={session.account} />
-  ) : !s.settings.onboarded ? (
-    <Onboarding />
-  ) : null;
   if (gate) {
     return (
       <>
@@ -123,9 +193,9 @@ export function App() {
         </div>
       )}
       {DEMO && <DemoInviteHost />}
-      <SeasonLayer season={season} />
-      <SeasonScene season={season} today={seasonDay(today)} />
-      <main className="app">
+      <SeasonLayer season={season} peak={seasonPeak(season, sceneDay)} />
+      <SeasonScene season={season} today={sceneDay} day={today} auto={tab === 'today' && !settings} />
+      <main ref={main} className="app">
         {tab === 'today' && <Today today={today} go={go} openSettings={() => setSettings('menu')} />}
         {tab === 'workout' && <Workout today={today} editProgram={() => setSettings('program')} />}
         {tab === 'food' && <Food today={today} openCoach={() => go('coach')} />}
@@ -135,7 +205,8 @@ export function App() {
       </main>
 
       <div className="tabbar">
-        <nav aria-label="Navigation" style={{ gridTemplateColumns: `repeat(${tabs.filter((t) => !t.hidden).length}, 1fr)` }}>
+        <nav ref={nav} aria-label="Navigation" style={{ gridTemplateColumns: `repeat(${tabs.filter((t) => !t.hidden).length}, 1fr)` }}>
+          <span ref={glow} className="tab-glow" aria-hidden="true" />
           {tabs.filter((t) => !t.hidden).map((t) => (
             <button
               key={t.id}

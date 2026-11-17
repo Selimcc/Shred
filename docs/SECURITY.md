@@ -121,6 +121,14 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 | Low | Sheets opened from inside an animated card were trapped in its stacking context: the edit sheet ended up under the tab bar. | Sheets render in a portal at the root of the document. |
 | Design | Admin season lab. | Client side only, kept in memory for the session, never saved nor synced; the season id still comes from the fixed list. |
 
+## Version 0.27
+
+| Severity | Finding | Fix |
+|---|---|---|
+| Low | Two `@keyframes` shared a name; the one declared last silently replaced the other (sheet and end-of-day entrances since 0.24, the club feed skeleton). | Renamed; a test refuses duplicate keyframe names across the stylesheets. |
+| Design | The once-a-day scene remembers `season:date` in `localStorage`. | Nothing personal, never synced or sent; an unknown value only means the scene plays again. |
+| Design | Sheets can be dragged down to close. | Touch handling on the sheet only; a scrolled area, a slider or a sideways gesture keeps its own behaviour, and closing goes through the same `onClose` as the button (unsaved drafts follow the same rules as before). |
+
 ## Accepted
 
 | Severity | Finding | Why |

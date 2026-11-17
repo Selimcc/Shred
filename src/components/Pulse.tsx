@@ -2,24 +2,31 @@
 // La lumière prend la couleur de tes flammes gagnées, les yeux lumineux suivent ta journée.
 // Aux fêtes, Pulse se déguise : citrouille à Halloween, bonnet à Noël, chapeau pointu au Nouvel an,
 // yeux en cœur à la Saint-Valentin, oreilles de lapin à Pâques. Personnage original.
+//
+// Dessiné en calques SVG superposés (même viewBox) : le verre, la lumière, le reflet et le costume, les yeux.
+// Ce qui bouge en continu (respiration, halo, lumière, clignement) anime un calque entier en transform /
+// opacity : le navigateur le déplace sans redessiner le verre et ses flous à chaque image.
 import { type ReactNode, useId } from 'react';
 import { TIERS } from '../lib/flames';
 import { SEASON_LIGHT, type SeasonId, useSeason } from '../lib/season';
 
 export type Mood = 'happy' | 'proud' | 'cheer' | 'sleepy' | 'sad' | 'think';
 
+/** Les yeux clignent (gélules ouvertes) ; contents ou endormis, ils restent tels quels. */
+const blinks = (mood: Mood) => mood !== 'proud' && mood !== 'cheer' && mood !== 'sleepy';
+
 function Eyes({ mood, glow }: { mood: Mood; glow: string }) {
   const common = { filter: glow };
   if (mood === 'proud' || mood === 'cheer')
     return (
-      <g className="pulse-eyes" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" {...common}>
+      <g fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" {...common}>
         <path d="M44 58q5-6.5 10 0" />
         <path d="M66 58q5-6.5 10 0" />
       </g>
     );
   if (mood === 'sleepy')
     return (
-      <g className="pulse-eyes" fill="none" stroke="#fff" strokeWidth="3.6" strokeLinecap="round" opacity="0.8" {...common}>
+      <g fill="none" stroke="#fff" strokeWidth="3.6" strokeLinecap="round" opacity="0.8" {...common}>
         <path d="M44 57q5 3.5 10 0" />
         <path d="M66 57q5 3.5 10 0" />
       </g>
@@ -28,7 +35,7 @@ function Eyes({ mood, glow }: { mood: Mood; glow: string }) {
   const dy = mood === 'think' ? -4 : mood === 'sad' ? 4 : 0;
   const h = mood === 'sad' ? 9 : 14;
   return (
-    <g className="pulse-eyes blink" fill="#fff" {...common}>
+    <g fill="#fff" {...common}>
       <rect x={45.5 + dx} y={49 + dy + (14 - h) / 2} width="8" height={h} rx="4" />
       <rect x={66.5 + dx} y={49 + dy + (14 - h) / 2} width="8" height={h} rx="4" />
     </g>
@@ -44,7 +51,7 @@ function Pumpkin({ mood, glow }: { mood: Mood; glow: string }) {
   const sleepy = mood === 'sleepy';
   const sad = mood === 'sad';
   return (
-    <g className="pulse-carve" filter={glow}>
+    <g filter={glow}>
       {sleepy ? (
         <g fill="none" stroke="#ffd27a" strokeWidth="3.6" strokeLinecap="round">
           <path d="M44 55h11M65 55h11" />
@@ -87,17 +94,13 @@ function SeasonOver({ season, id }: { season: SeasonId; id: string }) {
         <path d="M61 -3l1.6 3.4 3.7.4-2.8 2.5.8 3.6L61 5.1 57.7 7l.8-3.6-2.8-2.5 3.7-.4Z" fill="#fff3c4" />
       </g>
     );
-  if (season === 'saint-valentin')
-    return (
-      <path className="pulse-heart" d={heart(99, 20, 7)} fill="#ff4d7d" stroke="#ffc2d1" strokeWidth="1" />
-    );
   return null;
 }
 
 /** Oreilles de lapin de Pâques, derrière la sphère. */
 function Ears() {
   return (
-    <g className="pulse-ears">
+    <g>
       <g transform="rotate(-16 45 26)">
         <ellipse cx="45" cy="13" rx="7.5" ry="16" fill="#eef1f4" />
         <ellipse cx="45" cy="14" rx="3.6" ry="11.5" fill="#ffb3c7" />
@@ -132,9 +135,11 @@ export function Pulse({
   const loveEyes = season === 'saint-valentin' && mood !== 'sleepy' && mood !== 'sad';
   const dim = mood === 'sad' || mood === 'sleepy';
   const u = (k: string) => `url(#${id}${k})`;
+  const VB = '0 0 120 120';
   return (
     <div className={`pulse mood-${mood} ${season ? `pulse-${season}` : ''} ${className}`} style={{ width: size, height: size }} aria-hidden="true">
-      <svg viewBox="0 0 120 120" width="100%" height="100%" style={{ overflow: 'visible' }}>
+      {/* Halo qui respire, avec toutes les définitions partagées par les calques. */}
+      <svg className="pulse-l pulse-halo" viewBox={VB}>
         <defs>
           {/* Verre fumé : clair en haut à gauche, sombre sur les bords. */}
           <radialGradient id={`${id}glass`} cx="38%" cy="30%" r="75%">
@@ -192,50 +197,77 @@ export function Pulse({
             <feGaussianBlur stdDeviation="3" />
           </filter>
         </defs>
-
-        <circle className="pulse-halo" cx="60" cy="58" r="58" fill={u('halo')} />
+        <circle cx="60" cy="58" r="58" fill={u('halo')} />
+      </svg>
+      <svg className="pulse-l" viewBox={VB}>
         <ellipse cx="60" cy="107" rx="22" ry="3.2" fill="#000" opacity="0.55" filter={u('shadow')} />
+      </svg>
 
-        <g className="pulse-body" style={{ filter: dim ? 'saturate(0.4) brightness(0.8)' : undefined }}>
-          {season === 'paques' && <Ears />}
+      <div className="pulse-body" style={{ filter: dim ? 'saturate(0.4) brightness(0.8)' : undefined }}>
+        {season === 'paques' && (
+          <svg className="pulse-l pulse-ears" viewBox={VB}>
+            <Ears />
+          </svg>
+        )}
+        <svg className="pulse-l" viewBox={VB}>
           <circle cx="60" cy="58" r="40" fill={u(pumpkin ? 'pumpkin' : 'glass')} />
-          {pumpkin ? (
+          {pumpkin && (
             <g clipPath={u('clip')} fill="none" stroke="#5a1f03" strokeOpacity="0.42" strokeWidth="1.6">
               <ellipse cx="60" cy="58" rx="13" ry="40" />
               <ellipse cx="60" cy="58" rx="27" ry="40" />
               <path d="M60 18v80" />
             </g>
-          ) : (
-            <g clipPath={u('clip')}>
-              <circle className="pulse-core" cx="60" cy="66" r="34" fill={u('core')} filter={u('blur')} opacity="0.95" />
-            </g>
           )}
+        </svg>
+        {!pumpkin && (
+          <svg className="pulse-l pulse-core" viewBox={VB}>
+            <g clipPath={u('clip')}>
+              <circle cx="60" cy="66" r="34" fill={u('core')} filter={u('blur')} opacity="0.95" />
+            </g>
+          </svg>
+        )}
+        <svg className="pulse-l" viewBox={VB}>
           <circle cx="60" cy="58" r="39.3" fill="none" stroke={u('rim')} strokeWidth="1.4" />
           {/* Reflet du verre, en croissant sur le haut. */}
           <path d="M31 47c4-14 16-23 29-23s25 9 29 23c-7-8-17-12-29-12s-22 4-29 12Z" fill={u('shine')} opacity={pumpkin ? 0.35 : 0.7} />
-          {pumpkin ? (
+          {pumpkin && (
             <>
               <path d="M57 20c-1-6 1-10 5-13l4 2.5c-3 2-4 5-3.5 10.5z" fill="#4d6b24" />
               <path d="M64 10c4-3 9-2 11 1" fill="none" stroke="#6f9632" strokeWidth="1.6" strokeLinecap="round" />
-              <Pumpkin mood={mood} glow={u('glow')} />
             </>
-          ) : loveEyes ? (
-            <g className="pulse-eyes" fill="#fff" filter={u('glow')}>
-              <path d={heart(50, 55, 7)} />
-              <path d={heart(70, 55, 7)} />
-            </g>
-          ) : (
-            <Eyes mood={mood} glow={u('glow')} />
           )}
           {season && <SeasonOver season={season} id={id} />}
-        </g>
+        </svg>
+        {pumpkin ? (
+          <svg className="pulse-l pulse-carve" viewBox={VB}>
+            <Pumpkin mood={mood} glow={u('glow')} />
+          </svg>
+        ) : (
+          <svg className={`pulse-l pulse-eyes${!loveEyes && blinks(mood) ? ' blink' : ''}`} viewBox={VB}>
+            {loveEyes ? (
+              <g fill="#fff" filter={u('glow')}>
+                <path d={heart(50, 55, 7)} />
+                <path d={heart(70, 55, 7)} />
+              </g>
+            ) : (
+              <Eyes mood={mood} glow={u('glow')} />
+            )}
+          </svg>
+        )}
+        {season === 'saint-valentin' && (
+          <svg className="pulse-l pulse-heart" viewBox={VB}>
+            <path d={heart(99, 20, 7)} fill="#ff4d7d" stroke="#ffc2d1" strokeWidth="1" />
+          </svg>
+        )}
+      </div>
 
-        {mood === 'sleepy' && (
-          <text className="pulse-z" x={season === 'noel' || season === 'nouvel-an' ? 14 : 94} y="28" fontSize="15" fontWeight="800" fill="var(--ink-3)">
+      {mood === 'sleepy' && (
+        <svg className="pulse-l pulse-z" viewBox={VB}>
+          <text x={season === 'noel' || season === 'nouvel-an' ? 14 : 94} y="28" fontSize="15" fontWeight="800" fill="var(--ink-3)">
             z
           </text>
-        )}
-      </svg>
+        </svg>
+      )}
     </div>
   );
 }

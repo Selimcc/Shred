@@ -22,7 +22,7 @@ await build({
   outdir: dir,
   logLevel: 'error',
   splitting: true,
-  define: { __BUILD__: '"0.24.0+test"', 'import.meta.env': '{"MODE":"test","DEV":false,"PROD":true}' },
+  define: { __BUILD__: '"0.27.0+test"', 'import.meta.env': '{"MODE":"test","DEV":false,"PROD":true}' },
 });
 const load = (n) => import(pathToFileURL(join(dir, `${n}.js`)).href);
 const [shared, season, store, coach, scene] = await Promise.all(['shared', 'season', 'store', 'coach', 'scene'].map(load));
@@ -130,13 +130,35 @@ check(
 
 /* ---------- Scènes de fête ---------- */
 // La durée côté code (quand la scène se retire) doit être celle des animations du CSS, sinon elle est coupée.
-const styles = readFileSync('src/styles.css', 'utf8');
-const main = { 'saint-valentin': 'cupid-path', noel: 'sleigh-fly', halloween: 'witch-fly', 'nouvel-an': 'rocket', paques: 'bunny-run' };
+const styles = readFileSync('src/styles/season.css', 'utf8');
+const main = { 'saint-valentin': 'cupid-path', noel: 'sleigh-path', halloween: 'witch-path', 'nouvel-an': 'party-pop', paques: 'bunny-path' };
 for (const id of shared.SEASON_IDS) {
   const ms = scene.SCENE_MS[id];
   const sec = `${ms / 1000}s`;
   check(`scène ${id} : ${sec} dans le code et le CSS`, typeof ms === 'number' && styles.includes(`animation: ${main[id]} ${sec}`), main[id]);
 }
+// Toutes les animations d'une scène tiennent dans sa durée : rien n'est coupé net quand elle se retire.
+const sceneCss = styles.slice(styles.indexOf('/* ---------- Scènes de fête'), styles.indexOf('/* ----- Le bouton de la fête'));
+const long = [...sceneCss.matchAll(/animation:\s*[\w-]+\s+([\d.]+)s(?:\s+[\w().,-]+)*?\s+([\d.]+)s/g)].filter(([, d, delay]) => Number(d) + Number(delay) > 8.01);
+check('aucune animation de scène ne dépasse 8 s (durée + délai)', long.length === 0, long.map((m) => m[0]).join(' | '));
+
+/* ---------- Une scène par jour ---------- */
+check('la scène du jour est à jouer si rien n’a été vu', scene.sceneDue(null, 'noel', '2026-12-10'));
+check('vue aujourd’hui : plus rien', !scene.sceneDue('noel:2026-12-10', 'noel', '2026-12-10'));
+check('vue hier : elle revient', scene.sceneDue('noel:2026-12-09', 'noel', '2026-12-10'));
+check('autre fête testée le même jour : elle se joue', scene.sceneDue('noel:2026-12-10', 'nouvel-an', '2026-12-10'));
+
+/* ---------- Jour J ---------- */
+check('jour J : décor plus riche le 25 décembre', season.seasonPeak('noel', '2026-12-25') && !season.seasonPeak('noel', '2026-12-20'));
+check('jour J : rien sans fête', !season.seasonPeak(null, '2026-12-25'));
+
+/* ---------- Pas deux @keyframes du même nom ---------- */
+// Le dernier écrase l'autre en silence : c'est ce qui avait cassé la montée des feuilles et des fêtes de fin
+// de journée (une « rise » des cœurs de saison).
+const allCss = ['src/styles.css', 'src/styles/season.css', 'src/styles/motion.css'].map((f) => readFileSync(f, 'utf8')).join('\n');
+const names = [...allCss.matchAll(/@keyframes\s+([\w-]+)/g)].map((m) => m[1]);
+const dup = names.filter((n, i) => names.indexOf(n) !== i);
+check('chaque @keyframes a un nom unique', dup.length === 0, [...new Set(dup)].join(', '));
 
 console.log(failures ? `\n${failures} échec(s)` : '\nTout est bon.');
 process.exit(failures ? 1 : 0);
