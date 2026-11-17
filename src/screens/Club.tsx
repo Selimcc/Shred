@@ -35,7 +35,8 @@ import {
   type PostVideo,
 } from '../lib/club';
 import { Field } from '../components/form';
-import { dayKey, formatNumber, formatShort, mondayOf, weekdayOf } from '../lib/date';
+import { dayKey, formatShort, mondayOf, weekdayOf } from '../lib/date';
+import { boardDays, boardLine, boardRanks, boardVolume } from '../lib/board';
 import { prepareImage } from '../lib/image';
 import { AvatarCrop } from '../components/AvatarCrop';
 import { setMe } from '../lib/me';
@@ -415,6 +416,21 @@ export function SummaryCard({ s, compact = false }: { s: SessionSummary; compact
   );
 }
 
+const DAY_NAMES = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+
+/** La semaine en sept points, du lundi au dimanche : allumé si une séance a été validée ce jour-là. */
+function WeekDots({ days, today }: { days: number; today: number }) {
+  const on = boardDays(days);
+  const named = DAY_NAMES.filter((_, i) => on[i]);
+  return (
+    <span className="board-days" role="img" aria-label={named.length ? `Séances : ${named.join(', ')}` : 'Pas encore de séance cette semaine'}>
+      {on.map((v, i) => (
+        <i key={i} className={`${v ? 'on' : ''}${i === today ? ' today' : ''}${i > today ? ' later' : ''}`} />
+      ))}
+    </span>
+  );
+}
+
 /** Classement de la semaine entre toi et les personnes que tu suis : séances validées, puis tonnage. */
 function Leaderboard({ onOpen }: { onOpen: (id: string) => void }) {
   const [rows, setRows] = useState<BoardRow[] | null>(null);
@@ -425,43 +441,50 @@ function Leaderboard({ onOpen }: { onOpen: (id: string) => void }) {
     club.leaderboard(monday).then((r) => setRows(r.rows), () => setRows([]));
   }, [monday]);
   if (!rows || rows.length < 2) return null;
-  // Jours restants jusqu'à dimanche (getDay : dimanche = 0).
+  // Jours restants jusqu'à dimanche (getDay : dimanche = 0), et la place d'aujourd'hui dans la semaine (lundi = 0).
   const left = (7 - weekdayOf(today)) % 7;
-  const rank = rows.findIndex((r) => r.me) + 1;
-  const vol = (kg: number) => (kg >= 1000 ? `${formatNumber(kg / 1000, 1)} t` : `${kg} kg`);
+  const todayIndex = (weekdayOf(today) + 6) % 7;
+  const ranks = boardRanks(rows);
   return (
     <section className="card board">
       <div className="board-head">
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 800 }}>Classement de la semaine</div>
-          <div className="small muted">{left > 0 ? `Encore ${left} jour${left > 1 ? 's' : ''} pour remonter` : 'Dernier jour'}{rank ? `, tu es ${rank === 1 ? '1er' : `${rank}e`}` : ''}</div>
+          <div className="small muted">{boardLine(rows, left)}</div>
         </div>
         <Icon name="trophy" size={22} />
       </div>
       <ol className="board-list">
         {(all ? rows : rows.slice(0, 3)).map((r, i) => (
           <li key={r.id} className={r.me ? 'me' : ''}>
-            <button onClick={() => !r.me && onOpen(r.id)} disabled={r.me}>
-              <span className={`board-rank r${i + 1}`}>{i + 1}</span>
-              <MemberAvatar m={r} size={34} />
-              <span className="grow" style={{ minWidth: 0, textAlign: 'left' }}>
-                <span className="title ellipsis" style={{ display: 'block' }}>
-                  {r.me ? 'Toi' : r.name}
+            <button onClick={() => !r.me && onOpen(r.id)} disabled={r.me} aria-label={`${ranks[i]}e : ${r.me ? 'toi' : r.name}, ${r.week} séance${r.week > 1 ? 's' : ''}`}>
+              <span className={`board-rank r${ranks[i]}`}>{ranks[i]}</span>
+              <MemberAvatar m={r} size={36} />
+              <span className="board-who">
+                <span className="board-name">
+                  <span className="title ellipsis">{r.me ? 'Toi' : r.name}</span>
+                  {r.streak > 1 && (
+                    <span className="board-streak num" title={`${r.streak} jours de série`}>
+                      <Icon name="flame" size={12} />
+                      {r.streak}
+                    </span>
+                  )}
                 </span>
-                <span className="small faint">{r.streak > 1 ? `${r.streak} j de série` : r.handle ? `@${r.handle}` : ''}</span>
+                <span className="board-sub">
+                  {r.days !== undefined ? <WeekDots days={r.days} today={todayIndex} /> : <span className="faint">{r.handle ? `@${r.handle}` : ''}</span>}
+                  {r.volume > 0 && <span className="faint num">{boardVolume(r.volume)}</span>}
+                </span>
               </span>
               <span className="board-score num">
-                <span>
-                  <b>{r.week}</b> séance{r.week > 1 ? 's' : ''}
-                </span>
-                {r.volume > 0 && <span className="small faint">{vol(r.volume)}</span>}
+                <b>{r.week}</b>
+                <span>séance{r.week > 1 ? 's' : ''}</span>
               </span>
             </button>
           </li>
         ))}
       </ol>
       {rows.length > 3 && (
-        <button className="link small" onClick={() => setAll((v) => !v)}>
+        <button className="link small board-more" onClick={() => setAll((v) => !v)}>
           {all ? 'Voir le podium' : `Voir les ${rows.length}`}
         </button>
       )}

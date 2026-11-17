@@ -918,6 +918,9 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
         const me = a.id === user.id;
         if (!b && !me) return null;
         const current = b?.weekOf === week;
+        // Les jours de la semaine où la personne s'est entraînée : aucun si rien de cette semaine, inconnus si
+        // son app (d'avant la 0.28) ne les publie pas encore.
+        const days = !current ? 0 : typeof b!.days === 'number' ? b!.days : undefined;
         return {
           id: a.id,
           name: a.name,
@@ -927,6 +930,7 @@ export async function clubRoutes(req: Request, env: Env, user: User, url: URL, c
           week: current ? b!.week : 0,
           volume: current ? b!.volume : 0,
           streak: b?.streak ?? 0,
+          ...(days !== undefined ? { days } : {}),
         };
       })
       .filter((r): r is NonNullable<typeof r> => Boolean(r))

@@ -142,47 +142,168 @@ export interface MonthStory {
   records: string[];
   run: number;
   name: string;
+  /** Le profil du mois, révélé à la fin de la story. */
+  profile: { title: string; line: string; color: string };
+  /** Le mois en calendrier (décalage du 1er, lundi = 0). */
+  cal: { offset: number; days: { trained: boolean; record: boolean; future: boolean }[] };
 }
 
-/** Carte story du récap du mois. */
+/** Coupe un texte en lignes qui tiennent dans la largeur (les dernières lignes sont fondues avec « … »). */
+function wrap(ctx: Ctx, text: string, width: number, lines: number): string[] {
+  const out: string[] = [];
+  let cur = '';
+  for (const w of text.split(' ')) {
+    const next = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(next).width <= width || !cur) cur = next;
+    else {
+      out.push(cur);
+      cur = w;
+    }
+  }
+  if (cur) out.push(cur);
+  if (out.length > lines) {
+    const kept = out.slice(0, lines);
+    kept[lines - 1] = `${kept[lines - 1].replace(/[ ,.;:]+$/, '')}…`;
+    return kept;
+  }
+  return out;
+}
+
+/** Une couleur « #rrggbb » avec une opacité. */
+function alpha(hex: string, a: number) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/** Petite étoile (jours de record dans le calendrier). */
+function starAt(ctx: Ctx, x: number, y: number, r: number) {
+  ctx.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const a = -Math.PI / 2 + (k * Math.PI) / 5;
+    const rr = k % 2 ? r * 0.45 : r;
+    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+/**
+ * Carte story du récap : le mois en très grand, le profil du mois dans une carte à sa couleur, le calendrier des
+ * séances à gauche et les chiffres à droite, puis l'exercice du mois, les records et la série.
+ */
 export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> {
   const { canvas, ctx } = await canvasReady();
-  backdrop(ctx, 'rgba(255,209,102,0.24)', `${m.month[0].toUpperCase()}${m.month.slice(1)} ${m.year}`);
+  const pc = m.profile.color;
+  backdrop(ctx, alpha(pc, 0.3), `${m.month[0].toUpperCase()}${m.month.slice(1)} ${m.year}`);
+  glow(ctx, W * 0.1, H * 0.42, 700, alpha(pc, 0.1));
 
-  let y = 430;
+  // Le mois.
   ctx.fillStyle = '#a0a5ad';
   setFont(ctx, 600, 46);
-  ctx.fillText('Mon mois', PAD, y - 230);
+  ctx.fillText('Mon mois', PAD, 236);
   const title = m.month.toUpperCase();
   const size = fit(ctx, title, 820, 250, W - PAD * 2, 'condensed');
-  const tg = ctx.createLinearGradient(0, y - size, 0, y);
+  const tg = ctx.createLinearGradient(0, 420 - size, 0, 420);
   tg.addColorStop(0, '#ffffff');
   tg.addColorStop(1, '#c4c8cf');
   ctx.fillStyle = tg;
-  ctx.fillText(title, PAD - 6, y);
-  if (m.like) {
-    y += 84;
-    ctx.fillStyle = '#ffd166';
-    const ls = fit(ctx, m.like, 650, 46, W - PAD * 2, 'normal');
-    setFont(ctx, 650, ls);
-    ctx.fillText(m.like, PAD, y);
-  }
+  ctx.fillText(title, PAD - 6, 420);
 
-  let by = statGrid(ctx, m.stats, 640) + 90;
+  // Le profil du mois, dans une carte à sa couleur.
+  const cy = 476;
+  const ch = 300;
+  roundRect(ctx, PAD, cy, W - PAD * 2, ch, 48);
+  const cg = ctx.createLinearGradient(PAD, cy, W - PAD, cy + ch);
+  cg.addColorStop(0, alpha(pc, 0.26));
+  cg.addColorStop(1, alpha(pc, 0.06));
+  ctx.fillStyle = cg;
+  ctx.fill();
+  ctx.strokeStyle = alpha(pc, 0.55);
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.fillStyle = pc;
+  setFont(ctx, 700, 38);
+  ctx.fillText('Mon profil du mois', PAD + 52, cy + 84);
+  ctx.fillStyle = '#ffffff';
+  const ps = fit(ctx, m.profile.title, 820, 104, W - PAD * 2 - 104, 'condensed');
+  setFont(ctx, 820, ps, 'condensed');
+  ctx.fillText(m.profile.title, PAD + 50, cy + 84 + ps * 0.95);
+  ctx.fillStyle = '#c9ccd2';
+  setFont(ctx, 500, 38);
+  wrap(ctx, m.profile.line, W - PAD * 2 - 104, 2).forEach((l, k) => ctx.fillText(l, PAD + 52, cy + 84 + ps * 0.95 + 64 + k * 50));
+
+  // Le calendrier, à gauche.
+  const top = cy + ch + 74;
+  const cell = 70;
+  const gap = 12;
+  ctx.textAlign = 'center';
+  setFont(ctx, 700, 28);
+  ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach((l, k) => {
+    ctx.fillStyle = '#7d828b';
+    ctx.fillText(l, PAD + k * (cell + gap) + cell / 2, top);
+  });
+  m.cal.days.forEach((d, k) => {
+    const pos = m.cal.offset + k;
+    const x = PAD + (pos % 7) * (cell + gap);
+    const y = top + 26 + Math.floor(pos / 7) * (cell + gap);
+    roundRect(ctx, x, y, cell, cell, 18);
+    if (d.trained) {
+      ctx.fillStyle = pc;
+      ctx.fill();
+    } else if (d.future) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fill();
+    }
+    ctx.fillStyle = d.trained ? '#14161a' : '#6c717a';
+    setFont(ctx, d.trained ? 760 : 500, 28);
+    ctx.fillText(String(k + 1), x + cell / 2, y + cell / 2 + 10);
+    if (d.record) {
+      // Sur une case allumée, l'étoile se détache en sombre (la case peut être dorée elle aussi).
+      ctx.fillStyle = d.trained ? '#14161a' : '#ffd166';
+      starAt(ctx, x + cell - 10, y + 10, 13);
+    }
+  });
+  ctx.textAlign = 'left';
+  const rows = Math.ceil((m.cal.offset + m.cal.days.length) / 7);
+  const calBottom = top + 26 + rows * (cell + gap) - gap;
+
+  // Les chiffres, à droite du calendrier.
+  const sx = PAD + 7 * (cell + gap) + 40;
+  const sw = W - PAD - sx;
+  // Trois chiffres au plus, répartis sur la hauteur du calendrier (des lettres des jours à la dernière ligne).
+  const stats = m.stats.slice(0, 3);
+  const step = (calBottom - (top - 28)) / Math.max(1, stats.length);
+  stats.forEach((st, k) => {
+    const y = top - 28 + k * step;
+    ctx.fillStyle = '#f2f3f5';
+    const vs = Math.min(fit(ctx, st.value, 800, 96, sw, 'condensed'), (step - 62) / 0.82);
+    setFont(ctx, 800, vs, 'condensed');
+    ctx.fillText(st.value, sx, y + vs * 0.82);
+    ctx.fillStyle = '#a0a5ad';
+    setFont(ctx, 500, 32);
+    ctx.fillText(st.label, sx, y + vs * 0.82 + 42);
+  });
+
+  // L'exercice du mois et les records.
+  let by = calBottom + 96;
   if (m.top) {
     ctx.fillStyle = '#a0a5ad';
-    setFont(ctx, 500, 38);
+    setFont(ctx, 500, 36);
     ctx.fillText('Exercice du mois', PAD, by);
-    by += 66;
+    by += 62;
     ctx.fillStyle = '#f2f3f5';
-    const ts = fit(ctx, m.top, 720, 56, W - PAD * 2, 'normal');
+    const ts = fit(ctx, m.top, 720, 54, W - PAD * 2, 'normal');
     setFont(ctx, 720, ts);
     ctx.fillText(m.top, PAD, by);
-    by += 40;
   }
-  const records = m.records.slice(0, 2);
+  const fy = H - PAD - 140;
+  const records = m.records.slice(0, by + 2 * 86 < fy - 110 ? 2 : 1);
   for (const r of records) {
-    by += 86;
+    by += 84;
     roundRect(ctx, PAD, by - 52, 64, 64, 20);
     ctx.fillStyle = 'rgba(255,181,71,0.16)';
     ctx.fill();
@@ -192,23 +313,22 @@ export async function drawMonthStory(m: MonthStory): Promise<HTMLCanvasElement> 
     ctx.fillText('PR', PAD + 32, by - 9);
     ctx.textAlign = 'left';
     ctx.fillStyle = '#f2f3f5';
-    const rs = fit(ctx, r, 600, 42, W - PAD * 2 - 96, 'normal');
+    const rs = fit(ctx, r, 600, 40, W - PAD * 2 - 96, 'normal');
     setFont(ctx, 600, rs);
     ctx.fillText(r, PAD + 92, by - 6);
   }
 
-  const fy = H - PAD - 150;
   if (m.run > 1) {
     const label = `${m.run} jours validés d’affilée`;
-    setFont(ctx, 760, 46);
+    setFont(ctx, 760, 44);
     const tw = ctx.measureText(label).width;
-    roundRect(ctx, PAD, fy - 70, tw + 150, 104, 52);
+    roundRect(ctx, PAD, fy - 68, tw + 150, 100, 50);
     ctx.fillStyle = 'rgba(255,181,71,0.12)';
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,181,71,0.35)';
     ctx.lineWidth = 2;
     ctx.stroke();
-    flame(ctx, PAD + 60, fy - 18, 30);
+    flame(ctx, PAD + 60, fy - 18, 28);
     ctx.fillStyle = '#ffd27a';
     ctx.fillText(label, PAD + 108, fy);
   }

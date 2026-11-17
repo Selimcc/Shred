@@ -29,6 +29,8 @@ export interface Board {
   week: number;
   volume: number;
   streak: number;
+  /** Jours de la semaine avec une séance (bit 0 = lundi). Absent pour une app d'avant la 0.28. */
+  days?: number;
 }
 
 export interface StoredProfile {
@@ -41,7 +43,14 @@ export interface StoredProfile {
 export function sanitizeBoard(input: unknown): Board | undefined {
   const b = (input ?? null) as Record<string, unknown> | null;
   if (!b || typeof b.weekOf !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.weekOf)) return undefined;
-  return { weekOf: b.weekOf, week: int(b.week, 14) ?? 0, volume: int(b.volume, 2_000_000) ?? 0, streak: int(b.streak, 100_000) ?? 0 };
+  const days = int(b.days, 127);
+  return {
+    weekOf: b.weekOf,
+    week: int(b.week, 14) ?? 0,
+    volume: int(b.volume, 2_000_000) ?? 0,
+    streak: int(b.streak, 100_000) ?? 0,
+    ...(days !== undefined ? { days } : {}),
+  };
 }
 
 const int = (v: unknown, max: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max ? Math.round(v) : undefined);

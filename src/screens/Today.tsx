@@ -266,7 +266,7 @@ export function Today({ today, go, openSettings }: { today: string; go: (t: Tab)
           <Icon name="sparkle" size={22} />
           <span style={{ flex: 1 }}>
             <span style={{ display: 'block', fontWeight: 650 }}>Ton récap {ofMonth(recapMonth)} est prêt</span>
-            <span className="small muted">Séances, records, tonnage : ton mois en story.</span>
+            <span className="small muted">Ton mois en story, et ton profil du mois à découvrir.</span>
           </span>
           <Icon name="chevron" size={18} />
         </button>

@@ -5474,8 +5474,9 @@ h1 {
 
 /* ---------- Classement du club ---------- */
 
+/* Une carte à part entière au-dessus du fil : même écart avec lui qu'entre deux publications. */
 .board {
-  margin-top: 14px;
+  margin: 0 0 16px;
   background:
     radial-gradient(90% 80% at 100% 0%, rgba(255, 209, 102, 0.12), transparent 60%),
     var(--sheen),
@@ -5491,21 +5492,27 @@ h1 {
 .board-head > div {
   color: var(--ink);
 }
+.board-head .small {
+  margin-top: 2px;
+  text-wrap: balance;
+}
+/* Les lignes débordent un peu dans la marge de la carte : leur fond (« toi ») respire, le texte reste aligné. */
 .board-list {
   list-style: none;
-  margin: 12px 0 6px;
+  margin: 12px -8px 0;
   padding: 0;
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 .board-list button {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   width: 100%;
-  padding: 8px 6px;
+  min-height: 60px;
+  padding: 8px;
   border: 0;
-  border-radius: 14px;
+  border-radius: 16px;
   background: none;
   color: inherit;
   text-align: left;
@@ -5542,17 +5549,84 @@ h1 {
   color: #2a1606;
   background: linear-gradient(135deg, #f0b27a, #b9733f);
 }
+/* Nom (et série), puis la semaine en sept points et le tonnage : toutes les lignes ont la même forme. */
+.board-who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.board-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.board-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  flex: none;
+  color: var(--amber);
+  font-size: 0.74rem;
+  font-weight: 760;
+}
+.board-sub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 16px;
+  font-size: 0.78rem;
+}
+.board-days {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.board-days i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.13);
+}
+.board-days i.later {
+  background: rgba(255, 255, 255, 0.06);
+}
+.board-days i.on {
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(255, 209, 102, 0.45);
+}
+/* Aujourd'hui : un fin anneau autour du point, qui ne touche pas ses voisins. */
+.board-days i.today {
+  margin-inline: 2px;
+  outline: 1.5px solid rgba(255, 255, 255, 0.38);
+  outline-offset: 1.5px;
+}
+.board-days i.on.today {
+  outline-color: rgba(255, 209, 102, 0.65);
+}
 .board-score {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   flex-shrink: 0;
-  font-size: 0.82rem;
-  color: var(--ink-2);
+  min-width: 52px;
+  line-height: 1.05;
 }
 .board-score b {
-  font-size: 1.05rem;
+  font-size: 1.32rem;
+  font-weight: 820;
   color: var(--ink);
+}
+.board-score span {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: var(--ink-3);
+}
+.board-more {
+  display: block;
+  margin: 8px auto 0;
 }
 
 /* ---------- Forme du jour et carte musculaire ---------- */
@@ -6292,12 +6366,9 @@ h1 {
 }
 
 /* ---------- Récap du mois ---------- */
+/* Une story façon « Wrapped » : chaque écran a sa couleur (elle se répand en cercle depuis le doigt), son encre
+   (--rc-ink) et son accent. Les entrées sont des transform / opacity, jamais imbriquées l'une dans l'autre. */
 
-@property --recap-accent {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: #86b9ff;
-}
 .recap {
   position: fixed;
   inset: 0;
@@ -6306,6 +6377,7 @@ h1 {
   flex-direction: column;
   padding: calc(env(safe-area-inset-top) + 10px) var(--gutter) calc(env(safe-area-inset-bottom) + 14px);
   background: #0d0f12;
+  color: var(--rc-ink);
   overflow: hidden;
   overflow: clip;
   outline: none;
@@ -6314,37 +6386,119 @@ h1 {
   -webkit-touch-callout: none;
   touch-action: manipulation;
   animation: focus-in 0.44s var(--spring) both;
-  transition: --recap-accent 0.8s ease;
-}
-.recap::before {
-  content: '';
-  position: absolute;
-  left: -30vmax;
-  top: -95vmax;
-  width: 150vmax;
-  height: 150vmax;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--recap-accent) 26%, transparent), transparent);
-  pointer-events: none;
-}
-.recap::after {
-  content: '';
-  position: absolute;
-  left: -30%;
-  right: -30%;
-  bottom: -40%;
-  height: 70%;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--recap-accent) 9%, transparent), transparent);
-  pointer-events: none;
-}
-.recap > * {
-  position: relative;
-  width: 100%;
-  max-width: 540px;
-  margin-inline: auto;
+  transition: color 0.35s ease;
 }
 .recap.leaving.recap-out {
   animation: focus-out 0.24s ease both;
 }
+.recap > .recap-bars,
+.recap > .recap-top,
+.recap > .recap-stage,
+.recap > .recap-hint {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 540px;
+  margin-inline: auto;
+}
+
+/* Les fonds : un disque de la couleur de l'écran grandit depuis le doigt et recouvre l'ancien. Le disque est
+   petit et agrandi (transform) : le navigateur le compose sans redessiner l'écran entier. */
+.rc-wipes {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.rc-wipes i {
+  position: absolute;
+  width: 12vmax;
+  height: 12vmax;
+  margin: -6vmax 0 0 -6vmax;
+  border-radius: 50%;
+  transform: scale(0);
+  animation: rc-wipe 0.66s cubic-bezier(0.3, 0.7, 0.2, 1) forwards;
+}
+.rc-wipes i.base {
+  transform: scale(26);
+  animation: none;
+}
+@keyframes rc-wipe {
+  to {
+    transform: scale(26);
+  }
+}
+
+/* Formes de fond, propres à chaque écran : elles arrivent en grandissant puis dérivent doucement. */
+.rc-deco {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  animation: rc-drift 14s ease-in-out infinite alternate;
+}
+.rc-deco i {
+  position: absolute;
+  border-radius: 50%;
+  animation: rc-deco-in 1.1s var(--spring) 0.1s backwards;
+}
+.rc-deco i:nth-child(1) {
+  width: 120vmin;
+  height: 120vmin;
+  right: -52vmin;
+  bottom: -46vmin;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--rc-ink) 9%, transparent), transparent);
+}
+.rc-deco i:nth-child(2) {
+  width: 64vmin;
+  height: 64vmin;
+  right: -18vmin;
+  top: 8vh;
+  border: 2px solid color-mix(in srgb, var(--rc-ink) 13%, transparent);
+  animation-delay: 0.18s;
+}
+.rc-deco i:nth-child(3) {
+  width: 38vmin;
+  height: 38vmin;
+  left: -14vmin;
+  bottom: 14vh;
+  border-radius: 28%;
+  border: 2px solid color-mix(in srgb, var(--rc-ink) 10%, transparent);
+  transform: rotate(16deg);
+  animation-delay: 0.26s;
+}
+.on-intro .rc-deco i:nth-child(2),
+.on-profile .rc-deco i:nth-child(2) {
+  box-shadow:
+    0 0 0 28px color-mix(in srgb, var(--rc-ink) 4%, transparent),
+    0 0 0 56px color-mix(in srgb, var(--rc-ink) 3%, transparent);
+}
+.on-records .rc-deco i:nth-child(1),
+.on-trophies .rc-deco i:nth-child(1) {
+  right: -30vmin;
+  bottom: auto;
+  top: 6vh;
+  background: radial-gradient(closest-side, rgba(255, 209, 102, 0.2), transparent);
+}
+.on-best .rc-deco i:nth-child(3),
+.on-sessions .rc-deco i:nth-child(3) {
+  left: auto;
+  right: 8vmin;
+  bottom: auto;
+  top: 18vh;
+  transform: rotate(-12deg);
+}
+@keyframes rc-deco-in {
+  from {
+    transform: scale(0.3) rotate(-20deg);
+  }
+}
+@keyframes rc-drift {
+  to {
+    transform: translate3d(-3vmin, 2vmin, 0);
+  }
+}
+
+/* Barres de progression et en-tête, à l'encre de l'écran. */
 .recap-bars {
   display: flex;
   gap: 4px;
@@ -6353,13 +6507,13 @@ h1 {
   flex: 1;
   height: 3px;
   border-radius: 99px;
-  background: rgba(255, 255, 255, 0.18);
+  background: color-mix(in srgb, var(--rc-ink) 26%, transparent);
   overflow: hidden;
 }
 .recap-bars i {
   display: block;
   height: 100%;
-  background: #fff;
+  background: var(--rc-ink);
   transform: scaleX(0);
   transform-origin: left;
 }
@@ -6384,6 +6538,14 @@ h1 {
   justify-content: space-between;
   margin-top: 8px;
 }
+.rc-brand {
+  color: color-mix(in srgb, var(--rc-ink) 72%, transparent);
+  font-weight: 600;
+}
+.recap .rc-close {
+  background: color-mix(in srgb, var(--rc-ink) 12%, transparent);
+  color: var(--rc-ink);
+}
 .recap-stage {
   flex: 1;
   min-height: 0;
@@ -6394,134 +6556,595 @@ h1 {
 .recap-slide {
   display: flex;
   flex-direction: column;
-  animation: recap-in 0.65s var(--spring) both;
 }
-@keyframes recap-in {
+.recap-hint {
+  margin: 0 auto;
+  text-align: center;
+  color: color-mix(in srgb, var(--rc-ink) 66%, transparent);
+}
+
+/* Entrées : monte, claque (le chiffre tombe de haut et rebondit), glisse, ou surgit. */
+.rc-in {
+  animation: rc-up 0.62s var(--spring) calc(0.06s + var(--d, 0ms)) backwards;
+}
+.rc-in.slam {
+  transform-origin: 0 80%;
+  animation-name: rc-slam;
+  animation-duration: 0.7s;
+}
+.rc-in.left {
+  animation-name: rc-left;
+}
+.rc-in.pop {
+  animation-name: rc-pop;
+}
+@keyframes rc-up {
   from {
     opacity: 0;
-    transform: translateY(26px) scale(0.98);
+    transform: translateY(24px);
   }
 }
-.recap-kicker {
-  margin: 0;
-  color: var(--recap-accent);
-  font-size: 1.08rem;
-  font-weight: 720;
+@keyframes rc-slam {
+  0% {
+    opacity: 0;
+    transform: scale(1.5) translateY(-6%);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.96);
+  }
+  78% {
+    transform: scale(1.015);
+  }
 }
-.recap-month {
+@keyframes rc-left {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+@keyframes rc-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+.rc-kicker {
+  margin: 0;
+  color: color-mix(in srgb, var(--rc-ink) 80%, transparent);
+  font-size: 1.1rem;
+  font-weight: 760;
+}
+/* Le mois et les très gros chiffres tiennent sur une ligne : la taille suit le nombre de caractères (--len). */
+.rc-month {
   margin: 8px 0 0;
-  font-size: clamp(4.2rem, 23vw, 8rem);
+  white-space: nowrap;
+  font-size: min(8.6rem, 25vw, calc(min(100vw - 2 * var(--gutter), 540px) / (var(--len, 7) * 0.48)));
   line-height: 0.86;
 }
-.recap-big {
-  margin-top: 6px;
-  font-size: clamp(5rem, 30vw, 10rem);
+.rc-letters span {
+  display: inline-block;
+  animation: rc-letter 0.7s var(--spring) calc(0.2s + var(--i) * 45ms) backwards;
+}
+@keyframes rc-letter {
+  0% {
+    opacity: 0;
+    transform: translateY(70%) rotate(-10deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-8%) rotate(2deg);
+  }
+}
+.rc-big {
+  margin-top: 4px;
+  white-space: nowrap;
+  font-size: min(10.5rem, 32vw, calc(min(100vw - 2 * var(--gutter), 540px) / (var(--len, 3) * 0.4)));
   line-height: 0.86;
   letter-spacing: -0.02em;
 }
-.recap-name {
-  margin: 10px 0 0;
-  font-size: clamp(2.6rem, 12.5vw, 4.4rem);
+.rc-big.gold {
+  color: #ffd166;
+  text-shadow: 0 0 40px rgba(255, 209, 102, 0.35);
+}
+.rc-mid {
+  margin-top: 10px;
+  font-size: clamp(3rem, 16vw, 5rem);
   line-height: 0.9;
+}
+.rc-name {
+  margin: 8px 0 0;
+  font-size: clamp(2.6rem, 12.5vw, 4.4rem);
+  line-height: 0.92;
   text-wrap: balance;
 }
-.recap-line {
-  margin: 20px 0 0;
-  font-size: 1.32rem;
-  font-weight: 650;
+.rc-line {
+  margin: 18px 0 0;
+  font-size: 1.3rem;
+  font-weight: 680;
   line-height: 1.25;
   text-wrap: pretty;
 }
-.recap-sub {
-  margin: 8px 0 0;
-  color: var(--ink-2);
-  font-size: 1.05rem;
+.rc-sub {
+  margin: 10px 0 0;
+  color: color-mix(in srgb, var(--rc-ink) 76%, transparent);
+  font-size: 1.04rem;
+  font-weight: 550;
 }
-.recap-chip {
+.rc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+.rc-chips .rc-chip {
+  margin: 0;
+}
+.rc-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  align-self: flex-start;
-  margin: 20px 0 0;
-  padding: 8px 14px;
+  gap: 7px;
+  margin: 18px 0 0;
+  padding: 9px 15px;
   border-radius: 99px;
-  background: color-mix(in srgb, var(--recap-accent) 15%, transparent);
-  color: var(--recap-accent);
-  font-weight: 720;
+  background: color-mix(in srgb, var(--rc-ink) 13%, transparent);
+  font-weight: 740;
 }
-.recap-chip.flame {
-  background: var(--amber-soft);
-  color: var(--amber);
+.rc-chip.soft {
+  font-weight: 650;
 }
-.recap-list {
+.rc-host {
+  align-self: flex-end;
+  margin-top: 6px;
+}
+.rc-host.small {
+  margin-top: 14px;
+}
+
+/* Le mois en calendrier : les jours de séance s'allument un par un. */
+.rc-cal {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 20px;
+  max-width: 360px;
+}
+.rc-cal b {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 760;
+  color: color-mix(in srgb, var(--rc-ink) 60%, transparent);
+}
+.rc-cal span {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--rc-ink) 10%, transparent);
+  color: color-mix(in srgb, var(--rc-ink) 55%, transparent);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+.rc-cal span.blank {
+  background: none;
+}
+.rc-cal span.future {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rc-ink) 18%, transparent);
+}
+.rc-cal span.on {
+  background: var(--rc-ink);
+  color: var(--rc-bg);
+  font-weight: 820;
+  animation: rc-cell 0.5s var(--spring) calc(0.5s + var(--i) * 55ms) backwards;
+}
+/* Seulement l'échelle : le calendrier entre déjà en fondu, pas d'opacité dans l'opacité. */
+@keyframes rc-cell {
+  0% {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+}
+.rc-star {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 13px;
+  fill: var(--rc-accent);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+}
+
+/* « Le poids de 2 semi-remorques » : les objets tombent un à un. */
+.rc-units {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  margin-top: 18px;
+}
+.rc-units span {
+  width: 54px;
+  color: var(--rc-ink);
+  animation: rc-drop 0.6s var(--spring) calc(0.6s + var(--i) * 90ms) backwards;
+}
+.rc-units.n6 span,
+.rc-units.n7 span,
+.rc-units.n8 span,
+.rc-units.n9 span,
+.rc-units.n10 span {
+  width: 42px;
+}
+.rc-units svg {
+  display: block;
+  width: 100%;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 0;
+}
+.rc-units .cut {
+  fill: var(--rc-bg);
+}
+.rc-units .trunk {
+  fill: none;
+  stroke-width: 3.4;
+}
+.rc-units .trunk.cut {
+  stroke: var(--rc-bg);
+  stroke-width: 1.4;
+}
+.rc-units b {
+  font-size: 1.3rem;
+  font-weight: 820;
+}
+@keyframes rc-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-46px) rotate(-12deg);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(4px) rotate(3deg);
+  }
+}
+
+/* Records : le chiffre doré, des éclats, et les PR qui tombent un par un. */
+.rc-burst-host {
+  position: relative;
+}
+.rc-burst {
+  position: absolute;
+  left: 18%;
+  top: 52%;
+}
+.rc-burst i {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px;
+  border-radius: 50%;
+  background: #ffd166;
+  box-shadow: 0 0 10px #ffd166;
+  opacity: 0;
+  animation: rc-burst 1.2s cubic-bezier(0.1, 0.8, 0.3, 1) 0.45s;
+}
+.rc-burst i:nth-child(2n) {
+  background: #fff3c4;
+}
+@keyframes rc-burst {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--a)) translateY(0) scale(var(--s));
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(-130px) scale(0.2);
+  }
+}
+.rc-prs {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 24px;
+  margin-top: 22px;
 }
-.recap-row {
+.rc-pr {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.05);
-  animation: recap-in 0.6s var(--spring) both;
-  animation-delay: calc(0.25s + var(--i) * 0.12s);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.12);
+  animation: rc-pr 0.6s var(--spring) calc(0.8s + var(--i) * 0.18s) backwards;
 }
-.recap-pr {
+.rc-pr .num {
+  color: color-mix(in srgb, var(--rc-ink) 70%, transparent);
+  font-size: 0.86rem;
+}
+@keyframes rc-pr {
+  0% {
+    opacity: 0;
+    transform: translateX(46px) scale(1.08);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(-4px) scale(1);
+  }
+}
+.rc-pr-tag {
   display: grid;
   place-items: center;
   flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--gold-soft);
-  color: var(--gold);
-  font-weight: 820;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: linear-gradient(140deg, #ffe08a, #d49a1e);
+  color: #2a1d00;
+  font-weight: 860;
   font-stretch: 75%;
 }
-.recap-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 22px;
-}
-.recap-facts span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
+.rc-pr-gain {
+  flex: none;
+  padding: 5px 10px;
   border-radius: 99px;
-  background: rgba(255, 255, 255, 0.06);
-  font-weight: 650;
+  background: rgba(255, 209, 102, 0.16);
+  color: #ffd166 !important;
+  font-weight: 760;
 }
-.recap-medals {
+
+/* Barres (jours de la semaine, semaines de l'exercice) : elles poussent depuis le bas. */
+.rc-bars {
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  gap: 8px;
+  align-items: end;
+  height: 150px;
+  margin-top: 22px;
+  max-width: 420px;
+}
+.rc-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 100%;
+}
+.rc-bar span {
+  min-height: 1em;
+  font-size: 0.86rem;
+  font-weight: 760;
+  animation: rc-up 0.5s var(--spring) 1.1s backwards;
+}
+.rc-bar i {
+  width: 100%;
+  height: calc(4px + var(--h) * 96px);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--rc-ink) 34%, transparent);
+  transform-origin: 50% 100%;
+  animation: rc-grow 0.7s var(--spring) calc(0.5s + var(--i) * 70ms) backwards;
+}
+.rc-bar.hi i {
+  background: var(--rc-ink);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--rc-ink) 40%, transparent);
+}
+.rc-bar b {
+  font-size: 0.78rem;
+  font-weight: 760;
+  color: color-mix(in srgb, var(--rc-ink) 70%, transparent);
+}
+.rc-bar.hi b {
+  color: var(--rc-ink);
+}
+@keyframes rc-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+/* La courbe des pesées, tracée de gauche à droite. */
+.rc-weight {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  margin-top: 16px;
+  overflow: visible;
+}
+.rc-weight .area {
+  fill: color-mix(in srgb, var(--rc-ink) 13%, transparent);
+}
+.rc-weight .line {
+  fill: none;
+  stroke: var(--rc-ink);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: rc-draw 1.3s ease 0.55s forwards;
+}
+.rc-weight .dot {
+  fill: var(--rc-ink);
+}
+.rc-weight .dot.end {
+  stroke: var(--rc-bg);
+  stroke-width: 3;
+}
+@keyframes rc-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Trophées : les médailles tombent et rebondissent. */
+.rc-medals {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px 10px;
   margin-top: 24px;
 }
-.recap-medal {
+.rc-medal {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   text-align: center;
-  animation: record-pop 0.6s var(--spring) both;
-  animation-delay: calc(0.2s + var(--i) * 0.1s);
+  animation: rc-medal 0.75s var(--spring) calc(0.55s + var(--i) * 0.12s) backwards;
+}
+@keyframes rc-medal {
+  0% {
+    opacity: 0;
+    transform: translateY(-70px) rotate(-14deg) scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(6px) rotate(3deg) scale(1.04);
+  }
+}
+
+/* Le profil du mois : la carte se retourne, un halo tourne derrière. */
+.rc-profile {
+  position: relative;
+  margin-top: 22px;
+  perspective: 900px;
+}
+/* Le projecteur : une lueur de la couleur du profil derrière la carte. */
+.rc-profile::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: -1;
+  width: 130vmax;
+  height: 130vmax;
+  margin: -65vmax 0 0 -65vmax;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--pc) 30%, transparent), transparent 62%);
+  pointer-events: none;
+  animation: rc-pop 1.2s var(--spring) 0.3s backwards;
+}
+/* L'entrée et la rotation sur deux éléments : deux animations de transform sur le même élément ne passent plus
+   par le compositeur, et la rotation recalculerait la page à chaque image. */
+.rc-halo {
+  position: absolute;
+  inset: -42% -22%;
+  animation: rc-pop 1s var(--spring) 0.4s backwards;
+}
+.rc-halo i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--pc), transparent 28%, var(--pc) 50%, transparent 76%, var(--pc));
+  -webkit-mask: radial-gradient(closest-side, #000 34%, transparent 78%);
+  mask: radial-gradient(closest-side, #000 34%, transparent 78%);
+  opacity: 0.5;
+  animation: rc-spin 9s linear infinite;
+}
+@keyframes rc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.rc-card {
+  position: relative;
+  padding: 26px 22px 24px;
+  border-radius: 28px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--pc) 24%, #15171c), #0f1013 72%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--pc) 50%, transparent),
+    0 30px 60px -28px color-mix(in srgb, var(--pc) 70%, transparent);
+  transform-origin: 50% 50%;
+  animation: rc-flip 1s var(--spring) 0.55s backwards;
+}
+@keyframes rc-flip {
+  0% {
+    opacity: 0;
+    transform: rotateY(-100deg) scale(0.84);
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.rc-card-icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pc) 22%, transparent);
+  color: var(--pc);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--pc) 40%, transparent);
+}
+.rc-card-title {
+  margin: 16px 0 0;
+  font-size: clamp(2.3rem, 11vw, 3.6rem);
+  line-height: 0.95;
+  color: #fff;
+  text-wrap: balance;
+}
+.rc-card-line {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.06rem;
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+
+/* Fin : confettis, le profil en étiquette, les chiffres en tuiles, partager. */
+.rc-confetti {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.rc-confetti i {
+  position: absolute;
+  top: -24px;
+  width: var(--w);
+  height: calc(var(--w) * 1.6);
+  border-radius: 1.5px;
+  animation: rc-confetti 2.2s linear both;
+}
+@keyframes rc-confetti {
+  to {
+    transform: translate3d(var(--x), 106vh, 0) rotate(var(--r)) rotateX(720deg);
+  }
+}
+.recap-outro {
+  position: relative;
+}
+.rc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 16px 0 0;
+  padding: 8px 14px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--pc) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc) 40%, transparent);
+  color: var(--pc);
+  font-weight: 760;
 }
 .recap-summary {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-top: 24px;
+  margin-top: 22px;
 }
 .recap-summary span {
   padding: 14px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--ink-2);
+  animation: rc-pop 0.55s var(--spring) calc(0.45s + var(--i) * 0.08s) backwards;
 }
 .recap-summary b {
   display: block;
@@ -6534,12 +7157,10 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 26px;
+  margin-top: 24px;
 }
-.recap-hint {
-  margin: 0 auto;
-  text-align: center;
-}
+
+/* ----- Les cartes du récap (onglet Progrès) ----- */
 .recap-cards {
   display: grid;
   gap: 10px;
@@ -6553,31 +7174,56 @@ h1 {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
-  min-height: 128px;
+  min-height: 148px;
   padding: 16px;
   border: 0;
   border-radius: 22px;
   overflow: hidden;
-  color: var(--ink);
+  color: #fff;
   text-align: left;
-  background:
-    radial-gradient(120% 90% at 100% 0%, rgba(255, 209, 102, 0.24), transparent 62%),
-    linear-gradient(160deg, #23272d, #16191d);
+  background: linear-gradient(150deg, #2747ff, #7c4dff 70%, #ff3b6b);
   box-shadow: var(--lift);
-  transition: transform 0.2s var(--spring);
-}
-.recap-card:active {
-  transform: scale(0.97);
 }
 .recap-card.partial {
-  background:
-    radial-gradient(120% 90% at 100% 0%, rgba(134, 185, 255, 0.22), transparent 62%),
-    linear-gradient(160deg, #23272d, #16191d);
+  background: linear-gradient(150deg, #1b2a6b, #2b2160 70%, #3a1d3d);
+}
+.recap-card-glow {
+  position: absolute;
+  right: -40px;
+  top: -50px;
+  width: 170px;
+  height: 170px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 0 22px rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+}
+.recap-card-kicker {
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 650;
 }
 .recap-card b {
   font-size: 2rem;
   line-height: 1;
   margin-top: 2px;
+  white-space: nowrap;
+}
+/* Deux cartes côte à côte : « Septembre » tient encore sur un petit écran. */
+.recap-cards.n2 .recap-card b {
+  font-size: min(2rem, calc((50vw - 57px) / (var(--len, 7) * 0.47)));
+}
+.recap-card-stats {
+  color: rgba(255, 255, 255, 0.86);
+}
+.recap-card-tease {
+  margin-top: auto;
+  padding-right: 40px;
+  color: #c6ff4a;
+  font-weight: 700;
+  text-wrap: balance;
+}
+.recap-card.partial .recap-card-tease {
+  color: rgba(255, 255, 255, 0.7);
 }
 .recap-card-play {
   position: absolute;
@@ -6589,18 +7235,27 @@ h1 {
   height: 34px;
   padding-left: 2px;
   border-radius: 50%;
-  background: var(--ink);
-  color: var(--on-accent);
+  background: #fff;
+  color: #1c1f6b;
 }
 .recap-banner > svg:first-child {
   color: var(--gold);
 }
+
 @media (prefers-reduced-motion: reduce) {
   .recap,
-  .recap-slide,
-  .recap-row,
-  .recap-medal {
-    animation: none;
+  .recap *,
+  .rc-wipes i {
+    animation: none !important;
+  }
+  .rc-wipes i {
+    transform: scale(26);
+  }
+  .rc-weight .line {
+    stroke-dashoffset: 0;
+  }
+  .rc-confetti {
+    display: none;
   }
 }
 

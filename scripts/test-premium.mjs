@@ -13,6 +13,7 @@ await build({
     rd: 'src/lib/readiness.ts',
     focus: 'src/lib/focus.ts',
     recap: 'src/lib/monthRecap.ts',
+    board: 'src/lib/board.ts',
     actions: 'src/lib/actions.ts',
     store: 'src/lib/store.ts',
     cat: 'shared/catalog.ts',
@@ -28,7 +29,7 @@ await build({
   define: { __BUILD__: '"0.23.0+test"', 'import.meta.env': '{"MODE":"test","DEV":false,"PROD":true}' },
 });
 const load = (n) => import(pathToFileURL(join(dir, `${n}.js`)).href);
-const [rd, focus, recap, actions, store, cat, prog] = await Promise.all(['rd', 'focus', 'recap', 'actions', 'store', 'cat', 'prog'].map(load));
+const [rd, focus, recap, actions, store, cat, prog, board] = await Promise.all(['rd', 'focus', 'recap', 'actions', 'store', 'cat', 'prog', 'board'].map(load));
 
 let failures = 0;
 const check = (name, cond, extra = '') => {
@@ -245,11 +246,32 @@ const today = '2026-11-20';
   check('récap : prise de masse, pas de faux compliment', recap.weightVerdict(r.weight, 'bulk') === null);
   check('récap : trophées gagnés ce mois-ci seulement', r.trophies.length === 1 && r.trophies[0].id === 's1');
   check('récap : comparaison avec septembre', r.prev?.name === 'septembre' && r.prev.sessions === 1);
+  // Octobre 2026 commence un jeudi.
+  check(
+    'récap : calendrier du mois (décalage, séances, records)',
+    r.cal.offset === 3 &&
+      r.cal.days.length === 31 &&
+      r.cal.days.filter((d) => d.trained).length === 5 &&
+      r.cal.days[5].record &&
+      r.cal.days[12].record &&
+      !r.cal.days[14].record &&
+      r.cal.days.every((d) => !d.future),
+  );
+  check('récap : séances par jour de semaine, lundi d’abord', JSON.stringify(r.byWeekday) === '[0,3,0,2,0,0,0]', JSON.stringify(r.byWeekday));
+  check('récap : séances par semaine sur le mois entier', r.perWeek === 1.1, String(r.perWeek));
+  check('récap : séance la plus lourde', r.best?.date === '2026-10-15' && r.best.tonnage === 1920 && r.best.sets === 3, JSON.stringify(r.best));
+  check('récap : séries de l’exercice phare, semaine par semaine', JSON.stringify(r.top?.weeks) === '[0,3,6,2,1]', JSON.stringify(r.top?.weeks));
+  check('récap : pesées du mois', r.weighIns.length === 2 && r.weighIns[1].kg === 78);
+  check('récap : profil du mois, le soir', r.profile.id === 'night' && r.profile.title === 'L’oiseau de nuit', JSON.stringify(r.profile));
 
-  s.days['2026-11-02'] = lift({ bench: bench(80, [8]) });
+  s.days['2026-11-02'] = lift({ bench: bench(80, [8, 8, 8]) });
   s.days['2026-10-02'] = lift({ bench: bench(60, [8]) });
   const cur = recap.monthRecap(s, '2026-11', '2026-11-03');
   check('récap en cours : comparé au mois d’avant à la même date', cur.partial && cur.prev?.sessions === 1, JSON.stringify(cur.prev));
+  check('récap en cours : les jours à venir restent éteints', cur.cal.days.length === 30 && !cur.cal.days[2].future && cur.cal.days[3].future);
+  check('récap en cours : séances par semaine sur les jours écoulés', cur.perWeek === 2.3, String(cur.perWeek));
+  // Novembre 2026 commence un dimanche : le 3, on n'a vu que deux semaines.
+  check('récap en cours : pas de barres pour les semaines à venir', JSON.stringify(cur.top?.weeks) === '[0,3]', JSON.stringify(cur.top?.weeks));
 
   check('bandeau : la première semaine, le mois d’avant', recap.recapReady(s, '2026-11-03') === '2026-10');
   check('bandeau : plus après le 7', recap.recapReady(s, '2026-11-09') === null);
@@ -264,6 +286,54 @@ const today = '2026-11-20';
   check('tonnage : moins d’une tonne, pas de comparaison', recap.tonnageLike(900) === null);
   check('tonnage : 42 t → 7 éléphants', recap.tonnageLike(42_000) === 'Le poids de 7 éléphants d’Afrique.', recap.tonnageLike(42_000));
   check('tonnage : 1,2 t → une voiture', recap.tonnageLike(1_200) === 'Le poids d’une voiture citadine.', recap.tonnageLike(1_200));
+  check(
+    'tonnage : l’objet à dessiner et combien',
+    recap.tonnageUnit(900) === null &&
+      recap.tonnageUnit(42_000)?.key === 'elephant' &&
+      recap.tonnageUnit(42_000).n === 7 &&
+      recap.tonnageUnit(250_000)?.key === 'truck' &&
+      recap.tonnageUnit(400_000)?.key === 'whale',
+  );
+  check('tonnes : espace insécable avant l’unité', recap.fmtTonnes(50_800) === '50,8\u00a0t' && recap.fmtTonnes(850) === '850\u00a0kg');
+  const prof = (o) => recap.recapProfile({ recordCount: 0, run: 0, tonnage: 0, moment: null, perWeek: 0, cardioKm: 0, ...o }).id;
+  check(
+    'profil du mois : records, puis série, tonnage, horaires, régularité, endurance',
+    prof({ recordCount: 5, run: 12 }) === 'records' &&
+      prof({ run: 10, tonnage: 90_000 }) === 'streak' &&
+      prof({ tonnage: 60_000, moment: 'le matin' }) === 'machine' &&
+      prof({ moment: 'le matin', perWeek: 4 }) === 'early' &&
+      prof({ moment: 'la nuit' }) === 'night' &&
+      prof({ perWeek: 3, cardioKm: 40 }) === 'metronome' &&
+      prof({ cardioKm: 30 }) === 'engine' &&
+      prof({}) === 'architect',
+  );
+}
+
+/* ---------- Classement de la semaine (club) ---------- */
+
+{
+  const row = (name, week, volume, me = false) => ({ name, me, week, volume });
+  check('classement : les ex æquo partagent leur place', JSON.stringify(board.boardRanks([row('A', 3, 5000), row('B', 3, 5000), row('C', 2, 9000)])) === '[1,1,3]');
+  check('classement : le tonnage départage', JSON.stringify(board.boardRanks([row('A', 3, 6000), row('B', 3, 5000)])) === '[1,2]');
+  check('classement : semaine vide', board.boardLine([row('A', 0, 0), row('Moi', 0, 0, true)], 5) === 'La semaine démarre : la première séance prend la tête');
+  const lead = [row('Moi', 4, 9000, true), row('Dhia', 2, 3000)];
+  check('classement : en tête', board.boardLine(lead, 5) === 'Tu es en tête, encore 5\u00a0jours à tenir', board.boardLine(lead, 5));
+  check('classement : en tête, un jour', board.boardLine(lead, 1) === 'Tu es en tête, encore 1\u00a0jour à tenir');
+  check('classement : en tête, dimanche', board.boardLine(lead, 0) === 'Tu es en tête, dernier jour à tenir');
+  check('classement : égalité en tête', board.boardLine([row('Dhia', 3, 5000), row('Moi', 3, 5000, true)], 2) === 'À égalité en tête, 2\u00a0jours pour faire la différence');
+  check('classement : derrière d’une séance', board.boardLine([row('Dhia', 3, 5000), row('Moi', 2, 8000, true)], 5) === 'Tu es 2e, à 1\u00a0séance de Dhia, encore 5\u00a0jours');
+  check(
+    'classement : derrière au tonnage',
+    board.boardLine([row('Dhia', 3, 5000), row('Moi', 3, 4200, true)], 0) === 'Tu es 2e, à 800\u00a0kg de Dhia, dernier jour',
+    board.boardLine([row('Dhia', 3, 5000), row('Moi', 3, 4200, true)], 0),
+  );
+  check(
+    'classement : ex æquo, écart avec la personne juste devant',
+    board.boardLine([row('Yanis', 6, 1000), row('Dhia', 4, 2000), row('Inès', 3, 2000), row('Moi', 3, 2000, true)], 3) === 'Tu es 3e ex æquo, à 1\u00a0séance de Dhia, encore 3\u00a0jours',
+  );
+  check('classement : pas dans la liste', board.boardLine([row('Dhia', 3, 5000)], 3) === 'Encore 3\u00a0jours' && board.boardLine([row('Dhia', 3, 5000)], 0) === 'Dernier jour');
+  check('classement : jours de la semaine lus depuis le masque', JSON.stringify(board.boardDays(0b0010011)) === '[true,true,false,false,true,false,false]');
+  check('classement : tonnage court', board.boardVolume(31_000) === '31,0\u00a0t' && board.boardVolume(950) === '950\u00a0kg');
 }
 
 console.log(failures ? `\n${failures} échec(s)` : '\nTout est bon.');

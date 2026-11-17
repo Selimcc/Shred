@@ -1,5 +1,6 @@
-// Récap du mois, façon « Wrapped » : séances, tonnage, records, exercice phare, jour et heure préférés, plus
-// longue série, corps, trophées, et la comparaison avec le mois d'avant. Tout se calcule sur le téléphone.
+// Récap du mois, façon « Wrapped » : séances (et leur calendrier), tonnage, plus grosse séance, records, exercice
+// phare, jour et heure préférés, plus longue série, corps, trophées, la comparaison avec le mois d'avant, et un
+// profil du mois qui résume le tout. Tout se calcule sur le téléphone.
 import { catalogEntry } from '../../shared/catalog';
 import { addDays, dayKey, diffDays, parseKey, weekdayOf, WEEKDAY_NAMES } from './date';
 import { dayValidated, mealsCount } from './logic';
@@ -33,7 +34,8 @@ export interface MonthRecap {
   /** Une ligne par exercice (le meilleur record du mois), les plus gros gains d'abord. */
   records: MonthRecord[];
   recordCount: number;
-  top: { key: string; name: string; sets: number; tonnage: number } | null;
+  /** `weeks` : ses séries, semaine par semaine (une ligne du calendrier chacune). */
+  top: { key: string; name: string; sets: number; tonnage: number; weeks: number[] } | null;
   weekday: { day: number; name: string; count: number } | null;
   /** « le matin », « le soir »… quand au moins trois séances sont datées. */
   moment: string | null;
@@ -44,6 +46,25 @@ export interface MonthRecap {
   weight: { from: number; to: number; days: number } | null;
   trophies: { id: string; title: string; icon: string; tier: Tier }[];
   prev: { name: string; sessions: number; tonnage: number } | null;
+  /** Séances par semaine en moyenne (sur les jours écoulés du mois). */
+  perWeek: number;
+  /** Le mois en calendrier : décalage du 1er (lundi = 0), puis un jour par case (séance, record). */
+  cal: { offset: number; days: { trained: boolean; record: boolean; future: boolean }[] };
+  /** Séances par jour de la semaine, du lundi au dimanche. */
+  byWeekday: number[];
+  /** Pesées du mois, dans l'ordre. */
+  weighIns: { date: string; kg: number }[];
+  /** La séance la plus lourde du mois. */
+  best: { date: string; tonnage: number; sets: number } | null;
+  profile: RecapProfile;
+}
+
+/** Le profil du mois : ce qui t'a le plus défini ce mois-ci, en un titre et une phrase. */
+export interface RecapProfile {
+  id: 'records' | 'streak' | 'machine' | 'early' | 'night' | 'metronome' | 'engine' | 'architect';
+  title: string;
+  line: string;
+  icon: string;
 }
 
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -99,13 +120,21 @@ export function monthRecap(s: AppState, month: string, today = dayKey()): MonthR
     weight: null,
     trophies: [],
     prev: null,
+    perWeek: 0,
+    cal: { offset: (weekdayOf(first) + 6) % 7, days: [] },
+    byWeekday: Array(7).fill(0) as number[],
+    weighIns: [],
+    best: null,
+    profile: { id: 'architect', title: '', line: '', icon: 'chart' },
   };
+  const recordDays = new Set<string>();
+  const dayLoad = new Map<string, { tonnage: number; sets: number }>();
 
   // Records : on rejoue tout l'historique dans l'ordre, un record du mois bat le meilleur d'avant.
   const best = new Map<string, number>();
   const startBest = new Map<string, number>();
   const records = new Map<string, MonthRecord>();
-  const perEx = new Map<string, { sets: number; tonnage: number }>();
+  const perEx = new Map<string, { sets: number; tonnage: number; weeks: number[] }>();
   const kinds = new Map<string, string | undefined>();
   const kindOf = (key: string) => {
     if (!kinds.has(key)) kinds.set(key, catalogEntry(key, s.customExercises)?.kind);
@@ -138,10 +167,16 @@ export function monthRecap(s: AppState, month: string, today = dayKey()): MonthR
         if (!l.w || !l.r) continue;
         if (inMonth) {
           out.tonnage += l.w * l.r;
-          const e = perEx.get(key) ?? { sets: 0, tonnage: 0 };
+          const e = perEx.get(key) ?? { sets: 0, tonnage: 0, weeks: [] };
           e.sets++;
           e.tonnage += l.w * l.r;
+          const row = Math.floor((out.cal.offset + Number(date.slice(8)) - 1) / 7);
+          e.weeks[row] = (e.weeks[row] ?? 0) + 1;
           perEx.set(key, e);
+          const load = dayLoad.get(date) ?? { tonnage: 0, sets: 0 };
+          load.tonnage += l.w * l.r;
+          load.sets++;
+          dayLoad.set(date, load);
         }
         const v = e1rm(l.w, l.r);
         if (v > dayBest) {
@@ -155,6 +190,7 @@ export function monthRecap(s: AppState, month: string, today = dayKey()): MonthR
       if (inMonth && !startBest.has(key)) startBest.set(key, prev ?? dayBest);
       if (inMonth && prev !== undefined && dayBest > prev + 0.01) {
         out.recordCount++;
+        recordDays.add(date);
         const base = startBest.get(key)!;
         // Chaque record bat le précédent : le dernier du mois est le plus haut.
         records.set(key, {
@@ -178,7 +214,15 @@ export function monthRecap(s: AppState, month: string, today = dayKey()): MonthR
   lifts.sort(([, a], [, b]) => b.sets - a.sets || b.tonnage - a.tonnage);
   if (lifts[0] && lifts[0][1].sets >= 3) {
     const [key, v] = lifts[0];
-    out.top = { key, name: catalogEntry(key, s.customExercises)?.name ?? key, sets: v.sets, tonnage: Math.round(v.tonnage) };
+    // Une barre par semaine du mois ; en cours de mois, seulement les semaines déjà commencées.
+    const rows = Math.ceil((out.cal.offset + Number(end.slice(8))) / 7);
+    out.top = {
+      key,
+      name: catalogEntry(key, s.customExercises)?.name ?? key,
+      sets: v.sets,
+      tonnage: Math.round(v.tonnage),
+      weeks: Array.from({ length: rows }, (_, i) => v.weeks[i] ?? 0),
+    };
   }
 
   // Jour préféré : au moins deux séances ce jour-là, et pas d'égalité.
@@ -213,6 +257,22 @@ export function monthRecap(s: AppState, month: string, today = dayKey()): MonthR
       to: s.body.weight[weighIns[weighIns.length - 1]],
       days: diffDays(weighIns[weighIns.length - 1], weighIns[0]),
     };
+  out.weighIns = weighIns.map((date) => ({ date, kg: s.body.weight[date] }));
+
+  // Le calendrier du mois entier (les jours à venir restent éteints), et les séances par jour de semaine.
+  const total = Number(lastDay(month).slice(8));
+  for (let d = 1; d <= total; d++) {
+    const date = `${month}-${String(d).padStart(2, '0')}`;
+    const trained = date <= end && s.days[date]?.mainDone === true;
+    out.cal.days.push({ trained, record: recordDays.has(date), future: date > end });
+    if (trained) out.byWeekday[(weekdayOf(date) + 6) % 7]++;
+  }
+  const elapsed = partial ? Math.max(1, Number(today.slice(8))) : total;
+  out.perWeek = Math.round((out.sessions / (elapsed / 7)) * 10) / 10;
+
+  let heavy: MonthRecap['best'] = null;
+  for (const [date, load] of dayLoad) if (!heavy || load.tonnage > heavy.tonnage) heavy = { date, tonnage: Math.round(load.tonnage), sets: load.sets };
+  out.best = heavy && heavy.tonnage >= 500 ? heavy : null;
 
   const won = s.ui.trophies ?? {};
   out.trophies = TROPHIES.filter((t) => typeof won[t.id] === 'string' && monthOf(won[t.id]) === month).map((t) => ({
@@ -227,7 +287,27 @@ export function monthRecap(s: AppState, month: string, today = dayKey()): MonthR
   const pEnd = partial ? `${pm}-${String(Math.min(Number(today.slice(8)), Number(lastDay(pm).slice(8)))).padStart(2, '0')}` : lastDay(pm);
   const p = light(s, pm, pEnd);
   if (p.sessions > 0) out.prev = { name: monthName(pm), ...p };
+  out.profile = recapProfile(out);
   return out;
+}
+
+/**
+ * Le profil du mois : le trait le plus marquant, dans cet ordre (un mois à 6 records parle de records avant de
+ * parler d'horaires). Des titres valables pour tout le monde, sans genre.
+ */
+export function recapProfile(r: Pick<MonthRecap, 'recordCount' | 'run' | 'tonnage' | 'moment' | 'perWeek' | 'cardioKm'>): RecapProfile {
+  if (r.recordCount >= 5)
+    return { id: 'records', title: 'La fabrique à records', line: `${r.recordCount} records battus en un mois. Les barres n’ont rien vu venir.`, icon: 'trophy' };
+  if (r.run >= 10) return { id: 'streak', title: 'L’inarrêtable', line: `${r.run} jours validés d’affilée. La pause, tu connais de nom.`, icon: 'flame' };
+  if (r.tonnage >= 60_000)
+    return { id: 'machine', title: 'La machine', line: `${fmtTonnes(r.tonnage)} soulevées. Les disques n’ont pas eu le temps de refroidir.`, icon: 'dumbbell' };
+  if (r.moment === 'le matin') return { id: 'early', title: 'Le lève-tôt', line: 'Tes séances avant 11 h, quand la ville dort encore.', icon: 'sunrise' };
+  if (r.moment === 'le soir' || r.moment === 'la nuit')
+    return { id: 'night', title: 'L’oiseau de nuit', line: 'Tes séances tombent quand les autres décrochent.', icon: 'moon' };
+  if (r.perWeek >= 3)
+    return { id: 'metronome', title: 'Le métronome', line: `${r.perWeek.toLocaleString('fr-FR')} séances par semaine, réglé comme une horloge.`, icon: 'clock' };
+  if (r.cardioKm >= 30) return { id: 'engine', title: 'Le moteur', line: `${r.cardioKm.toLocaleString('fr-FR')} km d’endurance. Ton cœur dit merci.`, icon: 'run' };
+  return { id: 'architect', title: 'L’architecte', line: 'Une séance après l’autre : c’est comme ça qu’on bâtit.', icon: 'chart' };
 }
 
 /** Le mois à récapituler : le précédent pendant la première semaine, sinon le mois en cours. */
@@ -259,14 +339,21 @@ const UNITS = [
 
 /** « Le poids de 7 éléphants d’Afrique. » À partir d'une tonne. */
 export function tonnageLike(kg: number): string | null {
+  const u = tonnageUnit(kg);
+  if (!u) return null;
+  return u.n === 1 ? `Le poids d’${u.one}.` : `Le poids de ${u.n} ${u.many}.`;
+}
+
+/** L'unité de comparaison et combien il en faut (pour les dessiner) : voiture, éléphant, semi-remorque, baleine. */
+export function tonnageUnit(kg: number): { key: 'car' | 'elephant' | 'truck' | 'whale'; n: number; one: string; many: string } | null {
   if (kg < 1_000) return null;
-  const u = UNITS.find((x) => kg < x.below)!;
-  const n = Math.max(1, Math.round(kg / u.kg));
-  return n === 1 ? `Le poids d’${u.one}.` : `Le poids de ${n} ${u.many}.`;
+  const i = UNITS.findIndex((x) => kg < x.below);
+  const u = UNITS[i];
+  return { key: (['car', 'elephant', 'truck', 'whale'] as const)[i], n: Math.max(1, Math.round(kg / u.kg)), one: u.one, many: u.many };
 }
 
 export const fmtTonnes = (kg: number) =>
-  kg >= 1000 ? `${(Math.round(kg / 100) / 10).toLocaleString('fr-FR')} t` : `${Math.round(kg).toLocaleString('fr-FR')} kg`;
+  kg >= 1000 ? `${(Math.round(kg / 100) / 10).toLocaleString('fr-FR')}\u00a0t` : `${Math.round(kg).toLocaleString('fr-FR')}\u00a0kg`;
 export const fmtDuration = (min: number) => (min >= 60 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, '0')}` : ''}` : `${min} min`);
 
 /** Évolution en %, arrondie, avec son signe (« +12 % »), ou null si rien à comparer. */

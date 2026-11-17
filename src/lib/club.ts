@@ -138,6 +138,8 @@ export interface BoardRow {
   week: number;
   volume: number;
   streak: number;
+  /** Jours de la semaine avec une séance (bit 0 = lundi) ; absent si l'app de la personne est trop ancienne. */
+  days?: number;
 }
 
 export interface PostVideo {
@@ -548,10 +550,10 @@ const demo = (() => {
       wait({
         week,
         rows: [
-          { id: 'm-yanis', name: 'Yanis', handle: 'yanis_ppl', avatar: null, me: false, week: 5, volume: 38_400, streak: 31 },
-          { id: me, name: 'Toi', handle: 'toi', avatar: null, me: true, week: 4, volume: 29_800, streak: 23 },
-          { id: 'm-camille', name: 'Camille', handle: 'camille.run', avatar: null, me: false, week: 4, volume: 6_200, streak: 12 },
-          { id: 'm-ines', name: 'Inès', handle: 'ines.swim', avatar: null, me: false, week: 2, volume: 0, streak: 5 },
+          { id: 'm-yanis', name: 'Yanis', handle: 'yanis_ppl', avatar: null, me: false, week: 5, volume: 38_400, streak: 31, days: 0b0011111 },
+          { id: me, name: 'Toi', handle: 'toi', avatar: null, me: true, week: 4, volume: 29_800, streak: 23, days: 0b0011011 },
+          { id: 'm-camille', name: 'Camille', handle: 'camille.run', avatar: null, me: false, week: 4, volume: 6_200, streak: 12, days: 0b0010111 },
+          { id: 'm-ines', name: 'Inès', handle: 'ines.swim', avatar: null, me: false, week: 2, volume: 0, streak: 5, days: 0b0000101 },
         ] as BoardRow[],
       }),
     search: (q: string) => wait({ members: members.filter((m) => m.handle?.startsWith(q.replace(/^@/, '').toLowerCase())).map((m) => ({ ...m })) }),

@@ -129,6 +129,13 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 | Design | The once-a-day scene remembers `season:date` in `localStorage`. | Nothing personal, never synced or sent; an unknown value only means the scene plays again. |
 | Design | Sheets can be dragged down to close. | Touch handling on the sheet only; a scrolled area, a slider or a sideways gesture keeps its own behaviour, and closing goes through the same `onClose` as the button (unsaved drafts follow the same rules as before). |
 
+## Version 0.28
+
+| Severity | Finding | Fix |
+|---|---|---|
+| Design | The weekly leaderboard also publishes the days of the week with a validated session (`board.days`). | A 7-bit integer bounded by `sanitizeBoard`; anything else is dropped and never stored. Seen only by the member and the people they follow, like the other figures, and returned as « none » when the figures are not from the requested week. Same opt-out as before (Settings, Profil public). Tested. |
+| Design | Monthly recap: profile of the month, calendar, heaviest session. | Computed on the phone from data the app already has; nothing new is sent. The share image is still drawn locally and only leaves the phone through the share sheet. |
+
 ## Accepted
 
 | Severity | Finding | Why |

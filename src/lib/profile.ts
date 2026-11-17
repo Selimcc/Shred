@@ -71,19 +71,25 @@ export interface BoardData {
   week: number;
   volume: number;
   streak: number;
+  /** Jours de la semaine avec une séance validée : bit 0 = lundi … bit 6 = dimanche. */
+  days: number;
 }
 
 export function boardData(s: AppState, today: string): BoardData {
   const monday = mondayOf(today);
   let week = 0;
   let volume = 0;
+  let days = 0;
   for (let i = 0; i < 7; i++) {
     const day = s.days[addDays(monday, i)];
     if (!day) continue;
-    if (day.mainDone) week++;
+    if (day.mainDone) {
+      week++;
+      days |= 1 << i;
+    }
     for (const logs of Object.values(day.sets)) for (const l of logs) if (l.done && l.w && l.r) volume += l.w * l.r;
   }
-  return { weekOf: monday, week, volume: Math.round(volume), streak: flameInfo(s, today).current };
+  return { weekOf: monday, week, volume: Math.round(volume), streak: flameInfo(s, today).current, days };
 }
 
 /** Envoie le profil s'il a changé depuis le dernier envoi. */

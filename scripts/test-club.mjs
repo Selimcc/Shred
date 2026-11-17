@@ -439,16 +439,26 @@ check('suppression : la vidéo et son aperçu partent avec', r.status === 200 &&
 /* ---------- Classement de la semaine ---------- */
 
 const wk = '2026-11-16';
-r = await call('/api/profile', { token: yanis.token, method: 'PUT', body: { visible: false, board: { weekOf: wk, week: 5, volume: 31000, streak: 12 } } });
-check('chiffres de la semaine publiés même profil masqué', r.status === 200 && r.data.profile.board?.week === 5);
-r = await call('/api/profile', { token: ines.token, method: 'PUT', body: { visible: true, data: {}, board: { weekOf: wk, week: 99, volume: -4, streak: 3, extra: '<script>' } } });
-check('données du classement bornées', r.data.profile.board.week === 0 && r.data.profile.board.volume === 0 && !('extra' in r.data.profile.board), JSON.stringify(r.data.profile.board));
+// Lundi, mardi, mercredi et vendredi : 0b0010111.
+r = await call('/api/profile', { token: yanis.token, method: 'PUT', body: { visible: false, board: { weekOf: wk, week: 5, volume: 31000, streak: 12, days: 0b0010111 } } });
+check('chiffres de la semaine publiés même profil masqué', r.status === 200 && r.data.profile.board?.week === 5 && r.data.profile.board.days === 0b0010111);
+r = await call('/api/profile', { token: ines.token, method: 'PUT', body: { visible: true, data: {}, board: { weekOf: wk, week: 99, volume: -4, streak: 3, days: 999, extra: '<script>' } } });
+check(
+  'données du classement bornées',
+  r.data.profile.board.week === 0 && r.data.profile.board.volume === 0 && !('extra' in r.data.profile.board) && !('days' in r.data.profile.board),
+  JSON.stringify(r.data.profile.board),
+);
 r = await call(`/api/club/leaderboard?week=${wk}`, { token: selim.token });
 check('classement : moi et les personnes que je suis', r.status === 200 && r.data.rows.some((x) => x.me) && r.data.rows.some((x) => x.id === yanis.id), JSON.stringify(r.data.rows?.map((x) => x.name)));
 check('classement : pas les inconnus', !r.data.rows.some((x) => x.id === ines.id));
 check('classement : trié par séances', r.data.rows[0].week >= r.data.rows.at(-1).week);
+check('classement : les jours de séance de la semaine', r.data.rows.find((x) => x.id === yanis.id)?.days === 0b0010111);
 r = await call('/api/club/leaderboard?week=2026-11-09', { token: selim.token });
-check('classement : semaine passée = zéro', r.data.rows.every((x) => x.week === 0));
+check('classement : semaine passée = zéro, aucun jour', r.data.rows.every((x) => x.week === 0 && x.days === 0));
+// Une app d'avant la 0.28 ne publie pas les jours : on ne les invente pas.
+await call('/api/profile', { token: yanis.token, method: 'PUT', body: { visible: false, board: { weekOf: wk, week: 5, volume: 31000, streak: 12 } } });
+r = await call(`/api/club/leaderboard?week=${wk}`, { token: selim.token });
+check('classement : jours inconnus pour une ancienne app', !('days' in r.data.rows.find((x) => x.id === yanis.id)));
 r = await call('/api/club/leaderboard?week=x', { token: selim.token });
 check('semaine invalide refusée', r.status === 400);
 r = await call('/api/profiles', { token: ines.token });
