@@ -26,9 +26,10 @@ function inviteFromUrl(): string {
   }
 }
 
-export function Welcome({ expired }: { expired?: Account }) {
+/** `notice` : pourquoi on demande de se connecter (une application qui veut accéder au compte, par exemple). */
+export function Welcome({ expired, notice }: { expired?: Account; notice?: string }) {
   const [invite] = useState(inviteFromUrl);
-  const [mode, setMode] = useState<Mode>(expired ? 'login' : invite ? 'register' : 'start');
+  const [mode, setMode] = useState<Mode>(expired || (notice && !invite) ? 'login' : invite ? 'register' : 'start');
   const [email, setEmail] = useState(expired?.email ?? '');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -79,7 +80,9 @@ export function Welcome({ expired }: { expired?: Account }) {
         <p className="muted">Ta séance, tes repas et ta série du jour. Une app privée, sur invitation.</p>
       </header>
 
-      {!later && !expired && <InstallGuide invite={invite || undefined} onLater={() => setLater(true)} />}
+      {notice && <div className="card notice small">{notice}</div>}
+
+      {!later && !expired && !notice && <InstallGuide invite={invite || undefined} onLater={() => setLater(true)} />}
 
       {mode === 'start' && (
         <div className="stack">

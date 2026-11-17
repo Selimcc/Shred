@@ -3,7 +3,7 @@
 // approximatifs pour un homme (débutant → avancé). C'est un ordre de grandeur, pas une mesure.
 import { catalogEntry } from '../../shared/catalog';
 import { addDays } from './date';
-import type { AppState } from './store';
+import type { AppState } from './state';
 
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'E';
 export const GRADES: Grade[] = ['E', 'D', 'C', 'B', 'A'];

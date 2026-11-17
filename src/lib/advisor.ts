@@ -7,7 +7,7 @@
 import { catalogEntry } from '../../shared/catalog';
 import type { Exercise, MuscleGroup } from '../../shared/types';
 import { addDays } from './date';
-import type { AppState, SetLog } from './store';
+import type { AppState, SetLog } from './state';
 import { isDeload } from './recovery';
 import { e1rm, strengthProfile } from './strength';
 

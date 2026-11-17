@@ -1,5 +1,6 @@
 // Comptes : invitations, connexion, isolation des données, clé Raccourcis, sauvegarde chiffrée, administration.
 import { build } from 'esbuild';
+import { workerShims } from './worker-shims.mjs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,6 +15,7 @@ await build({
   outdir: dir,
   logLevel: 'error',
   external: ['cloudflare:*'],
+  ...workerShims,
 });
 const worker = (await import(pathToFileURL(join(dir, 'worker/index.js')).href)).default;
 const users = await import(pathToFileURL(join(dir, 'worker/users.js')).href);

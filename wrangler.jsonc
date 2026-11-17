@@ -3,6 +3,8 @@
   "name": "shred",
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
+  // Les documents d'identité des clients OAuth (CIMD) sont récupérés sur l'internet public uniquement.
+  "compatibility_flags": ["global_fetch_strictly_public"],
   "observability": { "enabled": true },
 
   // Seule la version en production répond. Pas d'URL d'aperçu par version ou par branche : une ancienne
@@ -15,7 +17,7 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/manifest.webmanifest"]
+    "run_worker_first": ["/api/*", "/manifest.webmanifest", "/.well-known/*"]
   },
 
   // Stockage clé-valeur : comptes, sessions, sauvegardes chiffrées, rappels, Santé.

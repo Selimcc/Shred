@@ -19,8 +19,9 @@ export { Club } from './club';
 export { Usage } from './usage';
 export { seal as sealForTest, unseal as unsealForTest } from './seal';
 import { placeRoutes } from './places';
+import { VERSION } from './version';
+import { authorizeDecision, authorizeStart, connectorFetch, connectorRoutes, consentInfo, isConnectorPath } from './oauth';
 
-const VERSION = '0.28.0';
 
 /**
  * CORS : l'app web appelle l'API depuis la même adresse (pas besoin de CORS). Seules l'app iPhone (Capacitor)
@@ -85,7 +86,7 @@ function aiLimit(env: Env, user: User): number {
 /** Limite quotidienne d'appels IA pour garder les coûts sous contrôle. */
 async function consumeAiQuota(env: Env, user: User) {
   const limit = aiLimit(env, user);
-  if (limit === 0) throw new HttpError(403, 'L’IA intégrée n’est pas ouverte aux invités : choisis « App Claude » dans Réglages, IA.');
+  if (limit === 0) throw new HttpError(403, 'L’IA intégrée n’est pas ouverte aux invités : choisis « Claude, avec ton compte » dans Réglages, IA.');
   const day = new Date().toISOString().slice(0, 10);
   const key = `ai:${user.id}:${day}`;
   const used = await counters.get(env, key);
@@ -155,6 +156,10 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
   // Public : version déployée (vérifiée par la CI après chaque déploiement).
   if (pathname === '/api/version' && method === 'GET') return json({ version: VERSION });
 
+  // Connecteur Claude : la demande d'accès arrive d'un navigateur pas forcément connecté à Shred.
+  if (pathname === '/api/oauth/authorize' && method === 'GET') return authorizeStart(req, env, url);
+  if (pathname === '/api/oauth/consent' && method === 'GET') return consentInfo(env, url);
+
   const open = (await authRoutes(req, env, pathname)) ?? (method === 'GET' ? await stravaCallback(env, url) : null);
   if (open) return open;
 
@@ -209,6 +214,10 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
 
   const place = await placeRoutes(req, env, pathname, user.id);
   if (place) return place;
+
+  if (pathname === '/api/oauth/authorize' && method === 'POST') return authorizeDecision(req, env, user, url);
+  const connector = await connectorRoutes(req, env, user, url);
+  if (connector) return connector;
 
   const acct =
     (await accountRoutes(req, env, user, pathname)) ??
@@ -361,6 +370,14 @@ export default {
       return new Response(JSON.stringify({ ...manifest, start_url: `/?invite=${encodeURIComponent(invite)}` }), {
         headers: { 'content-type': 'application/manifest+json', 'cache-control': 'no-store' },
       });
+    }
+    // Connecteur Claude (MCP) : découverte OAuth, jetons, inscription des clients et point MCP, servis par le
+    // fournisseur OAuth (il vérifie le jeton avant de passer la main au serveur MCP).
+    if (isConnectorPath(url.pathname)) {
+      const res = await connectorFetch(req, env, ctx);
+      const h = new Headers(res.headers);
+      h.set('X-Content-Type-Options', 'nosniff');
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
     }
     if (!url.pathname.startsWith('/api/')) {
       // App privée : on demande aux moteurs de recherche de ne pas l'indexer.

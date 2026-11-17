@@ -204,9 +204,9 @@ export function Onboarding() {
           <h1>Ton coach</h1>
           <ChoiceCard
             on={ai === 'claude'}
-            title="App Claude"
+            title="Claude, avec ton compte"
             badge="gratuit"
-            text="L’app prépare ta question avec ton contexte et l’ouvre dans Claude, avec ton propre compte (gratuit ou payant)."
+            text="Shred se branche sur Claude comme connecteur : il lit ton historique quand tu lui poses une question, avec ton propre compte (gratuit ou payant)."
             onClick={() => setAi('claude')}
           />
           <ChoiceCard

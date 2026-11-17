@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { canMorph, type NavDir, navigate } from '../lib/nav';
 import { HABIT_ICONS, SLOTS } from '../../shared/program';
 import type { MealSlot } from '../../shared/types';
+import { ConnectorCard } from '../components/Connector';
 import { DossierCard } from '../components/Dossier';
 import { EQUIPMENT, GYMS, sportLabel } from '../../shared/athlete';
 import { missingEquipment } from '../../shared/plans';
@@ -107,8 +108,8 @@ const AI_MODES: { id: AiMode; title: string; text: string }[] = [
   },
   {
     id: 'claude',
-    title: 'App Claude',
-    text: 'Gratuit : l’app prépare ta question avec ton contexte et ton historique utile, et l’ouvre dans Claude avec ton propre compte.',
+    title: 'Claude, avec ton compte',
+    text: 'Gratuit pour toi : Shred devient un connecteur dans Claude, qui lit ton historique quand tu lui poses une question, avec ton abonnement (même gratuit).',
   },
   { id: 'off', title: 'Sans IA', text: 'Tout se saisit à la main. L’onglet Coach disparaît.' },
 ];
@@ -819,7 +820,7 @@ function AiPage() {
           badge={m.id === 'claude' ? 'gratuit' : undefined}
           text={
             m.id === 'api' && apiOff
-              ? 'Pas disponible pour ton compte sur ce serveur : choisis « App Claude ».'
+              ? 'Pas disponible pour ton compte sur ce serveur : choisis « Claude, avec ton compte ».'
               : m.id === 'api' && server
                 ? `${m.text} ${server.aiLimit} requêtes par jour pour toi.`
                 : m.text
@@ -828,7 +829,7 @@ function AiPage() {
           onClick={() => setState((d) => void (d.settings.ai = m.id))}
         />
       ))}
-      {s.settings.ai === 'claude' && <DossierCard today={dayKey()} />}
+      {s.settings.ai === 'claude' && (signedIn() ? <ConnectorCard /> : <DossierCard today={dayKey()} />)}
     </div>
   );
 }

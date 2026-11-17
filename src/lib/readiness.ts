@@ -8,7 +8,7 @@
 // fatigue s'efface avec le temps (demi-vie d'environ 24 h). 8 séries « fraîches » = muscle à plat.
 import { catalogEntry } from '../../shared/catalog';
 import { addDays, diffDays } from './date';
-import type { AppState } from './store';
+import type { AppState } from './state';
 
 export type Tone = 'go' | 'ok' | 'low';
 

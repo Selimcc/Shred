@@ -59,6 +59,7 @@ const PATHS: Record<string, string> = {
   lock: 'M6 11h12v10H6V11Zm2.5 0V8a3.5 3.5 0 0 1 7 0v3M12 15v2',
   share: 'M12 15V3M8 7l4-4 4 4M5 12v8h14v-8',
   book: 'M5 4h9a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4Zm0 13a3 3 0 0 1 3-3h9M9 8h4',
+  plug: 'M9 3v4M15 3v4M7 7h10v3.5a5 5 0 0 1-10 0V7ZM12 15.5V21',
 };
 
 /** L'icône de chaque sport d'endurance. */

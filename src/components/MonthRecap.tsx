@@ -17,8 +17,8 @@ import {
   monthName,
   monthRecap,
   type MonthRecap as Recap,
-  type RecapProfile,
   ofMonth,
+  PROFILE_COLOR,
   recapMonths,
   tonnageLike,
   tonnageUnit,
@@ -53,18 +53,6 @@ export const RECAP_THEME: Record<SlideId, { bg: string; ink: string; accent: str
   trophies: { bg: '#141a33', ink: '#ffffff', accent: '#ffd166' },
   profile: { bg: '#0a0a0d', ink: '#ffffff', accent: '#86b9ff' },
   outro: { bg: '#16181d', ink: '#ffffff', accent: '#ffd166' },
-};
-
-/** La couleur du profil du mois (carte révélée, image à partager). */
-export const PROFILE_COLOR: Record<RecapProfile['id'], string> = {
-  records: '#ffd166',
-  streak: '#ff8a1f',
-  machine: '#ff4d6d',
-  early: '#ffb38a',
-  night: '#8f8cff',
-  metronome: '#2ee6a0',
-  engine: '#34d3e0',
-  architect: '#86b9ff',
 };
 
 interface Slide {

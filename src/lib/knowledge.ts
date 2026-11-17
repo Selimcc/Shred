@@ -9,11 +9,22 @@
 // (Workers AI + Vectorize), utile seulement quand il y aura beaucoup de texte libre (mois de conversations).
 import { athleteSummary } from '../../shared/athlete';
 import { catalogEntry, GROUP_NAMES } from '../../shared/catalog';
-import { programText } from './ai';
+import { programSummary } from '../../shared/program';
 import { addDays, diffDays, formatNumber, formatShort, mondayOf, WEEKDAY_NAMES, weekdayOf } from './date';
 import { formatSets, fmtKg, dayValidated, mealsCount, ruleOf, sessionFor, totals } from './logic';
-import { type AppState, WEIGHT_GOALS } from './store';
+import { type AppState, WEIGHT_GOALS } from './state';
 import { e1rm } from './strength';
+
+
+/** Le programme en texte (séances, exercices, planning, repas prévus), pour le coach. */
+export function programText(s: AppState): string {
+  return programSummary(s.program, {
+    custom: s.customExercises,
+    meals: s.mealPlan,
+    targets: s.settings.targets,
+    nutrition: s.settings.modules.nutrition,
+  });
+}
 
 export type DocKind = 'profile' | 'program' | 'day' | 'week' | 'lift' | 'body' | 'chat';
 
@@ -48,7 +59,7 @@ export interface Retriever {
 
 const short = (d: string) => formatShort(d);
 
-function dayDoc(s: AppState, date: string): KnowledgeDoc | null {
+export function dayDoc(s: AppState, date: string): KnowledgeDoc | null {
   const day = s.days[date];
   if (!day) return null;
   const session = sessionFor(s, date);
@@ -78,7 +89,7 @@ function dayDoc(s: AppState, date: string): KnowledgeDoc | null {
   return { id: `day:${date}`, kind: 'day', date, title: `${WEEKDAY_NAMES[weekdayOf(date)]} ${short(date)} : ${session.name}`, text: lines.join('\n') };
 }
 
-function weekDocs(s: AppState, today: string, weeks: number): KnowledgeDoc[] {
+export function weekDocs(s: AppState, today: string, weeks: number): KnowledgeDoc[] {
   const out: KnowledgeDoc[] = [];
   const rule = ruleOf(s);
   let monday = mondayOf(today);
@@ -121,7 +132,7 @@ function weekDocs(s: AppState, today: string, weeks: number): KnowledgeDoc[] {
   return out;
 }
 
-function liftDocs(s: AppState): KnowledgeDoc[] {
+export function liftDocs(s: AppState): KnowledgeDoc[] {
   const history = new Map<string, { date: string; w: number; r: number; e: number }[]>();
   for (const [date, day] of Object.entries(s.days)) {
     for (const [key, sets] of Object.entries(day.sets)) {
@@ -141,7 +152,7 @@ function liftDocs(s: AppState): KnowledgeDoc[] {
     const last = sorted[sorted.length - 1];
     const record = [...sorted].sort((a, b) => b.e - a.e)[0];
     const lines = [
-      `${name}${entry ? ` (${GROUP_NAMES[entry.group]}${entry.muscles ? `, ${entry.muscles}` : ''})` : ''} : ${sorted.length} séance(s) notée(s).`,
+      `${name}${entry ? ` (${entry.muscles?.length ? entry.muscles.join(', ') : GROUP_NAMES[entry.group]})` : ''} : ${sorted.length} séance(s) notée(s).`,
       `Record : ${fmtKg(record.w)} × ${record.r} le ${short(record.date)} (1RM estimé ${Math.round(record.e)} kg).`,
     ];
     if (sorted.length > 1) {
@@ -155,7 +166,7 @@ function liftDocs(s: AppState): KnowledgeDoc[] {
   return docs;
 }
 
-function bodyDoc(s: AppState, today: string): KnowledgeDoc | null {
+export function bodyDoc(s: AppState, today: string): KnowledgeDoc | null {
   const entries = Object.entries(s.body.weight).sort(([a], [b]) => a.localeCompare(b));
   if (!entries.length) return null;
   const [d0, w0] = entries[0];
@@ -174,7 +185,7 @@ function bodyDoc(s: AppState, today: string): KnowledgeDoc | null {
   return { id: 'body', kind: 'body', date: d1 <= today ? d1 : today, title: 'Poids et mensurations', text: lines.join('\n') };
 }
 
-function profileDoc(s: AppState): KnowledgeDoc {
+export function profileDoc(s: AppState): KnowledgeDoc {
   const p = s.settings;
   const lines = [
     [p.name, p.age ? `${p.age} ans` : '', p.height ? `${p.height} cm` : ''].filter(Boolean).join(', ') || 'Profil non renseigné',

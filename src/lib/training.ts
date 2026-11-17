@@ -6,7 +6,7 @@ import { resolveExercise, scheduleFor, findSession } from '../../shared/program'
 import type { Discipline, Exercise } from '../../shared/types';
 import { addDays, mondayOf } from './date';
 import { sessionFor } from './logic';
-import type { AppState } from './store';
+import type { AppState } from './state';
 import { e1rm } from './strength';
 
 export type Bucket = 'lift' | 'run' | 'bike' | 'swim' | 'other';

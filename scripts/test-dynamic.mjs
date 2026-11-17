@@ -18,6 +18,7 @@ await build({
       export { initial, migrate, replaceState, getState } from './src/lib/store';
       export { sessionFor, dayValidated, workoutOk } from './src/lib/logic';
       export * from './src/lib/dynamic';
+      export * from './src/lib/workoutActions';
       export { programTweaks, applyTweak, suggestPriorities } from './src/lib/tweaks';
       export { programFor, applyProgram, restorePreviousProgram } from './src/lib/coaching';
       export { adviseLoad } from './src/lib/advisor';

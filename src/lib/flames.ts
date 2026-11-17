@@ -1,7 +1,7 @@
 // Les flammes : des paliers de série de plus en plus espacés, à partir de l'objectif choisi.
 // 7 jours → 1re flamme, puis 14, 21, 30, 45, 60, 90… Chaque flamme gagnée change la couleur de la tienne.
 import { streakInfo } from './logic';
-import type { AppState } from './store';
+import type { AppState } from './state';
 
 export const STREAK_GOALS = [3, 7, 14, 30] as const;
 

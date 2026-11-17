@@ -1,6 +1,6 @@
 // Forme du jour (anneau et conseil sur Aujourd'hui) et carte de récupération musculaire (silhouette face et dos).
 import { useMemo, useState } from 'react';
-import { setForm } from '../lib/dynamic';
+import { setForm } from '../lib/workoutActions';
 import { muscleRecovery, type MuscleState, readiness, type Region, REGION_NAMES } from '../lib/readiness';
 import { readDay, useApp } from '../lib/store';
 import { Icon } from './Icon';

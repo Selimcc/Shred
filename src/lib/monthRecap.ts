@@ -4,10 +4,10 @@
 import { catalogEntry } from '../../shared/catalog';
 import { addDays, dayKey, diffDays, parseKey, weekdayOf, WEEKDAY_NAMES } from './date';
 import { dayValidated, mealsCount } from './logic';
-import { type AppState, WEIGHT_GOALS, type WeightGoal } from './store';
+import { type AppState, WEIGHT_GOALS, type WeightGoal } from './state';
 import { e1rm } from './strength';
 import { dayTraining, totalMinutes } from './training';
-import { type Tier, TROPHIES } from './trophies';
+import { type Tier, TROPHIES } from './trophyList';
 
 export interface MonthRecord {
   key: string;
@@ -66,6 +66,18 @@ export interface RecapProfile {
   line: string;
   icon: string;
 }
+
+/** La couleur du profil du mois (carte révélée, image à partager, carte dans Claude). */
+export const PROFILE_COLOR: Record<RecapProfile['id'], string> = {
+  records: '#ffd166',
+  streak: '#ff8a1f',
+  machine: '#ff4d6d',
+  early: '#ffb38a',
+  night: '#8f8cff',
+  metronome: '#2ee6a0',
+  engine: '#34d3e0',
+  architect: '#86b9ff',
+};
 
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 

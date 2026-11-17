@@ -1,5 +1,6 @@
 // Profil sportif, programmes course et Hyrox, adaptation à la salle, meal plans, propositions de plats, bilan, mail.
 import { build } from 'esbuild';
+import { workerShims } from './worker-shims.mjs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -30,7 +31,7 @@ await build({
 const mem = new Map();
 globalThis.localStorage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
 const k = await import(pathToFileURL(join(dir, 'c.mjs')).href);
-const w = await build({ entryPoints: ['worker/index.ts'], bundle: true, format: 'esm', platform: 'neutral', outdir: join(dir, 'w'), logLevel: 'error', external: ['cloudflare:*'] });
+const w = await build({ entryPoints: ['worker/index.ts'], bundle: true, format: 'esm', platform: 'neutral', outdir: join(dir, 'w'), logLevel: 'error', external: ['cloudflare:*'], ...workerShims });
 void w;
 const worker = (await import(pathToFileURL(join(dir, 'w', 'index.js')).href)).default;
 

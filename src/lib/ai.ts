@@ -1,20 +1,12 @@
 // Les trois façons d'utiliser l'IA : API Claude (automatique), app Claude (gratuit avec un abonnement), aucune.
 import { athleteSummary, WEIGHT_GOALS } from '../../shared/athlete';
-import { programSummary } from '../../shared/program';
 import { formatLong, formatNumber } from './date';
-import type { Hit } from './knowledge';
+import { type Hit, programText } from './knowledge';
 import { mealsCount, sessionFor, setProgress, streakInfo, totals, weeklyChange } from './logic';
 import { type AppState, readDay } from './store';
 import { strengthProfile } from './strength';
 
-export function programText(s: AppState): string {
-  return programSummary(s.program, {
-    custom: s.customExercises,
-    meals: s.mealPlan,
-    targets: s.settings.targets,
-    nutrition: s.settings.modules.nutrition,
-  });
-}
+export { programText };
 
 /** Contexte court, qui tient dans un lien vers l'app Claude. */
 export function compactContext(s: AppState, today: string): string {

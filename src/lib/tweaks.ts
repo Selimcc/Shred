@@ -8,7 +8,8 @@ import { history } from './advisor';
 import { strengthProfile } from './strength';
 import { applyProgram, programFor } from './coaching';
 import { addDays, dayKey, weekdayOf } from './date';
-import { DELOAD_AFTER, DELOAD_MAX, isDeload, startDeload, weeksInBlock } from './recovery';
+import { DELOAD_AFTER, DELOAD_MAX, isDeload, weeksInBlock } from './recovery';
+import { startDeload } from './workoutActions';
 import { alternatives } from './dynamic';
 import { type AppState, getState, setState } from './store';
 

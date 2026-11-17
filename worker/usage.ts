@@ -70,6 +70,10 @@ export function category(key: string): string {
     inv: 'invitations',
     rst: 'mots de passe',
     'strava-state': 'Strava',
+    client: 'connecteur Claude',
+    grant: 'connecteur Claude',
+    token: 'connecteur Claude',
+    mcpc: 'connecteur Claude',
     mail: 'bilan par mail',
     usage: 'IA',
     sent: 'rappels',
@@ -387,6 +391,9 @@ export const DAILY_CAPS = {
   rest: 800,
   // Modifier le texte d'une publication.
   edit: 60,
+  // Connecteur Claude : appels d'outils (chacun déchiffre la sauvegarde) et autorisations données.
+  mcp: 800,
+  connect: 30,
 } as const;
 
 export async function capDaily(env: Env, userId: string, kind: keyof typeof DAILY_CAPS): Promise<void> {

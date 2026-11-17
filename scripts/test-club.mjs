@@ -1,5 +1,6 @@
 // Club (fil, photos, étincelles, commentaires, mentions, abonnements, notifications) et connexion Strava, de bout en bout.
 import { build } from 'esbuild';
+import { workerShims } from './worker-shims.mjs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,6 +15,7 @@ await build({
   outdir: dir,
   logLevel: 'error',
   external: ['cloudflare:*'],
+  ...workerShims,
 });
 const worker = (await import(pathToFileURL(join(dir, 'worker/index.js')).href)).default;
 const club = await import(pathToFileURL(join(dir, 'worker/club.js')).href);

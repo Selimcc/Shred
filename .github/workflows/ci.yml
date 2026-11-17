@@ -74,3 +74,10 @@ jobs:
           done
           echo "::error::$APP_URL/api/version still does not report v$expected. Check the build in Cloudflare > Workers & Pages > shred > Deployments."
           exit 1
+      - name: Claude connector discovery
+        run: |
+          curl -fsS "$APP_URL/.well-known/oauth-protected-resource/api/mcp" | grep -q '"authorization_servers"'
+          curl -fsS "$APP_URL/.well-known/oauth-authorization-server" | grep -q '"registration_endpoint"'
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' "$APP_URL/api/mcp")
+          test "$code" = "401"
+          echo "Connector: discovery OK, the MCP endpoint asks for a token"

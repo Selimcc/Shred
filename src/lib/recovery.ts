@@ -1,7 +1,7 @@
 // Récupération : semaine de décharge toutes les 6 à 8 semaines, et forme du jour d'après le sommeil,
 // le cœur au repos et la VFC envoyés par Apple Santé.
-import { addDays, diffDays, mondayOf } from './date';
-import { type AppState, type Form, setState } from './store';
+import { addDays, diffDays } from './date';
+import type { AppState, Form } from './state';
 
 /** Semaines d'entraînement avant de proposer une décharge (plus tôt si plusieurs exercices plafonnent). */
 export const DELOAD_AFTER = 6;
@@ -26,14 +26,6 @@ function blockStart(s: AppState): string | null {
 export function weeksInBlock(s: AppState, today: string): number {
   const start = blockStart(s);
   return start ? Math.floor(diffDays(today, start) / 7) : 0;
-}
-
-export function startDeload(today: string) {
-  setState((d) => void (d.deload = { ...d.deload, week: mondayOf(today) }));
-}
-
-export function stopDeload() {
-  setState((d) => void (d.deload = { ...d.deload, week: undefined }));
 }
 
 /** À appeler au changement de jour : une décharge finie devient le début du bloc suivant. */

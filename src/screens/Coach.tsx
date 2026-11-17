@@ -1,6 +1,7 @@
 import { activeSeason } from '../lib/season';
 import { useEffect, useRef, useState } from 'react';
 import { athleteSummary, WEIGHT_GOALS } from '../../shared/athlete';
+import { ConnectorCard } from '../components/Connector';
 import { DossierCard } from '../components/Dossier';
 import { Pulse } from '../components/Pulse';
 import { flameInfo } from '../lib/flames';
@@ -23,6 +24,8 @@ import { type AppState, getState, readDay, setState, useApp } from '../lib/store
 import { profileSummary } from '../lib/strength';
 import { timeOf } from '../lib/health';
 import { localRetriever, memoryText } from '../lib/knowledge';
+import { useConnector } from '../lib/connector';
+import { signedIn } from '../lib/session';
 
 const SUGGESTIONS = [
   'Je n’ai que 45 minutes aujourd’hui, adapte ma séance',
@@ -94,6 +97,8 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
   const endRef = useRef<HTMLDivElement>(null);
   const messages = s.coach;
   const viaApp = s.settings.ai === 'claude';
+  // Shred branché sur Claude : la question suffit, Claude va chercher lui-même dans l'historique.
+  const connected = (useConnector()?.clients.length ?? 0) > 0;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -106,6 +111,10 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
     setError(undefined);
     // Recherche locale dans l'historique : seuls les extraits utiles partent avec la question.
     const hits = localRetriever(getState(), today).searchSync(q, { k: viaApp ? 6 : 8, budget: viaApp ? 3000 : 4500 });
+    if (viaApp && connected) {
+      await openInClaude(`${q}\n\nUtilise mes données Shred pour répondre.`);
+      return;
+    }
     if (viaApp) {
       const how = await openInClaude(claudePrompt(getState(), today, q, hits));
       if (how === 'copied') toast('Question et contexte copiés : colle-les dans Claude.');
@@ -148,7 +157,7 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
         <Pulse mood="think" tier={flameInfo(s, today).tier} size={56} />
         <div style={{ flex: 1 }}>
           <h1>Pulse, ton coach</h1>
-          <div className="date">{viaApp ? 'Je t’ouvre Claude avec ton contexte, sans frais' : 'Je connais ton programme et ta journée'}</div>
+          <div className="date">{viaApp ? (connected ? 'Je t’ouvre Claude, qui lit ton historique Shred' : 'Je t’ouvre Claude avec ton contexte, sans frais') : 'Je connais ton programme et ta journée'}</div>
         </div>
         {!viaApp && messages.length > 0 && (
           <button
@@ -167,8 +176,9 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
       <div style={{ flex: 1 }}>
         {viaApp && (
           <p className="muted" style={{ marginTop: 0 }}>
-            Écris ta question : l’app l’envoie dans Claude avec ta journée et les extraits de ton historique qui y répondent (séances, records,
-            repas, poids). Tu continues la conversation là-bas, avec ton compte Claude.
+            {connected
+              ? 'Écris ta question : elle s’ouvre dans Claude, qui va chercher dans Shred ce qu’il lui faut (séances, records, repas, poids). Tu continues la conversation là-bas.'
+              : 'Écris ta question : l’app l’envoie dans Claude avec ta journée et les extraits de ton historique qui y répondent (séances, records, repas, poids). Tu continues la conversation là-bas, avec ton compte Claude.'}
           </p>
         )}
         {!viaApp && messages.length === 0 && (
@@ -259,11 +269,7 @@ export function Coach({ today, onBack }: { today: string; onBack: () => void }) 
           </button>
         </form>
       </div>
-      {viaApp && (
-        <div style={{ marginTop: 22 }}>
-          <DossierCard today={today} />
-        </div>
-      )}
+      {viaApp && <div style={{ marginTop: 22 }}>{signedIn() ? <ConnectorCard /> : <DossierCard today={today} />}</div>}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 // Surveillance du plan gratuit Cloudflare : comptage des opérations KV, modes économie et critique,
 // compteurs déplacés hors KV (IA, essais, rappels), rapport pour l'administrateur.
 import { build } from 'esbuild';
+import { workerShims } from './worker-shims.mjs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,6 +16,7 @@ await build({
   outdir: dir,
   logLevel: 'error',
   external: ['cloudflare:*'],
+  ...workerShims,
 });
 const mod = await import(pathToFileURL(join(dir, 'worker/index.js')).href);
 const worker = mod.default;

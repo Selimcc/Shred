@@ -1,7 +1,7 @@
 import { adaptSession } from './dynamic';
 import { type Exercise, findSession, type Macros, resolveSession, scheduleFor, type Session } from '../../shared/program';
 import { addDays, mondayOf, weekdayOf } from './date';
-import { type AppState, type DayLog, readDay, type SetLog } from './store';
+import { type AppState, type DayLog, readDay, type SetLog } from './state';
 
 /** Id de la séance du jour : celle choisie ce jour-là, sinon celle du planning. */
 export function sessionIdFor(s: AppState, key: string): string {

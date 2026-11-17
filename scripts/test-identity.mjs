@@ -1,6 +1,7 @@
 // Identité : @pseudo unique (vérification en direct, sosies, noms réservés, limite de changements, ancien pseudo
 // réservé), surnom et bio, changement d'email de connexion, suggestions de faute de frappe.
 import { build } from 'esbuild';
+import { workerShims } from './worker-shims.mjs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,6 +16,7 @@ await build({
   outdir: dir,
   logLevel: 'error',
   external: ['cloudflare:*'],
+  ...workerShims,
 });
 const worker = (await import(pathToFileURL(join(dir, 'worker/index.js')).href)).default;
 const users = await import(pathToFileURL(join(dir, 'worker/users.js')).href);

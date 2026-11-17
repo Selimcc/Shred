@@ -13,6 +13,7 @@ await build({
       export { mergeStates, mergeDay } from './src/lib/merge';
       export { initial, replaceState, getState } from './src/lib/store';
       export * from './src/lib/recovery';
+      export { startDeload, stopDeload } from './src/lib/workoutActions';
       export { sessionFor } from './src/lib/logic';
       export { adviseLoad } from './src/lib/advisor';
       export { programTweaks } from './src/lib/tweaks';
@@ -130,7 +131,7 @@ check('décharge : pas reproposée juste après', !k.programTweaks(closed, k.add
 
 /* ---------- Version ---------- */
 const pkg = JSON.parse(readFileSync('package.json', 'utf8')).version;
-const worker = readFileSync('worker/index.ts', 'utf8').match(/const VERSION = '([^']+)'/)?.[1];
+const worker = readFileSync('worker/version.ts', 'utf8').match(/const VERSION = '([^']+)'/)?.[1];
 check('version du Worker = package.json', worker === pkg, `${worker} / ${pkg}`);
 
 console.log(failures ? `\n${failures} échec(s).` : '\nTous les tests passent.');

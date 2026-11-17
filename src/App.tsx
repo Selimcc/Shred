@@ -1,5 +1,6 @@
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Celebration } from './components/Celebration';
+import { ConnectClaude } from './components/Connector';
 import { DemoInviteHost, demoInvite } from './components/DemoInvite';
 import { PulseMoment } from './components/PulseMoment';
 import { SeasonLayer } from './components/SeasonLayer';
@@ -95,6 +96,8 @@ export function App() {
   const [compose, setCompose] = useState<string | null>(null);
   const [openPost] = useState(() => new URLSearchParams(location.search).get('post'));
   const [openMember] = useState(() => (new URLSearchParams(location.search).get('member') ?? '').toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 20) || null);
+  // Claude (connecteur) renvoie ici pour demander l'accès : la demande reste en mémoire le temps de se connecter.
+  const [connect, setConnect] = useState(() => (DEMO ? null : (new URLSearchParams(location.search).get('connect') ?? '').slice(0, 200) || null));
   useSeasonLab();
   const season = activeSeason(s, today);
   const sceneDay = seasonDay(today);
@@ -108,10 +111,11 @@ export function App() {
   }, [season]);
 
   // Pas de compte : écran d'accueil. Premier lancement : quelques questions.
+  const connectNotice = connect ? 'Claude demande l’accès à tes données Shred. Connecte-toi pour continuer.' : undefined;
   const gate = DEMO ? null : !session.account && !session.local ? (
-    <Welcome />
+    <Welcome notice={connectNotice} />
   ) : session.account?.expired ? (
-    <Welcome expired={session.account} />
+    <Welcome expired={session.account} notice={connectNotice} />
   ) : !s.settings.onboarded ? (
     <Onboarding />
   ) : null;
@@ -224,6 +228,19 @@ export function App() {
       </div>
 
       {settings && <Settings initialPage={settings} onClose={() => setSettings(null)} />}
+      {connect && (
+        <ConnectClaude
+          handle={connect}
+          onClose={() => {
+            setConnect(null);
+            try {
+              history.replaceState(null, '', location.pathname);
+            } catch {
+              // Aperçu intégré : pas d'historique.
+            }
+          }}
+        />
+      )}
 
       <Celebration today={today} />
       <PulseMoment />

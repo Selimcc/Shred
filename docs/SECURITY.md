@@ -136,6 +136,16 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 | Design | The weekly leaderboard also publishes the days of the week with a validated session (`board.days`). | A 7-bit integer bounded by `sanitizeBoard`; anything else is dropped and never stored. Seen only by the member and the people they follow, like the other figures, and returned as « none » when the figures are not from the requested week. Same opt-out as before (Settings, Profil public). Tested. |
 | Design | Monthly recap: profile of the month, calendar, heaviest session. | Computed on the phone from data the app already has; nothing new is sent. The share image is still drawn locally and only leaves the phone through the share sheet. |
 
+## Version 0.29
+
+| Severity | Finding | Fix |
+|---|---|---|
+| Design | Claude reads a member's data through the connector, which needs the backup key the server never had. | Handed over only on an explicit consent in the app, checked against the backup, and stored by the OAuth provider in the grant's props, encrypted with a key wrapped by the token; tokens and codes are stored as hashes. A copy of KV alone reveals nothing. Read-only scope, read-only tools, 800 calls a day. Tested: neither the key nor a token appears anywhere in KV. |
+| Design | OAuth for third-party clients (dynamic registration, CIMD). | `@cloudflare/workers-oauth-provider`: PKCE S256 required, exact redirect URIs, tokens bound to the MCP resource (audience), refresh rotation, CIMD fetched on the public internet only (`global_fetch_strictly_public`). Errors before the client is validated render a local page and never redirect. |
+| Design | Consent page. | The request is bound to the browser that opened it (`__Host-` cookie, single use, 10 minutes), the page cannot be framed, the decision is an authenticated POST with `X-Shred`. The app shows the client's name, its verified domain when there is one, and the host the tokens go to (with a warning for a local app). Tested: no cookie, wrong key, no session, second use, unknown client. |
+| Design | A grant outliving a password change. | The grant records the account's epoch; a mismatch revokes the grant and answers `401 invalid_token`. Members can also disconnect a client in Settings, AI. Tested. |
+| Low | Card HTML rendered by the host. | Self-contained, no external script, data rendered with `textContent`, colours checked against a pattern before use, only `https://assets.claude.ai` allowed (Claude's font). |
+
 ## Accepted
 
 | Severity | Finding | Why |

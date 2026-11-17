@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Shred</title>
+<style>
+/* Les couleurs de structure viennent de Claude (variables de l'hôte) ; Shred n'apporte que son ambre et la couleur du
+   profil du mois. Valeurs de repli pour un hôte qui n'envoie pas ses variables. */
+:root {
+  --bg2: var(--color-background-secondary, #f5f4ed);
+  /* Les tuiles : le fond « primaire » de Claude se détache du fond de la conversation dans les deux thèmes. */
+  --tile: var(--color-background-primary, #ffffff);
+  --ink: var(--color-text-primary, #141413);
+  --ink2: var(--color-text-secondary, #3d3d3a);
+  --ink3: var(--color-text-tertiary, #73726c);
+  --line: var(--color-border-tertiary, rgba(31, 30, 29, 0.15));
+  --amber: #e8950c;
+  --amber-soft: rgba(232, 149, 12, 0.16);
+  --pc: var(--amber);
+  color-scheme: light dark;
+}
+:root[data-theme='dark'] {
+  --bg2: var(--color-background-secondary, #262624);
+  --tile: var(--color-background-primary, #30302e);
+  --ink: var(--color-text-primary, #faf9f5);
+  --ink2: var(--color-text-secondary, #c2c0b6);
+  --ink3: var(--color-text-tertiary, #9c9a92);
+  --line: var(--color-border-tertiary, rgba(222, 220, 209, 0.15));
+  --amber: #ffb340;
+  --amber-soft: rgba(255, 179, 64, 0.16);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: transparent; }
+body {
+  font-family: var(--font-sans, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  font-size: var(--font-text-sm-size, 14px);
+  line-height: var(--font-text-sm-line-height, 1.4);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+/* Sans cadre : la carte suit la colonne de la conversation (marges de sécurité de l'hôte en plus, sur mobile). */
+.card { container-type: inline-size; display: flex; flex-direction: column; gap: 14px; padding: calc(6px + var(--inset-top, 0px)) calc(2px + var(--inset-right, 0px)) calc(8px + var(--inset-bottom, 0px)) calc(2px + var(--inset-left, 0px)); transition: opacity 0.2s; }
+body.loading .card { opacity: 0.55; }
+.top { display: flex; align-items: center; gap: 8px; min-height: 28px; color: var(--ink3); font-size: var(--font-text-xs-size, 12px); }
+.top .brand { color: var(--ink2); font-weight: var(--font-weight-semibold, 600); }
+.top .grow { flex: 1; }
+h1 { margin: 0; font-size: var(--font-heading-xl-size, 24px); line-height: var(--font-heading-xl-line-height, 1.25); font-weight: var(--font-weight-semibold, 600); letter-spacing: -0.01em; }
+.sub { margin: 2px 0 0; color: var(--ink2); }
+.num { font-variant-numeric: tabular-nums; }
+.badge { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: var(--border-radius-full, 99px); background: var(--amber-soft); color: var(--ink2); font-size: var(--font-text-xs-size, 12px); font-weight: var(--font-weight-medium, 500); vertical-align: 4px; }
+
+/* Séance du jour */
+.progress { display: flex; align-items: center; gap: 10px; color: var(--ink2); }
+.bar { flex: 1; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: inherit; background: var(--amber); }
+.ex { list-style: none; margin: 0; padding: 0; }
+.ex li { display: grid; grid-template-columns: 22px 1fr auto; column-gap: 10px; align-items: center; padding: 9px 0; border-top: var(--border-width-regular, 0.5px) solid var(--line); }
+.ex li:first-child { border-top: 0; padding-top: 2px; }
+.ex .name { font-weight: var(--font-weight-medium, 500); }
+.ex .plan { display: block; color: var(--ink3); font-size: var(--font-text-xs-size, 12px); }
+.ex .sets { color: var(--ink2); font-size: var(--font-text-xs-size, 12px); text-align: right; max-width: 44cqw; }
+.ex li.skipped .name { text-decoration: line-through; color: var(--ink3); }
+.mark { width: 20px; height: 20px; }
+.mark circle { fill: none; stroke: var(--line); stroke-width: 2; }
+.mark .arc { stroke: var(--amber); stroke-linecap: round; }
+.mark .full { fill: var(--amber); stroke: var(--amber); }
+.mark path { fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.more { color: var(--ink3); font-size: var(--font-text-xs-size, 12px); padding-top: 4px; }
+.trend { font-weight: var(--font-weight-semibold, 600); }
+.trend.up { color: var(--color-text-success, #265b19); }
+.trend.down, .trend.stall { color: var(--color-text-warning, #5a4815); }
+
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stat { padding: 10px 12px; border-radius: var(--border-radius-lg, 10px); background: var(--tile); box-shadow: inset 0 0 0 var(--border-width-regular, 0.5px) var(--line); min-width: 0; }
+.stat b { display: flex; align-items: center; gap: 5px; font-size: var(--font-heading-md-size, 16px); font-weight: var(--font-weight-semibold, 600); white-space: nowrap; }
+.stat small { display: block; margin-top: 1px; color: var(--ink3); font-size: var(--font-text-xs-size, 12px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flame { width: 14px; height: 18px; flex: none; }
+
+/* Récap du mois */
+.seg { display: inline-flex; padding: 2px; border-radius: var(--border-radius-full, 99px); background: var(--line); }
+.seg button { min-height: 32px; padding: 0 12px; border: 0; border-radius: inherit; background: transparent; color: var(--ink2); font: inherit; font-size: var(--font-text-xs-size, 12px); cursor: pointer; }
+.seg button[aria-pressed='true'] { background: var(--tile); color: var(--ink); font-weight: var(--font-weight-semibold, 600); box-shadow: var(--shadow-hairline, 0 1px 2px rgba(0, 0, 0, 0.05)); }
+.seg button:focus-visible, .btn:focus-visible { outline: 2px solid var(--color-ring-primary, #141413); outline-offset: 2px; }
+.profile { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--border-radius-xl, 12px); background: color-mix(in srgb, var(--pc) 15%, transparent); border: var(--border-width-regular, 0.5px) solid color-mix(in srgb, var(--pc) 45%, transparent); }
+.profile i { flex: none; width: 12px; height: 12px; margin-top: 4px; border-radius: 50%; background: var(--pc); box-shadow: 0 0 0 4px color-mix(in srgb, var(--pc) 25%, transparent); }
+.profile b { display: block; font-size: var(--font-heading-md-size, 16px); font-weight: var(--font-weight-semibold, 600); }
+.profile span { color: var(--ink2); }
+.split { display: grid; gap: 14px; }
+@container (min-width: 460px) { .split { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); align-items: start; } }
+.grid4 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; width: 100%; max-width: 280px; }
+.cal b { text-align: center; color: var(--ink3); font-size: 10px; font-weight: var(--font-weight-medium, 500); }
+.cal span { position: relative; aspect-ratio: 1; border-radius: 5px; background: var(--line); }
+.cal span.on { background: var(--pc); }
+.cal span.future { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+.cal span.today { box-shadow: 0 0 0 1.5px var(--ink3); }
+.cal span.blank { background: transparent; }
+.cal span.rec::after { content: ''; position: absolute; top: 2px; right: 2px; width: 5px; height: 5px; border-radius: 50%; background: var(--ink); opacity: 0.75; }
+.line { margin: 0; color: var(--ink2); }
+.line b { color: var(--ink); font-weight: var(--font-weight-semibold, 600); }
+
+.actions { display: flex; gap: 8px; }
+.btn { min-height: 44px; padding: 0 16px; border: 0; border-radius: var(--border-radius-md, 8px); background: var(--color-background-inverse, #141413); color: var(--color-text-inverse, #fff); font: inherit; font-weight: var(--font-weight-semibold, 600); cursor: pointer; }
+.muted { color: var(--ink3); }
+
+/* En attendant le résultat : la forme de la carte, sans les chiffres. */
+.sk { border-radius: 6px; background: var(--line); animation: sk 1.4s ease-in-out infinite; }
+@keyframes sk { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .sk { animation: none; } .card { transition: none; } }
+@container (max-width: 360px) {
+  .stats { gap: 6px; }
+  .stat { padding: 8px 10px; }
+  .ex li { grid-template-columns: 22px 1fr; }
+  .ex .sets { grid-column: 2; text-align: left; max-width: none; margin-top: 2px; }
+}
+</style>
+</head>
+<body data-card="today">
+<main id="root" class="card" aria-busy="true">
+  <div class="top"><span class="sk" style="width:120px;height:12px"></span></div>
+  <div class="sk" style="width:60%;height:26px"></div>
+  <div class="sk" style="width:85%;height:14px"></div>
+  <div class="sk" style="width:100%;height:56px"></div>
+</main>
+<script>
+(() => {
+  'use strict';
+  const CARD = document.body.dataset.card;
+  const root = document.getElementById('root');
+  let host = { hostCapabilities: {} };
+  let last = null;
+
+  /* ---------- MCP Apps : JSON-RPC avec Claude par postMessage ---------- */
+  let seq = 0;
+  const pending = new Map();
+  const send = (msg) => window.parent.postMessage(msg, '*');
+  const notify = (method, params) => send({ jsonrpc: '2.0', method, params: params || {} });
+  const request = (method, params) =>
+    new Promise((resolve, reject) => {
+      const id = ++seq;
+      pending.set(id, { resolve, reject });
+      send({ jsonrpc: '2.0', id, method, params: params || {} });
+      setTimeout(() => pending.delete(id) && reject(new Error('timeout')), 20000);
+    });
+
+  window.addEventListener('message', (ev) => {
+    if (ev.source !== window.parent) return;
+    const m = ev.data;
+    if (!m || m.jsonrpc !== '2.0') return;
+    if (m.id !== undefined && !m.method) {
+      const p = pending.get(m.id);
+      if (p) {
+        pending.delete(m.id);
+        m.error ? p.reject(m.error) : p.resolve(m.result);
+      }
+      return;
+    }
+    if (m.id !== undefined) {
+      // Demandes de l'hôte : fermeture de la carte, ping. Rien d'autre n'est exposé.
+      const ok = m.method === 'ui/resource-teardown' || m.method === 'ping';
+      send(ok ? { jsonrpc: '2.0', id: m.id, result: {} } : { jsonrpc: '2.0', id: m.id, error: { code: -32601, message: 'Method not found' } });
+      return;
+    }
+    if (m.method === 'ui/notifications/tool-result') show(m.params);
+    else if (m.method === 'ui/notifications/host-context-changed') applyContext(m.params || {});
+    else if (m.method === 'ui/notifications/tool-cancelled') message('Demande annulée.');
+  });
+
+  let fonts = false;
+  function applyContext(ctx) {
+    const doc = document.documentElement;
+    if (ctx.theme === 'light' || ctx.theme === 'dark') {
+      doc.dataset.theme = ctx.theme;
+      doc.style.colorScheme = ctx.theme;
+    }
+    const vars = ctx.styles && ctx.styles.variables;
+    if (vars) for (const k of Object.keys(vars)) if (k.startsWith('--') && typeof vars[k] === 'string') doc.style.setProperty(k, vars[k]);
+    const inset = ctx.safeAreaInsets;
+    if (inset) for (const side of ['top', 'right', 'bottom', 'left']) if (typeof inset[side] === 'number') doc.style.setProperty(`--inset-${side}`, `${inset[side]}px`);
+    const css = ctx.styles && ctx.styles.css && ctx.styles.css.fonts;
+    if (css && !fonts) {
+      fonts = true;
+      const st = document.createElement('style');
+      st.textContent = css;
+      document.head.appendChild(st);
+    }
+  }
+
+  // La hauteur suit le contenu : la carte ne défile jamais à l'intérieur.
+  let queued = false;
+  let sent = 0;
+  function resize() {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      const doc = document.documentElement;
+      const was = doc.style.height;
+      doc.style.height = 'max-content';
+      const h = Math.ceil(doc.getBoundingClientRect().height);
+      doc.style.height = was;
+      if (h !== sent) {
+        sent = h;
+        notify('ui/notifications/size-changed', { width: Math.ceil(window.innerWidth), height: h });
+      }
+    });
+  }
+
+  /* ---------- Petits outils de rendu (textContent seulement) ---------- */
+  function h(tag, attrs, ...kids) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === false || v === null || v === undefined) continue;
+      if (k === 'class') el.className = v;
+      else if (k === 'style') el.setAttribute('style', v);
+      else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : String(v));
+    }
+    for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(kid.nodeType ? kid : String(kid));
+    return el;
+  }
+  const NS = 'http://www.w3.org/2000/svg';
+  function svg(markup, cls) {
+    const t = document.createElementNS(NS, 'svg');
+    t.setAttribute('viewBox', '0 0 24 24');
+    t.setAttribute('aria-hidden', 'true');
+    if (cls) t.setAttribute('class', cls);
+    t.innerHTML = markup; // dessins fixes, jamais de données
+    return t;
+  }
+  const fr = (n, d) => Number(n).toLocaleString('fr-FR', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
+
+  function brand(label) {
+    const mark = svg(
+      '<defs><radialGradient id="pg" cx="50%" cy="60%" r="62%"><stop offset="0" stop-color="#ffe2a3"/><stop offset=".42" stop-color="#f29a1a"/><stop offset="1" stop-color="#2b2219"/></radialGradient></defs>' +
+        '<circle cx="12" cy="12" r="11" fill="url(#pg)"/><circle cx="12" cy="12" r="10.4" fill="none" stroke="rgba(255,255,255,.4)"/>' +
+        '<rect x="7.9" y="8.6" width="2.6" height="5" rx="1.3" fill="#fff"/><rect x="13.5" y="8.6" width="2.6" height="5" rx="1.3" fill="#fff"/>',
+    );
+    mark.setAttribute('width', '18');
+    mark.setAttribute('height', '18');
+    return [mark, h('span', { class: 'brand' }, 'Shred'), h('span', null, label)];
+  }
+
+  function openButton(url, label) {
+    if (!url || !(host.hostCapabilities && host.hostCapabilities.openLinks)) return null;
+    return h('div', { class: 'actions' }, h('button', { class: 'btn', type: 'button', onclick: () => request('ui/open-link', { url }).catch(() => {}) }, label));
+  }
+
+  function message(text) {
+    root.replaceChildren(h('div', { class: 'top' }, brand('')), h('p', { class: 'line' }, text));
+    root.removeAttribute('aria-busy');
+    resize();
+  }
+
+  /* ---------- Séance du jour ---------- */
+  const TREND = { up: ['↗', 'en progrès'], flat: ['→', 'stable'], stall: ['→', 'plafonne'], down: ['↘', 'en baisse'], new: ['', ''] };
+
+  function mark(ex) {
+    if (ex.complete) return svg('<circle class="full" cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.6"/>', 'mark');
+    const n = ex.done.length;
+    const total = Math.max(1, Number(ex.sets) || 1);
+    if (!n) return svg('<circle cx="12" cy="12" r="9"/>', 'mark');
+    const len = 2 * Math.PI * 9;
+    return svg(
+      `<circle cx="12" cy="12" r="9"/><circle class="arc" cx="12" cy="12" r="9" stroke-dasharray="${(len * Math.min(1, n / total)).toFixed(1)} ${len.toFixed(1)}" transform="rotate(-90 12 12)"/>`,
+      'mark',
+    );
+  }
+
+  const COLOR = /^#[0-9a-f]{3,8}$/i;
+  function flameIcon(colors) {
+    if (!Array.isArray(colors) || colors.length < 3 || !colors.every((x) => COLOR.test(x))) colors = ['#ff7a1f', '#ffb02e', '#fff1b8'];
+    const t = svg(
+      `<defs><linearGradient id="fl" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${colors[0]}"/><stop offset=".6" stop-color="${colors[1]}"/><stop offset="1" stop-color="${colors[2]}"/></linearGradient></defs>` +
+        '<path d="M12 2c1 3.6 5.6 6.4 5.6 11.4A5.6 5.6 0 0 1 12 19a5.6 5.6 0 0 1-5.6-5.6c0-2.6 1.4-4.2 2.6-5.6.2 1.8 1 2.9 2.2 3.4C11 8.6 11 5.3 12 2Z" fill="url(#fl)"/>',
+      'flame',
+    );
+    t.setAttribute('viewBox', '4 1 16 19');
+    return t;
+  }
+
+  function renderToday(c) {
+    const s = c.session;
+    const rest = s.type === 'rest' || !c.exercises.length;
+    const kids = [h('div', { class: 'top' }, brand(`· ${c.today ? 'Aujourd’hui, ' + c.label.toLowerCase() : c.label}`))];
+    kids.push(
+      h(
+        'div',
+        null,
+        h('h1', null, rest ? 'Jour de repos' : s.name, !rest && c.mainDone ? h('span', { class: 'badge' }, 'Validée') : null),
+        h('p', { class: 'sub' }, rest ? s.name : [s.focus, s.duration].filter(Boolean).join(' · ')),
+      ),
+    );
+    if (!rest) {
+      const p = c.progress;
+      kids.push(
+        h('div', { class: 'progress' }, h('div', { class: 'bar', role: 'presentation' }, h('i', { style: `width:${p.total ? Math.round((100 * p.done) / p.total) : 0}%` })), h('span', { class: 'num' }, `${p.done}/${p.total} séries`)),
+      );
+      const list = h('ul', { class: 'ex' });
+      const shown = c.exercises.slice(0, 7);
+      for (const ex of shown) {
+        const t = ex.trend && TREND[ex.trend];
+        const plan = [ex.plan, ex.load].filter(Boolean).join(' · ');
+        list.append(
+          h(
+            'li',
+            { class: ex.skipped ? 'skipped' : ex.complete ? 'done' : '' },
+            mark(ex),
+            h('div', null, h('span', { class: 'name' }, ex.name), h('span', { class: 'plan num' }, plan, t && t[0] ? h('span', { class: `trend ${ex.trend}`, title: t[1] }, ` ${t[0]}`) : null)),
+            h('span', { class: 'sets num' }, ex.skipped ? 'sauté' : ex.done.join(' · ')),
+          ),
+        );
+      }
+      kids.push(list);
+      if (c.exercises.length > shown.length) kids.push(h('div', { class: 'more' }, `et ${c.exercises.length - shown.length} autre${c.exercises.length - shown.length > 1 ? 's' : ''}`));
+    }
+    const stats = [h('div', { class: 'stat' }, h('b', { class: 'num' }, flameIcon(c.streak.colors), `${c.streak.days} j`), h('small', null, c.streak.tier))];
+    if (c.nutrition) {
+      stats.push(h('div', { class: 'stat' }, h('b', { class: 'num' }, `${fr(c.nutrition.kcal[0])}/${fr(c.nutrition.kcal[1])}`), h('small', null, 'kcal')));
+      stats.push(h('div', { class: 'stat' }, h('b', { class: 'num' }, `${fr(c.nutrition.protein[0])}/${fr(c.nutrition.protein[1])} g`), h('small', null, 'protéines')));
+    } else if (c.weight) {
+      stats.push(h('div', { class: 'stat' }, h('b', { class: 'num' }, `${fr(c.weight.kg, 1)} kg`), h('small', null, 'dernière pesée')));
+    }
+    kids.push(h('div', { class: 'stats' }, stats));
+    kids.push(openButton(c.app, 'Ouvrir dans Shred'));
+    return kids;
+  }
+
+  /* ---------- Récap du mois ---------- */
+  const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+  function renderRecap(c) {
+    if (COLOR.test(c.profile.color)) root.style.setProperty('--pc', c.profile.color);
+    const top = h('div', { class: 'top' }, brand('· Récap du mois'), h('span', { class: 'grow' }));
+    const canNav = host.hostCapabilities && host.hostCapabilities.serverTools && c.months && c.months.length > 1;
+    if (canNav) {
+      top.append(
+        h(
+          'div',
+          { class: 'seg', role: 'group', 'aria-label': 'Mois' },
+          c.months.map((m) => h('button', { type: 'button', 'aria-pressed': m.id === c.month ? 'true' : 'false', onclick: () => m.id !== c.month && goMonth(m.id) }, m.label)),
+        ),
+      );
+    }
+    const trained = new Set(c.cal.trained);
+    const records = new Set(c.cal.records);
+    const cal = h('div', { class: 'cal', role: 'img', 'aria-label': `${c.cal.trained.length} jours de séance sur ${c.cal.days}` }, DAYS.map((d) => h('b', null, d)));
+    for (let i = 0; i < c.cal.offset; i++) cal.append(h('span', { class: 'blank' }));
+    for (let d = 1; d <= c.cal.days; d++) {
+      const future = c.cal.today !== null && d > c.cal.today;
+      const cls = [trained.has(d) ? 'on' : '', records.has(d) ? 'rec' : '', future ? 'future' : '', c.cal.today === d ? 'today' : ''].filter(Boolean).join(' ');
+      cal.append(h('span', { class: cls || null, title: `${d}` }));
+    }
+    const stat = (value, label) => h('div', { class: 'stat' }, h('b', { class: 'num' }, value), h('small', null, label));
+    return [
+      top,
+      h('h1', null, `${c.name} ${c.year}`, c.partial ? h('span', { class: 'badge' }, 'en cours') : null),
+      h('div', { class: 'profile' }, h('i'), h('div', null, h('b', null, c.profile.title), h('span', null, c.profile.line))),
+      h(
+        'div',
+        { class: 'split' },
+        cal,
+        h(
+          'div',
+          { class: 'grid4' },
+          stat(String(c.sessions), `séance${c.sessions > 1 ? 's' : ''}, ${fr(c.perWeek, 1)}/sem.`),
+          stat(c.tonnageKg >= 500 ? c.tonnage : '—', 'soulevées'),
+          stat(String(c.records), `record${c.records > 1 ? 's' : ''}`),
+          stat(c.time, 'd’entraînement'),
+        ),
+      ),
+      c.top ? h('p', { class: 'line' }, 'Exercice du mois : ', h('b', null, c.top.name), `, ${c.top.sets} séries.`) : null,
+      openButton(c.app, 'Voir dans Shred'),
+    ];
+  }
+
+  async function goMonth(month) {
+    document.body.classList.add('loading');
+    try {
+      const res = await request('tools/call', { name: 'get_month_recap', arguments: { month } });
+      show(res);
+    } catch {
+      document.body.classList.remove('loading');
+    }
+  }
+
+  function show(result) {
+    document.body.classList.remove('loading');
+    if (!result) return;
+    const data = result.structuredContent;
+    if (result.isError || !data || !data.kind) {
+      const text = (result.content || []).filter((x) => x.type === 'text').map((x) => x.text).join('\n');
+      message(text || 'Rien à afficher.');
+      return;
+    }
+    last = data;
+    root.replaceChildren(...(data.kind === 'recap' ? renderRecap(data) : renderToday(data)).filter(Boolean));
+    root.removeAttribute('aria-busy');
+    resize();
+  }
+
+  new ResizeObserver(resize).observe(document.body);
+  request('ui/initialize', {
+    appInfo: { name: `shred-${CARD}`, version: '1.0.0' },
+    appCapabilities: { availableDisplayModes: ['inline'] },
+    protocolVersion: '2026-01-26',
+  })
+    .then((init) => {
+      host = init || host;
+      applyContext((init && init.hostContext) || {});
+      notify('ui/notifications/initialized');
+      if (last) show({ structuredContent: last });
+      resize();
+    })
+    .catch(() => resize());
+})();
+</script>
+</body>
+</html>

@@ -54,7 +54,7 @@ async function gzip(bytes: Uint8Array<ArrayBuffer>, mode: 'compress' | 'decompre
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-const aesKey = (keyB64: string, use: KeyUsage) => crypto.subtle.importKey('raw', fromB64url(keyB64), 'AES-GCM', false, [use]);
+const aesKey = (keyB64: string, use: 'encrypt' | 'decrypt') => crypto.subtle.importKey('raw', fromB64url(keyB64), 'AES-GCM', false, [use]);
 
 /** Compresse puis chiffre un objet JSON avec la clé « data ». */
 export async function seal(keyB64: string, text: string): Promise<Sealed> {
