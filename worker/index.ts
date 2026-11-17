@@ -19,6 +19,7 @@ export { Club } from './club';
 export { Usage } from './usage';
 export { seal as sealForTest, unseal as unsealForTest } from './seal';
 import { placeRoutes } from './places';
+import { foodRoutes } from './food';
 import { VERSION } from './version';
 import { langOf, rememberLang, requestLang, tx } from './i18n';
 import { isLang } from '../shared/i18n';
@@ -96,6 +97,9 @@ async function consumeAiQuota(env: Env, user: User) {
   return { used: await counters.incr(env, key, 2 * 86400), limit };
 }
 
+/** Repas que l'app peut signaler comme notés (rappels de repas). */
+const MEAL_SLOTS = new Set(['breakfast', 'lunch', 'snack', 'dinner', 'extra']);
+
 /** Routes que les Raccourcis iPhone appellent avec leur clé dédiée. */
 const DEVICE_ROUTES = new Set(['/api/health/ingest', '/api/gym/checkin', '/api/gym/checkout']);
 
@@ -126,6 +130,7 @@ function sanitizeCfg(input: Partial<UserCfg> | undefined, current: UserCfg): Use
   if (Array.isArray(input.rest) && input.rest.length === 7) cfg.rest = input.rest.map(Boolean);
   if (isLang(input.lang)) cfg.lang = input.lang;
   if (input.meals !== undefined) cfg.meals = Math.max(0, Math.min(4, Math.round(Number(input.meals) || 0)));
+  if (typeof input.nutrition === 'boolean') cfg.nutrition = input.nutrition;
   return cfg;
 }
 
@@ -219,7 +224,7 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
     return json({ limits: FREE, mode: await currentMode(env), days: days.map((d) => summary(d)), tracked: Boolean(env.USAGE) });
   }
 
-  const place = await placeRoutes(req, env, pathname, user.id);
+  const place = (await placeRoutes(req, env, pathname, user.id)) ?? (await foodRoutes(req, env, url, user.id, requestLang(req)));
   if (place) return place;
 
   if (pathname === '/api/oauth/authorize' && method === 'POST') return authorizeDecision(req, env, user, url);
@@ -316,6 +321,7 @@ async function route(req: Request, env: Env, url: URL, ctx?: ExecutionContext): 
       banked: Math.max(0, Number(b.banked) || 0),
       lifting: typeof b.lifting === 'boolean' ? b.lifting : undefined,
       rest: typeof b.rest === 'boolean' ? b.rest : undefined,
+      slots: Array.isArray(b.slots) ? [...new Set(b.slots.filter((x): x is string => typeof x === 'string' && MEAL_SLOTS.has(x)))] : undefined,
     };
     await store.put('state', JSON.stringify(state));
     return json({ ok: true });

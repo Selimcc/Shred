@@ -130,6 +130,14 @@ export const CATALOG: CatalogEntry[] = [
   c('mountain-climber', 'Mountain climbers', 'cardio', 'cardio', ['Cardio', 'Sangle abdominale'], 'Hanches basses, genoux vers la poitrine en rythme.', [4, '30 s', 30]),
   c('farmer-walk', 'Marche du fermier', 'power', 'cardio', ['Grip', 'Trapèzes', 'Sangle abdominale'], 'Épaules basses, pas courts et rapides.', [3, '30 m', 90]),
 
+  // Sports de combat
+  c('jump-rope', 'Corde à sauter', 'cardio', 'cardio', ['Cardio', 'Mollets', 'Coordination'], 'Sauts bas et rapides sur l’avant du pied, poignets qui tournent, épaules relâchées.', [3, '3 min', 60]),
+  c('shadow-boxing', 'Shadow boxing', 'cardio', 'cardio', ['Cardio', 'Épaules', 'Coordination'], 'Garde haute, menton rentré. Bouge sur tes appuis entre les enchaînements, ne reste pas planté.', [5, '3 min', 60]),
+  c('bag-rounds', 'Rounds au sac de frappe', 'cardio', 'cardio', ['Cardio', 'Épaules', 'Puissance'], 'Enchaînements courts et précis, puis sors de l’axe. Expire à chaque coup, garde haute en revenant.', [5, '3 min', 60], { note: 'Pas de sac : shadow boxing, mêmes rounds.' }),
+  c('sprawl', 'Sprawls', 'cardio', 'cardio', ['Cardio', 'Hanches', 'Sangle abdominale'], 'Lance les jambes en arrière, hanches plaquées au sol, puis reviens en garde le plus vite possible.', [3, '10', 45]),
+  c('med-ball-slam', 'Med ball slams', 'power', 'cardio', ['Puissance', 'Sangle abdominale', 'Dos'], 'Monte le ballon bras tendus, puis frappe le sol de tout le corps en fléchissant les hanches.', [4, '8', 60]),
+  e('sprint', 'Sprints courts', 'run', 5, ['Vitesse', 'Puissance'], 'Accélère à fond, buste légèrement penché, bras actifs. Récupère complètement en marchant.', [6, '10 s', 50], { note: 'En côte, sur vélo ou au rameur si tu préfères.' }),
+
   // Course à pied
   c('run-easy', 'Footing en endurance', 'cardio', 'cardio', ['Endurance'], 'Allure où tu peux parler en phrases entières. C’est la base de tout.', [1, '40 min', 0]),
   c('run-long', 'Sortie longue', 'cardio', 'cardio', ['Endurance'], 'Lente et régulière : finir en ayant pu accélérer.', [1, '1 h', 0], { note: 'Bois toutes les 20 minutes au-delà d’une heure.' }),
@@ -200,6 +208,7 @@ const TAGS: Record<string, [Discipline, Zone]> = {
   'rope-shadow': ['combat', 3], intervals: ['bike', 5], running: ['run', 2], 'rowing-erg': ['row', 2], bike: ['bike', 2],
   'run-easy': ['run', 2], 'run-long': ['run', 2], 'run-tempo': ['run', 4], 'run-intervals': ['run', 5], 'run-race': ['run', 4], strides: ['run', 5],
   'ski-erg': ['ski', 4], 'incline-walk': ['walk', 2], walk: ['walk', 1], 'mountain-climber': ['combat', 4],
+  'jump-rope': ['combat', 3], 'shadow-boxing': ['combat', 3], 'bag-rounds': ['combat', 4], sprawl: ['combat', 4],
 };
 for (const x of CATALOG) if (TAGS[x.key]) [x.discipline, x.zone] = TAGS[x.key];
 

@@ -1,16 +1,15 @@
 // Réglages, Strava : relier le compte, voir les dernières sorties importées, se déconnecter.
 import { useEffect, useState } from 'react';
-import { DISCIPLINE_ICON, Icon } from '../components/Icon';
+import { ActivityRow } from '../components/ActivitySheet';
+import { Icon } from '../components/Icon';
 import { ask, errorText, toast } from '../components/ui';
 import { DEMO } from '../lib/api';
-import { formatNumber, formatShort } from '../lib/date';
+import { formatShort } from '../lib/date';
 import { signedIn } from '../lib/session';
 import { returnFromStrava } from '../lib/sync';
-import { type Activity, useApp } from '../lib/store';
+import { useApp } from '../lib/store';
 import { connectStrava, disconnectStrava, type StravaStatus, stravaStatus, syncStrava } from '../lib/strava';
 import { tn, tr } from '../../shared/i18n';
-
-const fmtMin = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, '0')}` : `${Math.round(m)} min`);
 
 export function StravaPage() {
   const s = useApp();
@@ -136,19 +135,3 @@ export function StravaPage() {
   );
 }
 
-export function ActivityRow({ a }: { a: Activity }) {
-  return (
-    <div className="row" style={{ minHeight: 56 }}>
-      <span className="settings-icon">
-        <Icon name={DISCIPLINE_ICON[a.sport] ?? (a.sport === 'lift' ? 'dumbbell' : 'pulse')} size={18} />
-      </span>
-      <div className="grow" style={{ minWidth: 0 }}>
-        <div className="title ellipsis">{a.name}</div>
-        <div className="small muted num">
-          {formatShort(a.start.slice(0, 10))}, {[a.km ? `${formatNumber(a.km, 1)} km` : '', fmtMin(a.min), a.hr ? `${a.hr} bpm` : ''].filter(Boolean).join(', ')}
-        </div>
-      </div>
-      {a.linked?.length ? <span className="tag up">{tr('Séance validée')}</span> : null}
-    </div>
-  );
-}

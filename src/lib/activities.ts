@@ -1,8 +1,10 @@
 // Les sorties enregistrées ailleurs (Strava, Apple Watch via Apple Santé) arrivent ici : rangées au bon jour,
-// sans doublon, et elles valident la séance prévue quand c'est le même sport.
+// sans doublon, et elles valident la séance prévue quand c'est le même sport. On peut aussi noter une activité
+// à la main (natation un jour de Push, foot, escalade…) : elle compte dans les stats, et si on le demande, elle
+// valide la séance du jour.
 import type { Discipline } from '../../shared/types';
 import { sessionFor } from './logic';
-import { type Activity, type AppState, ensureDay, setState } from './store';
+import { type Activity, type AppState, ensureDay, setState, uid } from './store';
 
 const ENDURANCE: Discipline[] = ['run', 'bike', 'swim', 'row', 'walk'];
 
@@ -72,4 +74,65 @@ export function importActivities(list: Activity[]): ImportResult {
     }
   });
   return result;
+}
+
+/** Sports proposés pour une activité notée à la main. */
+export type ManualSport = 'run' | 'bike' | 'swim' | 'walk' | 'row' | 'combat' | 'lift' | 'other';
+export const MANUAL_SPORTS: ManualSport[] = ['run', 'bike', 'swim', 'walk', 'row', 'combat', 'lift', 'other'];
+
+export interface ManualActivity {
+  sport: ManualSport;
+  name: string;
+  min: number;
+  km?: number;
+  effort: 1 | 2 | 3;
+}
+
+/**
+ * Ajoute une activité notée à la main, terminée maintenant. Même sport qu'un bloc de la séance du jour : il est
+ * coché, comme pour une sortie importée. `counts` : elle tient lieu de séance du jour (flamme comprise).
+ */
+export function addActivity(date: string, input: ManualActivity, counts: boolean, now = new Date()): { id: string; validated: boolean } {
+  const id = `manual:${uid()}`;
+  let validated = false;
+  setState((d) => {
+    const day = ensureDay(d, date);
+    day.activities ??= [];
+    const startMs = now.getTime() - input.min * 60_000;
+    const local = new Date(startMs - new Date(startMs).getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+    // Commencée la veille (après minuit) : on la range quand même au jour choisi.
+    const start = local.slice(0, 10) === date ? local : `${date}T00:00`;
+    const a: Activity = { id, source: 'manual', sport: input.sport, name: input.name.trim().slice(0, 60), start, min: Math.round(input.min), effort: input.effort };
+    if (input.km && input.sport !== 'lift' && input.sport !== 'other' && input.sport !== 'combat') a.km = Math.round(input.km * 100) / 100;
+    const was = day.mainDone;
+    const { linked, ticked } = link(d, date, a);
+    if (linked.length) a.linked = linked;
+    if (ticked.length) a.ticked = ticked;
+    if (counts && !day.mainDone) {
+      day.mainDone = true;
+      day.mainDoneAt = Date.now();
+    }
+    if (!was && day.mainDone) {
+      day.doneBy = id;
+      validated = true;
+    }
+    day.activities.push(a);
+  });
+  return { id, validated };
+}
+
+/** Supprime une activité notée à la main, et ce qu'elle avait validé (blocs cochés, séance du jour). */
+export function removeActivity(date: string, id: string): void {
+  setState((d) => {
+    const day = d.days[date];
+    const a = day?.activities?.find((x) => x.id === id);
+    if (!day || !a || a.source !== 'manual') return;
+    for (const key of a.ticked ?? []) delete day.sets[key];
+    if (day.doneBy === id) {
+      day.mainDone = false;
+      day.mainDoneAt = undefined;
+      day.doneBy = undefined;
+    }
+    day.activities = day.activities!.filter((x) => x.id !== id);
+  });
 }

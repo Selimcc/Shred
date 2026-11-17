@@ -68,13 +68,15 @@ export interface DayLog {
   activities?: Activity[];
   mainDone: boolean;
   mainDoneAt?: number;
+  /** Séance du jour validée par une activité notée à la main (son id) : la supprimer annule la validation. */
+  doneBy?: string;
   /** Eau bue dans la journée, en millilitres. */
   water?: number;
   meals: MealEntry[];
   habits: Partial<Record<HabitId, boolean>>;
 }
 
-export type ReminderType = 'morning' | 'lunch' | 'training' | 'evening';
+export type ReminderType = 'morning' | 'breakfast' | 'lunch' | 'training' | 'dinner' | 'evening';
 
 /** Où passe l'IA : l'API Claude (automatique, payante à l'usage), l'app Claude (gratuite avec un abonnement) ou nulle part. */
 export type AiMode = 'api' | 'claude' | 'off';
@@ -166,11 +168,11 @@ export interface BodyPhoto {
   pose: Pose;
 }
 
-/** Une sortie enregistrée ailleurs (Strava, Apple Watch) et importée dans Shred. */
+/** Une sortie enregistrée ailleurs (Strava, Apple Watch) et importée dans Shred, ou notée à la main. */
 export interface Activity {
-  /** « strava:123 », « health:… » : sert à ne pas l'importer deux fois. */
+  /** « strava:123 », « health:… », « manual:… » : sert à ne pas l'importer deux fois. */
   id: string;
-  source: 'strava' | 'health';
+  source: 'strava' | 'health' | 'manual';
   sport: Discipline | 'lift' | 'other';
   name: string;
   /** Début, heure locale ISO. */
@@ -182,6 +184,10 @@ export interface Activity {
   kcal?: number;
   /** Exercices de la séance du jour que cette sortie a validés. */
   linked?: string[];
+  /** Notée à la main : intensité ressentie (1 facile, 2 modérée, 3 difficile). */
+  effort?: 1 | 2 | 3;
+  /** Notée à la main : les blocs qu'elle a cochés, décochés si on la supprime. */
+  ticked?: string[];
 }
 
 export interface HealthDay {
@@ -262,8 +268,10 @@ export interface AppState {
 
 export const DEFAULT_REMINDERS: Settings['reminders'] = {
   morning: { on: true, time: '08:00' },
+  breakfast: { on: true, time: '10:00' },
   lunch: { on: true, time: '13:30' },
   training: { on: true, time: '18:00' },
+  dinner: { on: true, time: '21:00' },
   evening: { on: true, time: '21:30' },
 };
 

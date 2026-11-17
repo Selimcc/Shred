@@ -23,6 +23,7 @@ import { Today } from './screens/Today';
 import { Welcome } from './screens/Welcome';
 import { Workout } from './screens/Workout';
 import { tr } from '../shared/i18n';
+import { type MealSlot, SLOTS } from '../shared/program';
 
 export type Tab = 'today' | 'workout' | 'food' | 'club' | 'coach' | 'progress';
 
@@ -37,6 +38,11 @@ const TABS: { id: Tab; label: string; icon: string; enabled?: (s: AppState) => b
   // Le coach s'ouvre en touchant Pulse : pas d'onglet en plus.
   { id: 'coach', label: tr('Pulse'), icon: 'chat', enabled: (s) => s.settings.ai !== 'off', hidden: true },
 ];
+
+/** Rappel de repas touché (?tab=food&add=lunch) : le repas à ajouter. */
+function mealParam(v: unknown): MealSlot | null {
+  return SLOTS.some((x) => x.id === v) ? (v as MealSlot) : null;
+}
 
 function initialTab(): Tab {
   const q = new URLSearchParams(location.search);
@@ -93,6 +99,7 @@ export function App() {
   const [tabState, setTab] = useState<Tab>(initialTab);
   const tabs = TABS.filter((t) => !t.enabled || t.enabled(s));
   const tab = tabs.some((t) => t.id === tabState) ? tabState : 'today';
+  const [addMeal, setAddMeal] = useState(() => mealParam(new URLSearchParams(location.search).get('add')));
   const [settings, setSettings] = useState<SettingsPage | null>(() => (new URLSearchParams(location.search).get('settings') === 'usage' ? 'usage' : null));
   const [compose, setCompose] = useState<string | null>(null);
   const [openPost] = useState(() => new URLSearchParams(location.search).get('post'));
@@ -161,7 +168,9 @@ export function App() {
   useEffect(() => {
     // Ouverture depuis une notification alors que l'app tourne déjà.
     const onMsg = (e: MessageEvent) => {
-      if (e.data?.type === 'open-tab') go(e.data.tab as Tab);
+      if (e.data?.type !== 'open-tab') return;
+      go(e.data.tab as Tab);
+      setAddMeal(mealParam(e.data.add));
     };
     navigator.serviceWorker?.addEventListener('message', onMsg);
     // « Partager au club » depuis la séance : on ouvre le club avec la publication prête.
@@ -203,7 +212,21 @@ export function App() {
       <main ref={main} className="app">
         {tab === 'today' && <Today today={today} go={go} openSettings={() => setSettings('menu')} />}
         {tab === 'workout' && <Workout today={today} editProgram={() => setSettings('program')} />}
-        {tab === 'food' && <Food today={today} openCoach={() => go('coach')} />}
+        {tab === 'food' && (
+          <Food
+            today={today}
+            openCoach={() => go('coach')}
+            add={addMeal}
+            onAdd={() => {
+              setAddMeal(null);
+              try {
+                history.replaceState(null, '', '?tab=food');
+              } catch {
+                // Aperçu intégré : pas d'historique.
+              }
+            }}
+          />
+        )}
         {tab === 'club' && <Club openSettings={(p = 'account') => setSettings(p)} compose={compose} onComposed={() => setCompose(null)} openPost={openPost} openMember={openMember} />}
         {tab === 'coach' && <Coach today={today} onBack={() => go('today')} />}
         {tab === 'progress' && <Progress today={today} openSettings={(p = 'menu') => setSettings(p)} openCoach={() => go('coach')} />}

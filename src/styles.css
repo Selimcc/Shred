@@ -538,6 +538,12 @@ input[type='time'].input {
   color: var(--on-accent);
 }
 
+.chip.small {
+  min-height: 32px;
+  padding: 0 11px;
+  font-size: 0.85rem;
+}
+
 .chip:active {
   transform: scale(0.97);
 }
@@ -1095,6 +1101,34 @@ input[type='time'].input {
   gap: 8px;
   margin: 16px 0 20px;
   flex-wrap: wrap;
+}
+
+/* Séance terminée : texte et boutons sur une ligne, les boutons passent dessous s'il manque de place. */
+.done-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.done-text {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.done-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+/* Dans le choix de séance : une autre activité notée à la place (natation un jour de Push…). */
+.picker-other {
+  margin-top: 12px;
+  border: 1px dashed var(--line-2);
+  border-radius: 14px;
+  background: none;
+  color: inherit;
+  font: inherit;
 }
 
 /* ---------- Exercices ---------- */
@@ -5470,6 +5504,45 @@ h1 {
   border-radius: 10px;
   object-fit: cover;
   background: var(--surface-3);
+}
+/* Pas de photo : un pictogramme à la place, pour que la liste reste alignée. */
+.food-thumb-empty {
+  display: inline-grid;
+  place-items: center;
+  color: var(--ink-3);
+}
+.food-thumb-empty.generic {
+  color: var(--mint);
+  background: var(--mint-soft);
+}
+.food-group {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-2);
+  padding: 0 2px;
+}
+.food-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.food-error p {
+  flex: 1;
+  min-width: 0;
+}
+/* Feuille d'ajout d'un repas : photo et code-barres en tête, avant la recherche. */
+.quick-log {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.quick-log .btn {
+  min-height: 52px;
+  padding-inline: 12px;
 }
 
 /* ---------- Classement du club ---------- */

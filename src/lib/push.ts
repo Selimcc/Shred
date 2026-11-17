@@ -29,6 +29,7 @@ export function buildConfig(s: AppState = getState()) {
     lifting: scheduleFor(s.program, dayKey()).map((id) => findSession(s.program, id).type !== 'rest'),
     rest: scheduleFor(s.program, dayKey()).map((id) => findSession(s.program, id).type === 'rest'),
     meals: ruleOf(s).minMeals,
+    nutrition: s.settings.modules.nutrition,
     lang: lang(),
   };
 }

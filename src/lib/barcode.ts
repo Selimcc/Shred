@@ -113,22 +113,5 @@ export function sharpenBars(px: Uint8ClampedArray, w: number, h: number, radius 
   }
 }
 
-/** Texte d'Open Food Facts (base modifiable par tous) : sans caractères de contrôle ni balises, longueur bornée. */
-export function offText(v: unknown, max: number): string {
-  return String(v ?? '')
-    .replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g, ' ')
-    .replace(/[<>]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, max);
-}
-
-/** Seules les images servies par Open Food Facts lui-même. */
-export function offImage(v: unknown): string | undefined {
-  try {
-    const u = new URL(String(v ?? ''));
-    return u.protocol === 'https:' && /(^|\.)openfoodfacts\.(org|net)$/.test(u.hostname) ? u.href : undefined;
-  } catch {
-    return undefined;
-  }
-}
+/** Textes et images d'Open Food Facts : le même nettoyage côté serveur et côté app. */
+export { offImage, offText } from '../../shared/food';

@@ -6,7 +6,10 @@ import { type PushSubscriptionData, sendPush, type VapidKeys } from './webpush';
 import { type Lang, say, tx, txn } from './i18n';
 import { isLang, LANGS } from '../shared/i18n';
 
-export type ReminderType = 'morning' | 'lunch' | 'training' | 'evening';
+export type ReminderType = 'morning' | 'breakfast' | 'lunch' | 'training' | 'dinner' | 'evening';
+
+/** Rappels de repas : un par repas principal, seulement s'il n'est pas noté. */
+export type MealReminder = 'breakfast' | 'lunch' | 'dinner';
 
 export interface ReminderCfg {
   on: boolean;
@@ -26,6 +29,8 @@ export interface UserCfg {
   rest?: boolean[];
   /** Langue de l'app, pour écrire les rappels dans la même. */
   lang?: Lang;
+  /** Module nutrition activé (rappels de repas). Absent avant la 0.32 : on regarde `meals`. */
+  nutrition?: boolean;
 }
 
 /** Résumé envoyé par l'app à chaque changement. */
@@ -43,14 +48,18 @@ export interface DayState {
   lifting?: boolean;
   /** La séance du jour est un repos (actif). */
   rest?: boolean;
+  /** Repas déjà notés aujourd'hui (petit-déjeuner, déjeuner, collation, dîner…). Absent avant la 0.32. */
+  slots?: string[];
 }
 
 export const DEFAULT_CFG: UserCfg = {
   timezone: 'Europe/Paris',
   reminders: {
     morning: { on: true, time: '08:00' },
+    breakfast: { on: true, time: '10:00' },
     lunch: { on: true, time: '13:30' },
     training: { on: true, time: '18:00' },
+    dinner: { on: true, time: '21:00' },
     evening: { on: true, time: '21:30' },
   },
   plan: ['Conditionnement', 'Push', 'Pull', 'Legs', 'Repos actif', 'Upper', 'Lower'],
@@ -58,7 +67,7 @@ export const DEFAULT_CFG: UserCfg = {
   meals: 3,
 };
 
-export const ORDER: ReminderType[] = ['morning', 'lunch', 'training', 'evening'];
+export const ORDER: ReminderType[] = ['morning', 'breakfast', 'lunch', 'training', 'dinner', 'evening'];
 
 /** Fenêtre de déclenchement : le cron tourne toutes les 15 min. */
 const WINDOW_MIN = 15;
@@ -85,6 +94,26 @@ export function streakAtRisk(state: DayState | null, today: string): number {
   return 0;
 }
 
+/** Sans la liste des repas (app d'avant la 0.32), le nombre de repas notés fait foi. */
+const MEALS_BEFORE: Record<MealReminder, number> = { breakfast: 1, lunch: 2, dinner: 3 };
+
+/**
+ * Rappel d'un repas pas encore noté, même si la journée est déjà validée : noter ce qu'on mange compte pour les
+ * calories, pas seulement pour la flamme. Le lien ouvre la feuille d'ajout de ce repas (photo, code-barres, recherche).
+ */
+function mealReminder(type: MealReminder, cfg: UserCfg, s: DayState | null, T: (fr: string) => string): Notification | null {
+  if (!(cfg.nutrition ?? cfg.meals > 0)) return null;
+  const logged = s?.slots ? s.slots.includes(type) : (s?.meals ?? 0) >= MEALS_BEFORE[type];
+  if (logged) return null;
+  const quick = say('Photo, code-barres ou recherche : 10 secondes et c’est noté.');
+  const text = {
+    breakfast: { title: say('Ton petit-déjeuner est noté ?'), bodies: [quick, say('Note-le maintenant, ce soir tu ne t’en souviendras plus.')] },
+    lunch: { title: say('Ton déjeuner est noté ?'), bodies: [quick, say('Une photo suffit, le calcul des calories est automatique.'), say('Coche ta box ou prends ton plat en photo, 10 secondes.')] },
+    dinner: { title: say('Ton dîner est noté ?'), bodies: [quick, say('Dernier repas de la journée : note-le avant d’oublier.')] },
+  }[type];
+  return { title: T(text.title), body: T(pick(text.bodies)), tag: type, url: `/?tab=food&add=${type}` };
+}
+
 export function buildReminder(
   type: ReminderType,
   cfg: UserCfg,
@@ -109,6 +138,7 @@ export function buildReminder(
   const risk = streakAtRisk(state, today);
   const jours = (n: number) => txn(lang, n, '{n} jour', '{n} jours');
 
+  if (type === 'breakfast' || type === 'lunch' || type === 'dinner') return mealReminder(type, cfg, s, (fr) => T(fr));
   if (s?.validated) return null;
 
   switch (type) {
@@ -123,15 +153,6 @@ export function buildReminder(
         body: risk > 0 ? T('Série en cours : {days}. {body}', { days: jours(risk), body }) : body,
         tag: 'morning',
         url: '/?tab=today',
-      };
-    }
-    case 'lunch': {
-      if (cfg.meals === 0 || (s?.meals ?? 0) >= 2) return null;
-      return {
-        title: T('Ton déjeuner est noté ?'),
-        body: T(pick([say('Une photo suffit, le calcul des calories est automatique.'), say('Coche ta box ou prends ton plat en photo, 10 secondes.')])),
-        tag: 'lunch',
-        url: '/?tab=food',
       };
     }
     case 'training': {

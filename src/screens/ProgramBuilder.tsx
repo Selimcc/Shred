@@ -132,7 +132,7 @@ export function ProgramBuilder({ onDone }: { onDone: () => void }) {
           <span className="tag">{p.name}</span>
         </div>
         {dated && <p className="small muted" style={{ margin: 0 }}>{tr('Plan daté jusqu’au jour J. Voici la semaine en cours ; le renfo suit ton physique visé.')}</p>}
-        {!dated && endurance && <p className="small muted" style={{ margin: 0 }}>{tr('Semaine 1 du bloc. Les séances changent chaque semaine : la charge monte, puis une semaine allégée.')}</p>}
+        {!dated && (p.weeks?.length ?? 0) > 0 && <p className="small muted" style={{ margin: 0 }}>{tr('Semaine 1 du bloc. Les séances changent chaque semaine : la charge monte, puis une semaine allégée.')}</p>}
         <div className="week-strip">
           {WEEK_ORDER.map((d) => {
             const def = p.sessions.find((x) => x.id === week[d]);

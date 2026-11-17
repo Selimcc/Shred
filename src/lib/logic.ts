@@ -35,7 +35,8 @@ export function ruleOf(s: AppState): Rule {
 
 function gymMinutes(s: AppState, date: string): number {
   // Une séance de muscu enregistrée sur la montre ou Strava compte comme un passage à la salle.
-  const watch = (s.days[date]?.activities ?? []).filter((a) => a.sport === 'lift').reduce((n, a) => n + a.min, 0);
+  // Une muscu notée à la main ne compte que si on l'a dit (« compter comme séance du jour »).
+  const watch = (s.days[date]?.activities ?? []).filter((a) => a.sport === 'lift' && a.source !== 'manual').reduce((n, a) => n + a.min, 0);
   const h = s.health[date];
   if (!h?.gymIn || !h.gymOut) return watch;
   const min = (new Date(h.gymOut).getTime() - new Date(h.gymIn).getTime()) / 60000;
@@ -53,7 +54,7 @@ export function workoutOk(s: AppState, date: string, rule: Rule = ruleOf(s)): bo
   const session = sessionFor(s, date);
   if (session.type === 'rest') {
     // Sans repas à noter, il faut quand même un signe de vie ce jour-là.
-    return rule.minMeals > 0 || Boolean(day && (Object.values(day.habits).some(Boolean) || Object.values(day.sets).some((l) => doneCount(l) > 0)));
+    return rule.minMeals > 0 || Boolean(day && (Object.values(day.habits).some(Boolean) || Object.values(day.sets).some((l) => doneCount(l) > 0) || (day.activities?.length ?? 0) > 0));
   }
   if (!rule.workout) return true;
   if (rule.level === 'full') return false;

@@ -124,6 +124,48 @@ function flatValue(v: unknown, depth = 0): unknown {
   return typeof v === 'string' ? v.slice(0, 200) : v;
 }
 
+/** Totaux du jour : plusieurs échantillons s'additionnent (raccourci sans « regrouper par jour »). */
+const SUMMED = new Set(['steps', 'active_kcal', 'activekcal', 'resting_kcal', 'restingkcal', 'exercise_min', 'exercisemin', 'distance_km', 'distancekm', 'sleep_min', 'sleepmin', 'sleep_h', 'sleep']);
+/** Mesures ponctuelles : plusieurs échantillons donnent la moyenne. */
+const AVERAGED = new Set(['resting_hr', 'restinghr', 'hrv']);
+const HMS = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/;
+
+/** Plusieurs échantillons : une liste, ou un texte d'une valeur par ligne (une liste que Raccourcis a changée en texte). */
+function samples(v: unknown): unknown[] | null {
+  if (Array.isArray(v)) return v.length > 1 ? v.slice(0, 2000) : null;
+  if (typeof v !== 'string' || !v.trim().includes('\n')) return null;
+  const lines = v.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  return lines.length > 1 ? lines.slice(0, 2000) : null;
+}
+
+/** Valeur d'un échantillon : 8432, « 8 432 pas », « 412,6 kcal », ou une durée « 7:32:00 » (en secondes). */
+function sampleNumber(v: unknown): number | undefined {
+  const x = flatValue(v);
+  if (typeof x === 'number') return Number.isFinite(x) && x >= 0 ? x : undefined;
+  if (typeof x !== 'string') return undefined;
+  const hms = x.trim().match(HMS);
+  if (hms) return Number(hms[1]) * 3600 + Number(hms[2]) * 60 + Number(hms[3] ?? 0);
+  const m = x.replace(/[\s  ]/g, '').replace(',', '.').match(/^\d+(?:\.\d+)?/);
+  return m ? Number(m[0]) : undefined;
+}
+
+/** Une liste d'échantillons devient une seule valeur : la somme pour un total, la moyenne pour le cœur. */
+function combine(norm: string, v: unknown): unknown {
+  const list = samples(v);
+  if (!list) return flatValue(v);
+  if (!SUMMED.has(norm) && !AVERAGED.has(norm)) return flatValue(list[0]);
+  const nums = list.map(sampleNumber).filter((n): n is number => n !== undefined);
+  if (!nums.length) return undefined;
+  const total = nums.reduce((a, b) => a + b, 0);
+  if (AVERAGED.has(norm)) return Math.round((total / nums.length) * 10) / 10;
+  // Des durées « h:mm:ss » restent une durée : le sommeil sait la lire, sans confondre minutes et secondes.
+  if (list.some((x) => typeof flatValue(x) === 'string' && HMS.test(String(flatValue(x)).trim()))) {
+    const s = Math.round(total);
+    return `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+  return Math.round(total * 1000) / 1000;
+}
+
 /** Clés qui modifieraient le prototype d'un objet JavaScript. */
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -134,8 +176,8 @@ export function cleanBody(raw: Record<string, unknown>): Record<string, unknown>
   for (let [k, v] of Object.entries(raw ?? {}).slice(0, 60)) {
     // Nom et valeur inversés dans le dictionnaire (« 3588 » = « steps ») : on remet dans le bon sens.
     if (typeof v === 'string' && FIELDS.has(v.trim().toLowerCase()) && !FIELDS.has(k.trim().toLowerCase())) [k, v] = [v, k];
-    const value = flatValue(v);
     const norm = k.trim().toLowerCase().replace(/[\s-]+/g, '_');
+    const value = combine(norm, v);
     if (k.length > 60 || UNSAFE_KEYS.has(k) || UNSAFE_KEYS.has(norm)) continue;
     out[k] = value;
     out[norm] = value;

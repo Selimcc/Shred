@@ -91,7 +91,8 @@ export type Equipment =
   | 'sled'
   | 'wallball'
   | 'kettlebell'
-  | 'sandbag';
+  | 'sandbag'
+  | 'heavybag';
 
 export const EQUIPMENT: { id: Equipment; name: string }[] = [
   { id: 'barbell', name: tr('Barres et racks') },
@@ -107,6 +108,7 @@ export const EQUIPMENT: { id: Equipment; name: string }[] = [
   { id: 'wallball', name: tr('Médecine-ball (wall ball)') },
   { id: 'kettlebell', name: tr('Kettlebells') },
   { id: 'sandbag', name: tr('Sandbag') },
+  { id: 'heavybag', name: tr('Sac de frappe') },
 ];
 
 const BIG_GYM: Equipment[] = ['barbell', 'dumbbells', 'machines', 'cables', 'pullup', 'treadmill', 'bike', 'rower', 'kettlebell'];

@@ -162,6 +162,15 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 | Low | A language header and a stored preference. | `X-Shred-Lang` and `Accept-Language` only ever select one of six codes (`isLang`, `pickLang`); any other value is ignored. The per-account `lang` key holds one of those codes and nothing else. |
 | Low | Translated strings with placeholders. | Dictionaries are static JSON bundled at build time, never fetched from elsewhere. Placeholders are filled with plain text: React escapes it in the app; in the weekly email, text that comes from the member (name, exercise names, advice) is escaped (`esc`) and the only values placed inside the translated HTML snippets are numbers; pushes are plain text. `npm test` rejects a translation whose placeholders differ from the French key. |
 
+## Version 0.32
+
+| Severity | Finding | Fix |
+| --- | --- | --- |
+| Low | A new outbound route (`/api/food/search`) that relays a search to Open Food Facts. | Signed-in members only, 300 searches a day each (`capDaily`), a query of 60 characters at most, two fixed hosts (`search.openfoodfacts.org`, `world.openfoodfacts.org`) with timeouts. Nothing about the member is sent: the User-Agent names the app and its version, not the person. Answers are cached by query and language, never per member. |
+| Low | Product data written by anyone on Open Food Facts. | Parsed by the same code on the server and in the app (`shared/food.ts`): names and brands stripped of control characters and angle brackets and capped, numbers clamped, images accepted only from Open Food Facts hosts; the app checks the server's answer again before showing it. Image requests send no referrer. |
+| Low | Meal slots in the day summary. | `/api/state` keeps only known meal ids (`breakfast`, `lunch`, `snack`, `dinner`, `extra`); the notification link is built by the server from that fixed list. |
+| Info | Activities logged by hand. | Stored in the member's own encrypted backup like imported ones; nothing new reaches the server. |
+
 ## Accepted
 
 | Severity | Finding | Why |

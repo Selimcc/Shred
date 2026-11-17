@@ -127,10 +127,12 @@ const MODULES: { id: keyof Modules; title: string; text: string }[] = [
   { id: 'gym', title: tr('Passages à la salle'), text: tr('Arrivée et départ détectés par l’iPhone.') },
 ];
 
-const REMINDERS: { id: ReminderType; label: string; hint: string }[] = [
+const REMINDERS: { id: ReminderType; label: string; hint: string; meal?: boolean }[] = [
   { id: 'morning', label: tr('Matin'), hint: tr('Séance du jour et série en cours') },
-  { id: 'lunch', label: tr('Midi'), hint: tr('Si ton déjeuner n’est pas noté') },
+  { id: 'breakfast', label: tr('Petit-déjeuner'), hint: tr('Si ton petit-déjeuner n’est pas noté'), meal: true },
+  { id: 'lunch', label: tr('Déjeuner'), hint: tr('Si ton déjeuner n’est pas noté'), meal: true },
   { id: 'training', label: tr('Séance'), hint: tr('Si ta séance n’est pas faite') },
+  { id: 'dinner', label: tr('Dîner'), hint: tr('Si ton dîner n’est pas noté'), meal: true },
   { id: 'evening', label: tr('Soir'), hint: tr('Si ta journée n’est pas validée') },
 ];
 
@@ -916,7 +918,7 @@ function NotificationsPage({ busy, run }: { busy: string | null; run: (k: string
         </div>
       )}
       <div className="group">
-        {REMINDERS.filter((r) => r.id !== 'lunch' || s.settings.modules.nutrition).map((r) => {
+        {REMINDERS.filter((r) => !r.meal || s.settings.modules.nutrition).map((r) => {
           const cfg = s.settings.reminders[r.id];
           return (
             <div className="row" key={r.id}>
@@ -949,7 +951,7 @@ function NotificationsPage({ busy, run }: { busy: string | null; run: (k: string
         })}
       </div>
       <p className="small faint" style={{ margin: 0 }}>
-        {tr('Les rappels partent par tranches de 15 minutes. Ils s’arrêtent dès que ta journée est validée.')}
+        {tr('Les rappels partent par tranches de 15 minutes. Ceux des repas ne partent que si le repas n’est pas noté ; les autres s’arrêtent dès que ta journée est validée.')}
       </p>
     </div>
   );

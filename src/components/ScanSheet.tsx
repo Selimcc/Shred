@@ -2,13 +2,14 @@
 // tu choisis la quantité et le repas. Les produits déjà scannés restent à portée de main.
 import { type TouchEvent, useEffect, useRef, useState } from 'react';
 import { addMeal } from '../lib/actions';
-import { codeVariants, confirmer, offImage, offText, scanRegion, sharpenBars, validBarcode } from '../lib/barcode';
+import { codeVariants, confirmer, scanRegion, sharpenBars, validBarcode } from '../lib/barcode';
+import { kcalPer100, productBrand, productImage, productName } from '../../shared/food';
 import { formatNumber } from '../lib/date';
 import type { MealSlot } from '../../shared/types';
 import { ADD_TO_SLOT } from '../../shared/program';
 import { Icon } from './Icon';
 import { Sheet, toast } from './ui';
-import { tr } from '../../shared/i18n';
+import { lang, tr } from '../../shared/i18n';
 
 export interface Product {
   ean: string;
@@ -57,7 +58,8 @@ export async function lookupProduct(ean: string): Promise<Product | null> {
 const clamp = (v: number, max: number) => Math.max(0, Math.min(v, max));
 
 async function fetchProduct(ean: string): Promise<Product | null> {
-  const fields = 'product_name,product_name_fr,brands,nutriments,serving_quantity,image_front_small_url';
+  const l = lang();
+  const fields = `code,product_name,product_name_${l},product_name_en,brands,nutriments,serving_quantity,image_front_small_url,image_small_url,images`;
   const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(ean)}.json?fields=${fields}`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(tr('Open Food Facts {status}', { status: res.status }));
@@ -65,12 +67,12 @@ async function fetchProduct(ean: string): Promise<Product | null> {
   const p = data.product;
   if (!p || data.status === 0) return null;
   const n = (p.nutriments ?? {}) as Record<string, unknown>;
-  const kcal = num(n['energy-kcal_100g']) || Math.round(num(n['energy_100g']) / 4.184);
+  const kcal = kcalPer100(n);
   const product: Product = {
     ean,
-    name: offText(p.product_name_fr || p.product_name, 80) || tr('Produit sans nom'),
-    brand: p.brands ? offText(String(p.brands).split(',')[0], 40) || undefined : undefined,
-    image: offImage(p.image_front_small_url),
+    name: productName(p, l) || tr('Produit sans nom'),
+    brand: productBrand(p) || undefined,
+    image: productImage(p, ean, l),
     per100: {
       kcal: clamp(Math.round(kcal), 950),
       protein: clamp(num(n.proteins_100g), 100),

@@ -204,7 +204,7 @@ export function HealthPage() {
             <summary style={{ cursor: 'pointer', fontWeight: 700 }}>{tr('Ajouter le sommeil, le cœur et l’exercice au raccourci')}</summary>
             <div className="stack" style={{ gap: 8, marginTop: 10 }}>
               <p className="muted" style={{ margin: 0 }}>
-                {tr('Dans le raccourci Shred Santé, ajoute une action « Rechercher des échantillons de santé » par donnée (période : aujourd’hui, ou la nuit dernière pour le sommeil), puis ajoute la valeur au dictionnaire envoyé avec la clé indiquée. Chaque clé est facultative.')}
+                {tr('Dans le raccourci Shred Santé, ajoute une action « Rechercher des échantillons de santé » par donnée : période aujourd’hui (la nuit dernière pour le sommeil) et regroupement réglé sur Jour pour les totaux, sinon iOS refuse d’envoyer des centaines d’échantillons. Ajoute ensuite la valeur au dictionnaire envoyé, avec la clé indiquée. Chaque clé est facultative : sans Apple Watch, laisse de côté le cœur au repos et la VFC.')}
               </p>
               <div className="group">
                 {HEALTH_FIELDS.map(([k, what]) => (

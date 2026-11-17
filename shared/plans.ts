@@ -285,14 +285,24 @@ export function runningPlan(input: RaceInput): Program {
 
 /* ---------- Hyrox ---------- */
 
-/** Une séance Hyrox par phase : les répétitions montent, les stations s'enchaînent de plus en plus. */
-export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experience' | 'days'>; ref?: { sec: number; km: number }; today: string }): Program {
+/**
+ * Une séance Hyrox par phase : les répétitions montent, les stations s'enchaînent de plus en plus.
+ * Avec une date, le plan va jusqu'à la course (affûtage compris). Sans date, c'est un bloc de 8 semaines
+ * (semaines 4 et 8 allégées, une simulation en semaine 7) que Pulse renouvelle, un cran plus fort.
+ */
+export function hyroxPlan(input: { date?: string; athlete: Pick<Athlete, 'experience' | 'days'>; ref?: { sec: number; km: number }; today: string; block?: number }): Program {
   const { date, athlete, today } = input;
   const p = paces('10k', athlete.experience, input.ref);
-  const raceMonday = mondayOf(date);
-  const available = Math.floor((parse(raceMonday) - parse(mondayOf(today))) / (7 * DAY)) + 1;
-  const n = Math.max(Math.min(6, available), Math.min(12, available));
-  const start = addDays(raceMonday, -(n - 1) * 7);
+  const block = Math.max(1, input.block ?? 1);
+  let n = 8;
+  let start = mondayOf(today);
+  if (date) {
+    const raceMonday = mondayOf(date);
+    const available = Math.floor((parse(raceMonday) - parse(mondayOf(today))) / (7 * DAY)) + 1;
+    n = Math.max(Math.min(6, available), Math.min(12, available));
+    start = addDays(raceMonday, -(n - 1) * 7);
+  }
+  const plans = weekPlans(n, 0);
   const runPace = fmtPace(p.tempo + 10);
   const easyText = tr('{replace} à {pace}', { replace: fmtPace(p.easy[0]).replace('/km', ''), pace: fmtPace(p.easy[1]) });
   const sessions: SessionDef[] = [REST];
@@ -300,8 +310,15 @@ export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experie
     sessions.push({ ...def, generated: true });
     return def.id;
   };
-  const phaseOf = (i: number) => (i >= n - 1 ? 'taper' : i >= n * 0.66 ? 'peak' : i >= n * 0.33 ? 'build' : 'base');
-  const vol = { base: 1, build: 1.25, peak: 1.4, taper: 0.6 };
+  type Phase = 'base' | 'build' | 'peak' | 'taper' | 'recovery';
+  const phaseOf = (i: number): Phase => {
+    if (date) return i >= n - 1 ? 'taper' : i >= n * 0.66 ? 'peak' : i >= n * 0.33 ? 'build' : 'base';
+    const w = plans[i];
+    return w.recovery ? 'recovery' : w.progress < 0.35 ? 'base' : w.progress < 0.75 ? 'build' : 'peak';
+  };
+  // Bloc suivant : un peu plus de volume à chaque fois (plafonné).
+  const boost = date ? 1 : Math.min(1.3, 1 + 0.06 * (block - 1));
+  const vol: Record<Phase, number> = { base: boost, build: 1.25 * boost, peak: 1.4 * boost, taper: 0.6, recovery: 0.7 };
   const ids = new Map<string, string>();
   const once = (key: string, def: () => SessionDef) => {
     if (!ids.has(key)) ids.set(key, add(def()));
@@ -319,7 +336,7 @@ export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experie
       focus: tr('Squat, soulevé de terre, sled push et pull'),
       type: 'lifting',
       exercises: [
-        { key: 'squat', sets: 4, reps: ph === 'base' ? '6–8' : '4–6' },
+        { key: 'squat', sets: ph === 'recovery' ? 3 : 4, reps: ph === 'base' || ph === 'recovery' ? '6–8' : '4–6' },
         { key: 'rdl', sets: 3, reps: '6–8' },
         { key: 'sled-push', sets: Math.round(4 * v), reps: '25 m', rest: 90 },
         { key: 'sled-pull', sets: Math.round(4 * v), reps: '25 m', rest: 90 },
@@ -336,7 +353,7 @@ export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experie
         { key: 'db-bench', sets: 3, reps: '8–10' },
         { key: 'ski-erg', sets: Math.round(4 * v), reps: '500 m', rest: 90 },
         { key: 'rowing-erg', sets: Math.round(3 * v), reps: '500 m', rest: 90 },
-        { key: 'wall-ball', sets: 4, reps: ph === 'base' ? '15' : '25', rest: 75 },
+        { key: 'wall-ball', sets: ph === 'recovery' ? 3 : 4, reps: ph === 'base' || ph === 'recovery' ? '15' : '25', rest: 75 },
         { key: 'farmer-walk', sets: 3, reps: '50 m', rest: 75 },
       ],
     }));
@@ -364,9 +381,9 @@ export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experie
     const long = once(`long-${ph}`, () => ({
       id: `hx-long-${ph}`,
       name: tr('Footing long'),
-      focus: tr('{v} min en endurance', { v: ph === 'taper' ? 30 : Math.round(40 + 15 * v) }),
+      focus: tr('{v} min en endurance', { v: ph === 'taper' ? 30 : Math.round((40 + 15 * v) / 5) * 5 }),
       type: 'cardio',
-      exercises: [{ key: 'run-easy', sets: 1, reps: `${ph === 'taper' ? 30 : Math.round(40 + 15 * v)} min`, note: tr('Allure : {easyText}.', { easyText }) }],
+      exercises: [{ key: 'run-easy', sets: 1, reps: `${ph === 'taper' ? 30 : Math.round((40 + 15 * v) / 5) * 5} min`, note: tr('Allure : {easyText}.', { easyText }) }],
     }));
 
     const week = Array(7).fill('rest');
@@ -376,7 +393,7 @@ export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experie
     week[5] = upper;
     if (d >= 4) week[6] = compromised;
     if (d >= 5) week[0] = long;
-    if (i === n - 1) {
+    if (date && i === n - 1) {
       week[weekday(date)] = add({
         id: 'hx-race',
         name: tr('Hyrox'),
@@ -387,9 +404,25 @@ export function hyroxPlan(input: { date: string; athlete: Pick<Athlete, 'experie
       for (const before of [1, 2]) week[(weekday(date) + 7 - before) % 7] = 'rest';
     }
     weeks.push(week);
-    phases.push({ base: tr('Fondamental'), build: tr('Développement'), peak: tr('Spécifique'), taper: tr('Affûtage') }[ph]);
+    if (date) phases.push({ base: tr('Fondamental'), build: tr('Développement'), peak: tr('Spécifique'), taper: tr('Affûtage'), recovery: tr('Fondamental') }[ph]);
+    else {
+      const phase = plans[i].phase === tr('Spécifique') ? tr('Intensification') : plans[i].phase;
+      phases.push(plans[i].recovery ? tr('{phase}, semaine allégée', { phase }) : phase);
+    }
   }
 
+  if (!date) {
+    return {
+      name: tr('Bloc Hyrox{v}, {n} semaines', { v: block > 1 ? ` ${block}` : '', n }),
+      template: 'hyrox',
+      sessions,
+      // Avant et après le bloc : une semaine type de développement.
+      schedule: weeks[4],
+      start,
+      weeks,
+      phases,
+    };
+  }
   return {
     name: tr('Hyrox du {toLocaleDateString}', { toLocaleDateString: new Date(parse(date)).toLocaleDateString(loc(), { day: 'numeric', month: 'long' }) }),
     template: 'hyrox',
@@ -419,6 +452,7 @@ const NEEDS: Record<string, Equipment[]> = {
   'goblet-squat': ['dumbbells', 'kettlebell'], bulgarian: ['dumbbells'], lunge: ['dumbbells'], 'walking-lunge': ['dumbbells'], 'farmer-walk': ['dumbbells', 'kettlebell'],
   pullup: ['pullup'], 'chin-up': ['pullup'], 'hanging-leg-raise': ['pullup'], dips: ['pullup'], 'rowing-erg': ['rower'], bike: ['bike'], intervals: ['bike', 'rower'],
   'kettlebell-swing': ['kettlebell'], 'ski-erg': ['skierg'], 'sled-push': ['sled'], 'sled-pull': ['sled'], 'wall-ball': ['wallball'], 'sandbag-lunge': ['sandbag', 'dumbbells'],
+  'bag-rounds': ['heavybag'], 'med-ball-slam': ['wallball'],
 };
 
 /** Remplaçants dans l'ordre de préférence. Le dernier ne demande presque rien. */
@@ -441,11 +475,12 @@ const SWAPS: Record<string, string[]> = {
   'hanging-leg-raise': ['crunch'], dips: ['close-grip-bench', 'pushup'], 'rowing-erg': ['bike', 'running'], bike: ['rowing-erg', 'running'], intervals: ['running', 'mountain-climber'],
   'kettlebell-swing': ['rdl', 'hip-thrust'], 'ski-erg': ['rowing-erg', 'mountain-climber'], 'sled-push': ['walking-lunge', 'leg-press', 'bulgarian'], 'sled-pull': ['seated-cable-row', 'db-row', 'barbell-row'],
   'wall-ball': ['goblet-squat', 'squat'], 'sandbag-lunge': ['walking-lunge', 'lunge'],
+  'bag-rounds': ['shadow-boxing'], 'med-ball-slam': ['kettlebell-swing', 'burpee-broad-jump'],
 };
 
 const EQUIP_NAME: Partial<Record<Equipment, string>> = {
   barbell: tr('barre'), machines: tr('machine'), cables: tr('poulie'), dumbbells: tr('haltères'), pullup: tr('barre de traction'), rower: tr('rameur'), bike: tr('vélo'),
-  kettlebell: tr('kettlebell'), skierg: 'SkiErg', sled: tr('traîneau'), wallball: tr('médecine-ball'), sandbag: tr('sandbag'),
+  kettlebell: tr('kettlebell'), skierg: 'SkiErg', sled: tr('traîneau'), wallball: tr('médecine-ball'), sandbag: tr('sandbag'), heavybag: tr('sac de frappe'),
 };
 
 /** Remplaçants conseillés d'un exercice, dans l'ordre. */
@@ -483,7 +518,8 @@ export function adaptToGym(program: Program, gym: Gym, names: (key: string) => s
       // Deux exercices remplacés par le même : on garde un seul bloc, avec le plus de séries.
       if (seen.has(to)) continue;
       const missing = list((NEEDS[slot.key] ?? []).map((e) => EQUIP_NAME[e] ?? e), 'disjunction');
-      swaps.push({ session: def.name, from: names(slot.key), to: names(to), missing });
+      // Un plan semaine par semaine répète les mêmes exercices : chaque remplacement n'est compté qu'une fois.
+      if (!swaps.some((x) => x.from === names(slot.key) && x.to === names(to))) swaps.push({ session: def.name, from: names(slot.key), to: names(to), missing });
       exercises.push({ ...slot, key: to, note: tr('Remplace {names} (pas de {missing} dans ta salle).{v}', { names: lower(names(slot.key)), missing, v: slot.note ? ` ${slot.note}` : '' }) });
       seen.add(to);
     }

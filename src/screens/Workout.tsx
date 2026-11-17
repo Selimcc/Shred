@@ -29,6 +29,7 @@ import { FocusMode } from '../components/FocusMode';
 import { isRecord, moment } from '../lib/moments';
 import { dayWarmup } from '../lib/warmupDay';
 import { WarmupCard } from '../components/Warmup';
+import { ActivityRow, ActivitySheet } from '../components/ActivitySheet';
 import { loc, lower, tn, tr } from '../../shared/i18n';
 
 const fmtRest = (sec: number) => (sec >= 60 ? `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60}` : ''}` : `${sec} s`);
@@ -45,6 +46,8 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
   const [focus, setFocus] = useState<false | 'session' | 'warmup'>(false);
   const [swap, setSwap] = useState<Exercise | null>(null);
   const [adding, setAdding] = useState(false);
+  // Autre activité (natation un jour de Push, foot…) : `counts` dit si elle remplace la séance du jour par défaut.
+  const [activity, setActivity] = useState<{ counts: boolean } | null>(null);
   const tweaks = programTweaks(s, today);
   const broken = Object.entries(s.settings.broken ?? {}).filter(([key]) => isBroken(s, key, today));
   const hint = formHint(s, today);
@@ -260,6 +263,21 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
           <Icon name="plus" size={18} />{' '}{tr('Ajouter un exercice')}
         </button>
       )}
+      <button className="btn block dashed" style={{ marginTop: 10 }} onClick={() => setActivity({ counts: prog.done === 0 })}>
+        <Icon name="run" size={18} />{' '}{tr('Noter une autre activité')}
+      </button>
+      {(day.activities?.length ?? 0) > 0 && (
+        <section className="section">
+          <div className="section-head">
+            <h2>{tr('Activités du jour')}</h2>
+          </div>
+          <div className="group">
+            {day.activities!.map((a) => (
+              <ActivityRow key={a.id} a={a} date={today} validated={day.doneBy === a.id} />
+            ))}
+          </div>
+        </section>
+      )}
       {(day.skipped?.length ?? 0) > 0 && (
         <p className="small muted" style={{ margin: '10px 2px 0' }}>
           {tr('Sauté aujourd’hui :')}{' '}
@@ -277,20 +295,23 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
 
       <div style={{ marginTop: 22 }}>
         {day.mainDone ? (
-          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="card done-card">
             <span className="check on" aria-hidden>
               <Icon name="check" size={20} />
             </span>
-            <div style={{ flex: 1 }}>
+            <div className="done-text">
               <div style={{ fontWeight: 800 }}>{tr('Séance terminée')}</div>
               <div className="small muted">{tr('Note tes repas pour valider la journée.')}</div>
             </div>
-            <button className="btn small primary" onClick={() => setStory(true)}>
-              <Icon name="share" size={15} />{' '}{tr('Partager')}
-            </button>
-            <button className="link small" onClick={() => finishSession(today, false)}>
-              {tr('Annuler')}
-            </button>
+            {/* Sur un écran étroit (ou une langue plus longue), les boutons passent sous le texte. */}
+            <div className="done-actions">
+              <button className="btn small primary" onClick={() => setStory(true)}>
+                <Icon name="share" size={15} />{' '}{tr('Partager')}
+              </button>
+              <button className="link small" onClick={() => finishSession(today, false)}>
+                {tr('Annuler')}
+              </button>
+            </div>
           </div>
         ) : (
           <button className="btn go block" onClick={finish}>
@@ -335,6 +356,8 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
 
       {swap && <SwapSheet ex={swap} date={today} sessionId={session.id} taken={session.exercises.map((x) => x.key)} onClose={() => setSwap(null)} />}
 
+      {activity && <ActivitySheet date={today} countDefault={activity.counts} onClose={() => setActivity(null)} />}
+
       {adding && (
         <Sheet title={tr('Ajouter à la séance')} onClose={() => setAdding(false)}>
           <ExercisePicker
@@ -375,6 +398,25 @@ export function Workout({ today, editProgram }: { today: string; editProgram: ()
               </button>
             ))}
           </div>
+          {!day.mainDone && (
+            <button
+              className="row picker-other"
+              style={{ width: '100%', textAlign: 'left' }}
+              onClick={() => {
+                setPicker(false);
+                setActivity({ counts: true });
+              }}
+            >
+              <span className="settings-icon">
+                <Icon name="swim" size={18} />
+              </span>
+              <div className="grow">
+                <div className="title">{tr('J’ai fait autre chose')}</div>
+                <div className="small muted">{tr('Course, natation, vélo, foot… notée à la place de la séance.')}</div>
+              </div>
+              <Icon name="chevron" size={18} />
+            </button>
+          )}
         </Sheet>
       )}
     </>

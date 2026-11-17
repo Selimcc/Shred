@@ -1,5 +1,5 @@
 import { ScanSheet } from '../components/ScanSheet';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ADD_TO_SLOT, type MealSlot, SLOTS } from '../../shared/program';
 import { mealPhotoPrompt, openInClaude } from '../lib/ai';
 import { Icon } from '../components/Icon';
@@ -8,6 +8,8 @@ import { Ring } from '../components/Ring';
 import { Bar, errorText, PhotoThumb, Sheet, toast } from '../components/ui';
 import { addMeal, addWater, parseDecimal, removeMeal, togglePlannedMeal } from '../lib/actions';
 import { type FoodHit, forGrams, recentFoods, searchFoods } from '../lib/foodSearch';
+import { searchGeneric } from '../lib/genericFoods';
+import { foodQuery } from '../../shared/food';
 import { api, type MealAnalysis } from '../lib/api';
 import { formatNumber } from '../lib/date';
 import { prepareImage } from '../lib/image';
@@ -27,16 +29,30 @@ function slotForNow(): MealSlot {
 
 const slotName = (id: MealSlot) => SLOTS.find((s) => s.id === id)?.name ?? id;
 
-export function Food({ today, openCoach }: { today: string; openCoach: () => void }) {
+export function Food({ today, openCoach, add, onAdd }: { today: string; openCoach: () => void; add?: MealSlot | null; onAdd?: () => void }) {
   const s = useApp();
   const day = readDay(s, today);
   const t = totals(day);
   const target = s.settings.targets;
   const fileRef = useRef<HTMLInputElement>(null);
-  const [photo, setPhoto] = useState<File | null>(null);
+  const [photo, setPhoto] = useState<{ file: File; slot: MealSlot } | null>(null);
   const [manual, setManual] = useState<MealSlot | null>(null);
   const [suggest, setSuggest] = useState(false);
-  const [scan, setScan] = useState(false);
+  const [scan, setScan] = useState<MealSlot | null>(null);
+  // Repas visé par la prochaine photo : celui de la feuille d'ajout ouverte, sinon celui de l'heure.
+  const photoSlot = useRef<MealSlot | null>(null);
+
+  // Ouverture depuis un rappel de repas (?tab=food&add=lunch) : la feuille d'ajout de ce repas, prête.
+  useEffect(() => {
+    if (!add) return;
+    setManual(add);
+    onAdd?.();
+  }, [add]);
+
+  const takePhoto = (slot: MealSlot | null) => {
+    photoSlot.current = slot;
+    fileRef.current?.click();
+  };
 
   return (
     <>
@@ -70,17 +86,17 @@ export function Food({ today, openCoach }: { today: string; openCoach: () => voi
       <WaterCard today={today} />
 
       <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-        <button className="btn primary" style={{ flex: 1.2, minHeight: 58 }} onClick={() => fileRef.current?.click()}>
+        <button className="btn primary" style={{ flex: 1.2, minHeight: 58 }} onClick={() => takePhoto(null)}>
           <Icon name="camera" />{' '}{tr('Photographier')}
         </button>
-        <button className="btn" style={{ flex: 1, minHeight: 58 }} onClick={() => setScan(true)}>
+        <button className="btn" style={{ flex: 1, minHeight: 58 }} onClick={() => setScan(slotForNow())}>
           <Icon name="barcode" />{' '}{tr('Scanner')}
         </button>
       </div>
       <button className="btn block" style={{ marginTop: 10 }} onClick={() => setSuggest(true)}>
         <Icon name="bolt" size={18} />{' '}{tr('Proposer un plat pour ce qu’il me reste')}
       </button>
-      {scan && <ScanSheet today={today} slot={slotForNow()} onClose={() => setScan(false)} />}
+      {scan && <ScanSheet today={today} slot={scan} onClose={() => setScan(null)} />}
       <input
         ref={fileRef}
         type="file"
@@ -89,7 +105,10 @@ export function Food({ today, openCoach }: { today: string; openCoach: () => voi
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) setPhoto(f);
+          if (f) {
+            setPhoto({ file: f, slot: photoSlot.current ?? slotForNow() });
+            setManual(null);
+          }
           e.target.value = '';
         }}
       />
@@ -152,8 +171,19 @@ export function Food({ today, openCoach }: { today: string; openCoach: () => voi
         );
       })}
 
-      {photo && <PhotoSheet file={photo} today={today} onClose={() => setPhoto(null)} />}
-      {manual && <ManualSheet slot={manual} today={today} onClose={() => setManual(null)} />}
+      {photo && <PhotoSheet file={photo.file} initialSlot={photo.slot} today={today} onClose={() => setPhoto(null)} />}
+      {manual && (
+        <ManualSheet
+          slot={manual}
+          today={today}
+          onClose={() => setManual(null)}
+          onPhoto={() => takePhoto(manual)}
+          onScan={() => {
+            setScan(manual);
+            setManual(null);
+          }}
+        />
+      )}
       {suggest && <SuggestSheet today={today} slot={slotForNow()} onClose={() => setSuggest(false)} openCoach={openCoach} />}
     </>
   );
@@ -221,11 +251,11 @@ function MacroLine({ label, value, max, tone }: { label: string; value: number; 
 
 type Prepared = Awaited<ReturnType<typeof prepareImage>>;
 
-function PhotoSheet({ file, today, onClose }: { file: File; today: string; onClose: () => void }) {
+function PhotoSheet({ file, initialSlot, today, onClose }: { file: File; initialSlot: MealSlot; today: string; onClose: () => void }) {
   const ai = useApp().settings.ai;
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [preview, setPreview] = useState<string>();
-  const [slot, setSlot] = useState<MealSlot>(slotForNow());
+  const [slot, setSlot] = useState<MealSlot>(initialSlot);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<MealAnalysis | null>(null);
@@ -547,40 +577,103 @@ function WaterCard({ today }: { today: string }) {
   );
 }
 
-function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; onClose: () => void }) {
+/** Vignette d'un aliment : la photo du produit, sinon (pas de photo, ou lien cassé) un pictogramme. */
+function FoodThumb({ hit }: { hit: FoodHit }) {
+  const [broken, setBroken] = useState(false);
+  if (hit.image && !broken) {
+    return <img className="food-thumb" src={hit.image} alt="" decoding="async" referrerPolicy="no-referrer" onError={() => setBroken(true)} />;
+  }
+  return (
+    <span className={`food-thumb food-thumb-empty${hit.generic ? ' generic' : ''}`} aria-hidden="true">
+      <Icon name={hit.generic ? 'apple' : 'utensils'} size={18} />
+    </span>
+  );
+}
+
+function HitRow({ hit, onPick }: { hit: FoodHit; onPick: (h: FoodHit) => void }) {
+  return (
+    <button type="button" className="row settings-row" style={{ width: '100%' }} onClick={() => onPick(hit)}>
+      <FoodThumb hit={hit} />
+      <span className="grow" style={{ textAlign: 'left', minWidth: 0 }}>
+        <span className="title ellipsis" style={{ display: 'block' }}>
+          {hit.name}
+        </span>
+        <span className="small muted ellipsis" style={{ display: 'block' }}>
+          {hit.brand ? `${hit.brand}, ` : ''}
+          {tr('{n} kcal pour 100 g', { n: formatNumber(hit.per100.kcal) })}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function ManualSheet({ slot, today, onClose, onPhoto, onScan }: { slot: MealSlot; today: string; onClose: () => void; onPhoto: () => void; onScan: () => void }) {
   const s = useApp();
   const recent = recentFoods(s, today);
   const [tab, setTab] = useState<'recent' | 'search' | 'manual'>(recent.length ? 'recent' : 'search');
   const [q, setQ] = useState('');
-  const [hits, setHits] = useState<FoodHit[] | null>(null);
+  const [remote, setRemote] = useState<{ q: string; hits: FoodHit[] } | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Entrée sur le clavier : la recherche part sans attendre. « Réessayer » relance la même.
+  const [now, setNow] = useState('');
+  const [retry, setRetry] = useState(0);
   const [pick, setPick] = useState<FoodHit | null>(null);
   const [grams, setGrams] = useState('100');
+  const query = foodQuery(q);
+  const local = useMemo(() => searchGeneric(query), [query]);
 
+  // Produits du commerce : à partir de 3 lettres, une fois la frappe posée (Open Food Facts limite les recherches).
   useEffect(() => {
-    if (tab !== 'search' || q.trim().length < 2) return setHits(null);
-    let live = true;
     setError(null);
-    const t = setTimeout(() => {
-      searchFoods(q).then(
-        (h) => live && setHits(h),
-        (e) => live && (setError(errorText(e)), setHits([])),
-      );
-    }, 450);
+    if (tab !== 'search' || query.length < 3) return setLoading(false);
+    let live = true;
+    setLoading(true);
+    const t = setTimeout(
+      () => {
+        searchFoods(query).then(
+          (hits) => {
+            if (!live) return;
+            setRemote({ q: query, hits });
+            setLoading(false);
+          },
+          (e) => {
+            if (!live) return;
+            setError(errorText(e));
+            setLoading(false);
+          },
+        );
+      },
+      now === query ? 0 : 700,
+    );
     return () => {
       live = false;
       clearTimeout(t);
     };
-  }, [q, tab]);
+  }, [query, tab, now, retry]);
 
   const done = (label: string) => {
     toast(tr('{label} ajouté', { label }));
     onClose();
   };
+  const choose = (h: FoodHit) => {
+    setPick(h);
+    setGrams(String(h.serving ?? 100));
+  };
   const g = parseDecimal(grams) ?? 0;
+  const products = query.length >= 3 && remote ? remote.hits : [];
+  const stale = remote !== null && remote.q !== query;
 
   return (
     <Sheet title={ADD_TO_SLOT[slot]} onClose={onClose}>
+      <div className="quick-log">
+        <button type="button" className="btn primary" onClick={onPhoto}>
+          <Icon name="camera" size={18} />{' '}{tr('Photographier')}
+        </button>
+        <button type="button" className="btn" onClick={onScan}>
+          <Icon name="barcode" size={18} />{' '}{tr('Scanner')}
+        </button>
+      </div>
       <div className="seg" role="tablist" style={{ marginBottom: 14 }}>
         {(
           [
@@ -625,41 +718,69 @@ function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; 
         ))}
 
       {tab === 'search' && !pick && (
-        <div className="stack" style={{ gap: 12 }}>
-          <input className="input" type="search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Skyr, pain complet, poulet…')} aria-label={tr('Chercher un aliment')} />
-          {error && <p className="small muted" style={{ margin: 0 }}>{error}</p>}
-          {hits === null && q.trim().length >= 2 && <div className="spinner" />}
-          {hits && hits.length === 0 && !error && <p className="small muted" style={{ margin: 0 }}>{tr('Rien trouvé. Essaie un autre mot, ou saisis-le à la main.')}</p>}
-          {hits && hits.length > 0 && (
-            <div className="group">
-              {hits.map((h) => (
-                <button
-                  key={h.code || h.name}
-                  className="row settings-row"
-                  style={{ width: '100%' }}
-                  onClick={() => {
-                    setPick(h);
-                    setGrams(String(h.serving ?? 100));
-                  }}
-                >
-                  {h.image ? <img className="food-thumb" src={h.image} alt="" loading="lazy" /> : <span className="food-thumb" />}
-                  <span className="grow" style={{ textAlign: 'left', minWidth: 0 }}>
-                    <span className="title ellipsis" style={{ display: 'block' }}>
-                      {h.name}
-                    </span>
-                    <span className="small muted ellipsis" style={{ display: 'block' }}>
-                      {h.brand ? `${h.brand}, ` : ''}
-                      {tr('{n} kcal pour 100 g', { n: formatNumber(h.per100.kcal) })}
-                    </span>
-                  </span>
-                </button>
-              ))}
+        <form
+          className="stack"
+          style={{ gap: 14 }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setNow(query);
+            // Le clavier se range : les résultats prennent l'écran.
+            (document.activeElement as HTMLElement | null)?.blur?.();
+          }}
+        >
+          <input
+            className="input"
+            type="search"
+            enterKeyHint="search"
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={tr('Skyr, pain complet, poulet…')}
+            aria-label={tr('Chercher un aliment')}
+          />
+          {local.length > 0 && (
+            <div className="stack" style={{ gap: 6 }}>
+              <div className="food-group">{tr('Aliments de base')}</div>
+              <div className="group">
+                {local.map((h) => (
+                  <HitRow key={h.name} hit={h} onPick={choose} />
+                ))}
+              </div>
+            </div>
+          )}
+          {query.length >= 3 && (
+            <div className="stack" style={{ gap: 6 }}>
+              <div className="food-group">{tr('Produits du commerce')}</div>
+              {error ? (
+                <div className="food-error">
+                  <p className="small muted" style={{ margin: 0 }}>
+                    {error}
+                  </p>
+                  <button type="button" className="btn small" onClick={() => setRetry((n) => n + 1)}>
+                    {tr('Réessayer')}
+                  </button>
+                </div>
+              ) : loading && !products.length ? (
+                <div className="spinner" />
+              ) : null}
+              {products.length > 0 && (
+                <div className="group" style={{ opacity: stale && loading ? 0.55 : 1, transition: 'opacity 0.2s' }}>
+                  {products.map((h) => (
+                    <HitRow key={h.code || `${h.name}|${h.brand ?? ''}`} hit={h} onPick={choose} />
+                  ))}
+                </div>
+              )}
+              {!loading && !error && !stale && remote && !products.length && (
+                <p className="small muted" style={{ margin: 0 }}>
+                  {local.length ? tr('Aucun produit du commerce à ce nom.') : tr('Rien trouvé. Essaie un autre mot, ou saisis-le à la main.')}
+                </p>
+              )}
             </div>
           )}
           <p className="small faint" style={{ margin: 0 }}>
-            {tr('Données Open Food Facts, base collaborative : vérifie l’étiquette en cas de doute.')}
+            {tr('Aliments de base : valeurs moyennes. Produits : Open Food Facts, base collaborative, vérifie l’étiquette en cas de doute.')}
           </p>
-        </div>
+        </form>
       )}
 
       {tab === 'search' && pick && (
@@ -668,15 +789,15 @@ function ManualSheet({ slot, today, onClose }: { slot: MealSlot; today: string; 
             {tr('‹ Résultats')}
           </button>
           <div style={{ fontWeight: 800 }}>{pick.name}</div>
-          {pick.brand && <div className="small muted">{pick.brand}</div>}
+          {pick.brand ? <div className="small muted">{pick.brand}</div> : pick.generic ? <div className="small muted">{tr('Valeurs moyennes, sans marque')}</div> : null}
           <label className="field">
             <span>{tr('Quantité (g)')}</span>
             <input className="input num" inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} />
           </label>
           <div className="chips" style={{ gap: 6 }}>
-            {[50, 100, 150, 200, ...(pick.serving ? [pick.serving] : [])].map((v) => (
+            {[...new Set([50, 100, 150, 200, ...(pick.serving ? [pick.serving] : [])])].map((v) => (
               <button key={v} className={`chip ${g === v ? 'on' : ''}`} onClick={() => setGrams(String(v))}>
-                {v} g{pick.serving === v ? ' (portion)' : ''}
+                {pick.serving === v ? tr('{n} g (portion)', { n: formatNumber(v) }) : `${formatNumber(v)} g`}
               </button>
             ))}
           </div>

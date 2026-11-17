@@ -1,72 +1,63 @@
-// Recherche d'aliments par nom dans Open Food Facts (comme MyFitnessPal), et repas récents à ressaisir d'un geste.
-// Les textes viennent d'une base modifiable par tous : nettoyés et bornés (offText, offImage).
-import { offImage, offText } from './barcode';
+// Recherche d'aliments par nom (comme MyFitnessPal), et repas récents à ressaisir d'un geste.
+// Les aliments de base de l'app s'affichent tout de suite (genericFoods.ts) ; les produits viennent d'Open Food
+// Facts. Avec un compte, la recherche passe par le serveur (cache partagé, limite d'Open Food Facts respectée) ;
+// sans compte, ou si le serveur ne répond pas, l'app interroge Open Food Facts directement.
+import { api, DEMO } from './api';
 import { addDays } from './date';
+import { signedIn } from './session';
 import type { AppState, MealEntry } from './store';
-import { tr } from '../../shared/i18n';
+import { cleanHit, type FoodHit, foodQuery, toFoodHits } from '../../shared/food';
+import { lang, tr } from '../../shared/i18n';
 
-export interface FoodHit {
-  code: string;
-  name: string;
-  brand?: string;
-  image?: string;
-  per100: { kcal: number; protein: number; carbs: number; fat: number };
-  serving?: number;
-}
-
-const num = (v: unknown, max: number) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.max(0, Math.min(max, Math.round(n * 10) / 10)) : 0;
-};
+export type { FoodHit };
 
 const cache = new Map<string, FoodHit[]>();
 
-export async function searchFoods(query: string): Promise<FoodHit[]> {
-  const q = query.trim().replace(/\s+/g, ' ').slice(0, 60);
-  if (q.length < 2) return [];
-  const key = q.toLowerCase();
-  const hit = cache.get(key);
-  if (hit) return hit;
+/** Open Food Facts en direct (ancienne recherche, la seule ouverte aux navigateurs). */
+async function direct(q: string): Promise<FoodHit[]> {
+  const l = lang();
   const params = new URLSearchParams({
     search_terms: q,
     search_simple: '1',
     action: 'process',
     json: '1',
-    page_size: '20',
-    lc: 'fr',
+    page_size: '30',
+    lc: l,
     sort_by: 'unique_scans_n',
-    fields: 'code,product_name,product_name_fr,brands,nutriments,serving_quantity,image_front_small_url',
+    fields: `code,product_name,product_name_${l},product_name_en,brands,nutriments,serving_quantity,image_front_small_url,image_small_url`,
   });
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 9000);
   try {
     const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params}`, { signal: ctl.signal });
-    if (!res.ok) throw new Error(tr('Open Food Facts ne répond pas, réessaie dans un instant'));
-    const data = (await res.json()) as { products?: Record<string, unknown>[] };
-    const out: FoodHit[] = [];
-    for (const p of data.products ?? []) {
-      const n = (p.nutriments ?? {}) as Record<string, unknown>;
-      const kcal = num(n['energy-kcal_100g'] ?? (Number(n.energy_100g) || 0) / 4.184, 950);
-      const name = offText(p.product_name_fr || p.product_name, 80);
-      if (!name || !kcal) continue;
-      out.push({
-        code: offText(p.code, 20).replace(/\D/g, ''),
-        name,
-        brand: p.brands ? offText(String(p.brands).split(',')[0], 40) || undefined : undefined,
-        image: offImage(p.image_front_small_url),
-        per100: { kcal, protein: num(n.proteins_100g, 100), carbs: num(n.carbohydrates_100g, 100), fat: num(n.fat_100g, 100) },
-        serving: num(p.serving_quantity, 5000) || undefined,
-      });
-      if (out.length >= 12) break;
-    }
-    cache.set(key, out);
-    return out;
+    if (!res.ok) throw new Error(String(res.status));
+    const data = (await res.json()) as { products?: unknown[] };
+    return toFoodHits(data.products ?? [], l);
   } catch (e) {
-    if ((e as Error).name === 'AbortError') throw new Error(tr('Recherche trop longue, réessaie'));
-    throw e;
+    // Trop de recherches d'affilée, Open Food Facts répond sans en-têtes CORS : Safari dit seulement « Load failed ».
+    throw new Error((e as Error).name === 'AbortError' ? tr('Recherche trop longue, réessaie') : tr('Open Food Facts ne répond pas, réessaie dans un instant'));
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function searchFoods(query: string): Promise<FoodHit[]> {
+  const q = foodQuery(query);
+  if (q.length < 2) return [];
+  const key = `${lang()}:${q.toLowerCase()}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  let out: FoodHit[] | null = null;
+  if (!DEMO && signedIn()) {
+    out = await api<{ hits?: unknown[] }>(`/api/food/search?q=${encodeURIComponent(q)}`).then(
+      (r) => (r.hits ?? []).map(cleanHit).filter((h): h is FoodHit => h !== null),
+      // Serveur injoignable, limite du jour atteinte ou Open Food Facts muet côté serveur : on tente en direct.
+      () => null,
+    );
+  }
+  out ??= await direct(q);
+  cache.set(key, out);
+  return out;
 }
 
 /** Macros pour une quantité en grammes. */

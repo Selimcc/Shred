@@ -99,6 +99,28 @@ sent = await at('2026-10-18T19:30:00Z');
 check('nutrition coupée : le soir ne parle pas des repas', sent.includes('evening') && !/repas/.test(received[0]?.body ?? ''), received[0]?.body);
 kv.delete('cfg');
 
+// Rappels de repas (0.32) : un par repas, seulement s'il n'est pas noté, même journée validée.
+kv.set('state', JSON.stringify({ date: '2026-10-19', label: 'Push', lifting: true, mainDone: false, meals: 0, validated: false, streak: 2, banked: 2, slots: [] }));
+sent = await at('2026-10-19T08:00:00Z');
+check('10:00 sans petit-déjeuner : rappel', sent.includes('breakfast') && received[0]?.title === 'Ton petit-déjeuner est noté ?', received[0]?.title);
+check('le rappel ouvre la feuille d’ajout du petit-déjeuner', received[0]?.url === '/?tab=food&add=breakfast', received[0]?.url);
+kv.set('state', JSON.stringify({ date: '2026-10-20', label: 'Pull', lifting: true, mainDone: true, meals: 2, validated: true, streak: 3, banked: 2, slots: ['breakfast', 'lunch'] }));
+sent = await at('2026-10-20T08:00:00Z');
+check('petit-déjeuner noté : pas de rappel', !sent.includes('breakfast'));
+sent = await at('2026-10-20T19:00:00Z');
+check('21:00, journée validée mais dîner pas noté : rappel du dîner', sent.includes('dinner') && received[0]?.url === '/?tab=food&add=dinner', received[0]?.title);
+kv.set('state', JSON.stringify({ date: '2026-10-21', label: 'Legs', lifting: true, mainDone: false, meals: 3, validated: false, streak: 3, banked: 3, slots: ['breakfast', 'dinner', 'lunch'] }));
+sent = await at('2026-10-21T19:00:00Z');
+check('dîner noté : pas de rappel', !sent.includes('dinner'));
+kv.set('cfg', JSON.stringify({ meals: 2, nutrition: false }));
+kv.set('state', JSON.stringify({ date: '2026-10-22', label: 'Upper', lifting: true, mainDone: false, meals: 0, validated: false, streak: 0, banked: 0, slots: [] }));
+sent = await at('2026-10-22T11:30:00Z');
+check('module nutrition coupé : aucun rappel de repas', !sent.includes('lunch'));
+kv.set('cfg', JSON.stringify({ lang: 'en' }));
+sent = await at('2026-10-22T19:00:00Z');
+check('rappel du dîner en anglais', sent.includes('dinner') && !/noté/.test(received[0]?.title ?? '') && !/noté/.test(received[0]?.body ?? ''), `${received[0]?.title} / ${received[0]?.body}`);
+kv.delete('cfg');
+
 let crashed = false;
 try {
   await at('2026-10-17T06:00:00Z');

@@ -5,6 +5,7 @@ import { catalogEntry } from '../../shared/catalog';
 import { generateMealPlan } from '../../shared/meals';
 import { generateProgram, runnerStrength } from '../../shared/generator';
 import { adaptToGym, hyroxPlan, isRoadRace, runningPlan } from '../../shared/plans';
+import { combatBlock } from '../../shared/combat';
 import type { Program } from '../../shared/types';
 import { dayKey } from './date';
 import type { Advice } from './report';
@@ -56,14 +57,16 @@ export function programFor(
   let program: Program;
   let notes: string[] = [];
   const date = a.race?.date;
-  if ((a.sport === 'running' && date && isRoadRace(a.race?.distance)) || (a.sport === 'hyrox' && date)) {
+  if ((a.sport === 'running' && date && isRoadRace(a.race?.distance)) || a.sport === 'hyrox') {
+    // Hyrox sans date : un bloc de 8 semaines renouvelable, plus un programme de muscu sans stations.
     program =
       a.sport === 'running'
         ? runningPlan({ distance: a.race!.distance as Parameters<typeof runningPlan>[0]['distance'], date: date!, athlete: a, ref, today })
-        : hyroxPlan({ date: date!, athlete: a, ref, today });
+        : hyroxPlan({ date, athlete: a, ref, today, block });
     const renfo = runnerStrength(input);
     program.sessions = program.sessions.map((x) => (x.id === renfo.id ? renfo : x));
-    program.meta = { physique: a.physique ?? 'athletic', priorities: a.priorities ?? [], generatedAt: today };
+    program.meta = { physique: a.physique ?? 'athletic', priorities: a.priorities ?? [], generatedAt: today, ...(program.event ? {} : { block: Math.max(1, block ?? 1) }) };
+    if (!program.event) notes = [tr('Un bloc Hyrox de 8 semaines : force et traîneau, ergos, course fractionnée et enchaînements course-stations. Les semaines 4 et 8 sont allégées, une simulation t’attend en semaine 7. Ajoute une date de course quand tu en as une : le plan se cale dessus.')];
   } else if (isEndurance(a.sport)) {
     program = endurancePlan({ ...input, today, block });
     notes = enduranceNotes(a, program);
@@ -71,6 +74,11 @@ export function programFor(
     const r = generateProgram(input);
     program = r.program;
     notes = r.notes;
+    // Sport de combat : le cardio change chaque semaine, sur un bloc de 8 semaines.
+    if (a.sport === 'combat') {
+      program = combatBlock(program, today, block);
+      if (program.weeks) notes.push(tr('Le cardio combat suit un bloc de 8 semaines : volume de rounds et moteur aérobie, puis rounds plus durs et intervalles, puis explosivité. Les semaines 4 et 8 sont allégées, muscu comprise. Un entraînement au club peut remplacer un cardio : note-le dans Séance, « Noter une autre activité ».'));
+    }
   }
   return { ...adaptToGym(program, gym, nameOf), notes };
 }

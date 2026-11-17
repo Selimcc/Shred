@@ -80,6 +80,7 @@ export function finishSession(date: string, done = true) {
     const day = ensureDay(d, date);
     day.mainDone = done;
     day.mainDoneAt = done ? Date.now() : undefined;
+    day.doneBy = undefined;
   });
 }
 

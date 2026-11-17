@@ -189,13 +189,15 @@ export function sanitizeTrack(raw: unknown): Track | undefined {
   };
 }
 
-async function cached<T>(key: string, ttl: number, load: () => Promise<T>): Promise<T> {
+/** Réponse gardée dans le cache de Cloudflare : `ttl` en secondes, ou selon la valeur (une liste vide moins longtemps). */
+export async function cached<T>(key: string, ttl: number | ((value: T) => number), load: () => Promise<T>): Promise<T> {
   const cache = (globalThis as { caches?: { default: Cache } }).caches?.default;
   const req = new Request(`https://cache.shred/${encodeURIComponent(key)}`);
   const hit = cache && (await cache.match(req).catch(() => undefined));
   if (hit) return (await hit.json()) as T;
   const value = await load();
-  if (cache) await cache.put(req, new Response(JSON.stringify(value), { headers: { 'cache-control': `max-age=${ttl}` } })).catch(() => undefined);
+  const age = typeof ttl === 'function' ? ttl(value) : ttl;
+  if (cache && age > 0) await cache.put(req, new Response(JSON.stringify(value), { headers: { 'cache-control': `max-age=${age}` } })).catch(() => undefined);
   return value;
 }
 

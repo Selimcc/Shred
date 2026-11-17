@@ -30,6 +30,8 @@ export function daySummary() {
     rest: sessionFor(s, today).type === 'rest',
     mainDone: day.mainDone,
     meals: mealsCount(day),
+    // Les repas déjà notés : le rappel d'un repas ne part que s'il manque.
+    slots: [...new Set(day.meals.map((m) => m.slot))].sort(),
     validated: dayValidated(s, today),
     streak: st.current,
     banked: st.banked,

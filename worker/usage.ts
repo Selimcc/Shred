@@ -381,6 +381,7 @@ export const DAILY_CAPS = {
   challenge: 20,
   follow: 200,
   places: 120,
+  food: 300,
   music: 400,
   handle: 400,
   search: 400,

@@ -21,6 +21,8 @@ await build({
       export { weeklyReport } from './src/lib/report';
       export { programTweaks } from './src/lib/tweaks';
       export { addDays, mondayOf } from './src/lib/date';
+      export { addActivity, removeActivity } from './src/lib/activities';
+      export { sessionFor, workoutOk } from './src/lib/logic';
     `,
     resolveDir: process.cwd(),
     loader: 'ts',
@@ -176,6 +178,22 @@ const later = k.addDays(today, 7 * 8 + 1);
 const tw = k.programTweaks(k.getState(), later);
 check('Bloc terminé : Pulse propose le bloc 2', tw.some((t) => t.action.kind === 'next-block' && t.action.block === 2));
 check('Plan périodisé : pas de décharge proposée en plus', !k.programTweaks(k.getState(), k.addDays(today, 50)).some((t) => t.action.kind === 'deload'));
+
+// Activité notée à la main (0.32) : un jour de séance prévue, une sortie natation qui la remplace.
+const dm = [0, 1, 2, 3, 4, 5, 6].map((i) => k.addDays(today, i)).find((d) => k.sessionFor(k.getState(), d).type !== 'rest');
+const planned = k.sessionFor(k.getState(), dm);
+const act = k.addActivity(dm, { sport: 'swim', name: 'Natation', min: 40, km: 1.6, effort: 2 }, true, new Date(`${dm}T19:00:00`));
+s = k.getState();
+check('Activité notée à la main : rangée au jour, avec sa distance', s.days[dm].activities.some((a) => a.id === act.id && a.source === 'manual' && a.km === 1.6 && a.start === `${dm}T18:20`), JSON.stringify(s.days[dm].activities));
+check('« Compter comme ma séance » : séance du jour validée, flamme comprise', act.validated && s.days[dm].mainDone && s.days[dm].doneBy === act.id && k.workoutOk(s, dm));
+check('Stats : la natation notée compte', k.dayTraining(s, dm).min.swim >= 40 && Math.abs(k.dayTraining(s, dm).km.swim - 1.6) < 0.01);
+k.removeActivity(dm, act.id);
+s = k.getState();
+check('Supprimée : la séance n’est plus validée', !s.days[dm].mainDone && !(s.days[dm].activities ?? []).length);
+const bonus = k.addActivity(dm, { sport: 'other', name: 'Foot', min: 60, effort: 3 }, false, new Date(`${dm}T21:00:00`));
+s = k.getState();
+check('Sans « compter » : simple bonus, la séance reste à faire', !bonus.validated && !s.days[dm].mainDone && k.dayTraining(s, dm).min.other >= 60);
+k.removeActivity(dm, bonus.id);
 
 console.log(failures ? `\n${failures} échec(s)` : '\nTout est bon.');
 process.exit(failures ? 1 : 0);

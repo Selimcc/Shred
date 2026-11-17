@@ -208,7 +208,7 @@ export function withSport(a: Athlete, sport: Sport): Athlete {
   if (!choices) return { ...a, sport };
   const keep = choices.some((c) => c.id === a.race?.distance);
   const distance = keep ? a.race!.distance : (choices[Math.min(1, choices.length - 1)].id as EventDistance);
-  // Hyrox se prépare toujours pour une date ; les autres peuvent partir en bloc sans date.
+  // Hyrox part d'une course en vue (12 semaines) ; les autres d'un bloc sans date. Tous peuvent changer ensuite.
   const date = keep ? a.race?.date : sport === 'hyrox' ? addDays(dayKey(), 84) : undefined;
   return { ...a, sport, days: isEndurance(sport) ? Math.max(a.days, sport === 'triathlon' ? 4 : 3) : Math.min(a.days, 6), race: { ...a.race, distance, date } };
 }
@@ -235,7 +235,7 @@ export function EventForm({ athlete, onAthlete, compact = false }: { athlete: At
   if (!choices) return null;
   const race = athlete.race;
   const distance = race?.distance ?? choices[0].id;
-  const dated = athlete.sport === 'hyrox' || Boolean(race?.date);
+  const dated = Boolean(race?.date);
   const setRace = (patch: Partial<NonNullable<Athlete['race']>>) => onAthlete({ ...athlete, race: { distance, ...race, ...patch } });
   const spec = choices.find((c) => c.id === distance) ?? choices[0];
   const weeksLeft = race?.date ? Math.round((Date.parse(race.date) - Date.parse(dayKey())) / (7 * 86_400_000)) : null;
@@ -249,16 +249,14 @@ export function EventForm({ athlete, onAthlete, compact = false }: { athlete: At
 
   return (
     <div className={compact ? 'stack' : 'card stack'}>
-      {sport !== 'hyrox' && (
-        <div className="seg" role="group" aria-label={tr('Objectif')}>
-          <button type="button" className={dated ? 'on' : ''} onClick={() => setRace({ date: race?.date ?? addDays(dayKey(), spec.weeks * 7) })}>
-            {tr('Une course en vue')}
-          </button>
-          <button type="button" className={!dated ? 'on' : ''} onClick={() => setRace({ date: undefined })}>
-            {tr('Progresser sans date')}
-          </button>
-        </div>
-      )}
+      <div className="seg" role="group" aria-label={tr('Objectif')}>
+        <button type="button" className={dated ? 'on' : ''} onClick={() => setRace({ date: race?.date ?? addDays(dayKey(), spec.weeks * 7) })}>
+          {tr('Une course en vue')}
+        </button>
+        <button type="button" className={!dated ? 'on' : ''} onClick={() => setRace({ date: undefined })}>
+          {tr('Progresser sans date')}
+        </button>
+      </div>
       {dated ? (
         <>
           {choices.length > 1 && (

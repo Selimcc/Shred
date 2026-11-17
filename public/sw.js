@@ -76,12 +76,14 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = new URL(event.notification.data?.url || '/', self.location.origin);
   const tab = url.searchParams.get('tab');
+  // Rappel de repas : l'app ouvre la feuille d'ajout de ce repas (photo, code-barres, recherche).
+  const add = url.searchParams.get('add');
   event.waitUntil(
     (async () => {
       const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of all) {
         if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
-          if (tab) client.postMessage({ type: 'open-tab', tab });
+          if (tab) client.postMessage({ type: 'open-tab', tab, add });
           return client.focus();
         }
       }

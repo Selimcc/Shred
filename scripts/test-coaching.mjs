@@ -17,6 +17,8 @@ await build({
       export { weeklyReport, reportHtml, reportText } from './src/lib/report';
       export { dayKey, addDays, mondayOf } from './src/lib/date';
       export { sessionFor } from './src/lib/logic';
+      export { programFor } from './src/lib/coaching';
+      export { programTweaks } from './src/lib/tweaks';
     `,
     resolveDir: process.cwd(),
     loader: 'ts',
@@ -70,6 +72,35 @@ check('course proche : plan raccourci, pas avant aujourd’hui', short.weeks.len
 const hx = k.hyroxPlan({ date: '2027-01-17', athlete: { experience: 'intermediate', days: 4 }, today: '2026-10-20' });
 const keys = new Set(hx.sessions.flatMap((x) => x.exercises.map((e) => e.key)));
 check('Hyrox : stations dans le plan', ['sled-push', 'ski-erg', 'wall-ball', 'run-intervals'].every((x) => keys.has(x)));
+
+// Hyrox sans date (0.32) : un bloc de 8 semaines avec les stations, pas un programme de muscu seul.
+const hb = k.hyroxPlan({ athlete: { experience: 'intermediate', days: 4 }, today: '2026-10-20' });
+const hbKeys = new Set(hb.sessions.flatMap((x) => x.exercises.map((e) => e.key)));
+check('Hyrox sans date : 8 semaines, stations et course', hb.weeks.length === 8 && !hb.event && ['sled-push', 'wall-ball', 'run-intervals', 'ski-erg'].every((x) => hbKeys.has(x)));
+check('Hyrox sans date : semaines 4 et 8 allégées, simulation en semaine 7', /allégée/.test(hb.phases[3]) && /allégée/.test(hb.phases[7]) && hb.weeks[6].some((id) => id === 'hx-comp-peak'), hb.phases.join(' | '));
+check('Hyrox sans date : pas de jour de course', !hb.sessions.some((x) => x.id === 'hx-race'));
+const athleteHx = { ...k.DEFAULT_ATHLETE, sport: 'hyrox', days: 4, race: { distance: 'hyrox' } };
+const pHx = k.programFor(athleteHx, k.DEFAULT_GYM, '2026-10-20', k.initial());
+check('profil Hyrox sans date : bloc renouvelable', pHx.program.meta?.block === 1 && pHx.program.weeks?.length === 8 && pHx.notes.length > 0);
+const pHx2 = k.programFor(athleteHx, k.DEFAULT_GYM, '2026-12-15', k.initial(), 3);
+const vol = (p, i) => p.sessions.find((x) => x.id === p.weeks[i][1])?.exercises.find((e) => e.key === 'sled-push' || e.key === 'walking-lunge')?.sets ?? 0;
+check('Hyrox, bloc 3 : un cran plus fort', pHx2.program.meta?.block === 3 && /3/.test(pHx2.program.name) && vol(pHx2.program, 5) >= vol(pHx.program, 5), `${vol(pHx2.program, 5)} vs ${vol(pHx.program, 5)}`);
+
+// Sport de combat (0.32) : le cardio change chaque semaine, avec des semaines allégées.
+const athleteFight = { ...k.DEFAULT_ATHLETE, sport: 'combat', days: 5, physique: 'athletic' };
+const pf = k.programFor(athleteFight, k.DEFAULT_GYM, '2026-10-20', k.initial()).program;
+const cardioOf = (i) => pf.weeks[i].map((id) => pf.sessions.find((x) => x.id === id)).filter((x) => x?.type === 'cardio');
+const roundsOf = (i) => cardioOf(i).find((x) => x.name === 'Rounds de combat')?.exercises.find((e) => e.key === 'bag-rounds' || e.key === 'shadow-boxing');
+check('combat : bloc de 8 semaines, deux cardios par semaine', pf.weeks?.length === 8 && cardioOf(0).length === 2 && pf.meta?.block === 1, cardioOf(0).map((x) => x.name).join(', '));
+check('combat : les rounds changent chaque semaine', new Set([0, 1, 2, 4, 5, 6].map((i) => `${roundsOf(i)?.sets}/${roundsOf(i)?.rest}/${roundsOf(i)?.note}`)).size >= 5, [0, 1, 2, 4, 5, 6].map((i) => `${roundsOf(i)?.sets}×${roundsOf(i)?.rest}`).join(' '));
+check('combat : endurance continue au début, intervalles ensuite', cardioOf(0).some((x) => x.name === 'Moteur aérobie') && cardioOf(5).some((x) => x.name === 'Intervalles'));
+check('combat : semaines 4 et 8 allégées, muscu comprise', /allégée/.test(pf.phases[3]) && /allégée/.test(pf.phases[7]) && pf.weeks[3].some((id) => id.endsWith('-light')) && roundsOf(3).sets < roundsOf(2).sets);
+check('combat : sans sac de frappe, shadow boxing', !pf.sessions.some((x) => x.exercises.some((e) => e.key === 'bag-rounds')) && pf.sessions.some((x) => x.exercises.some((e) => e.key === 'shadow-boxing')));
+const fightGym = { ...k.DEFAULT_GYM, equipment: { ...k.DEFAULT_GYM.equipment, heavybag: true } };
+check('combat : sac de frappe coché, rounds au sac', k.programFor(athleteFight, fightGym, '2026-10-20', k.initial()).program.sessions.some((x) => x.exercises.some((e) => e.key === 'bag-rounds')));
+const s6 = { ...k.initial(), program: pf, settings: { ...k.initial().settings, athlete: athleteFight } };
+check('combat : bloc fini, Pulse propose le suivant', k.programTweaks(s6, '2026-12-22').some((t) => t.action.kind === 'next-block' && t.action.block === 2));
+
 const basic = k.gymDefaults('basic-fit');
 const adapted = k.adaptToGym(hx, basic);
 const after = new Set(adapted.program.sessions.flatMap((x) => x.exercises.map((e) => e.key)));
