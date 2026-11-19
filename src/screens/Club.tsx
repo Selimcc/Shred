@@ -50,13 +50,34 @@ import { MusicBar, MusicPicker } from '../components/Music';
 import { autoplay, playable, stopIf, stopMusic, type Track } from '../lib/music';
 import { activePostId, setSound, useActive, useNear, useSound, useVisibility } from '../lib/feedSound';
 import { type PickedVideo, pickVideo, prepareVideo, VIDEO_SECONDS } from '../lib/video';
-import { signedIn } from '../lib/session';
+import { getSession, signedIn } from '../lib/session';
 import { getState, setState, useApp } from '../lib/store';
 import { moment } from '../lib/moments';
 import { CHALLENGE_XP, SPARK_XP } from '../lib/logic';
 import { loc, lower, tn, tr } from '../../shared/i18n';
 
 type View = 'feed' | 'following' | 'members';
+type Feed = 'all' | 'following';
+const feedOf = (v: View): Feed => (v === 'following' ? 'following' : 'all');
+
+/**
+ * Ce que le club a montré au dernier passage, pour le compte connecté. En revenant sur l'onglet, le fil, le
+ * classement et les défis sont là tout de suite, puis se mettent à jour.
+ */
+interface Seen {
+  owner: string;
+  feeds: Partial<Record<Feed, { posts: ClubPost[]; next: string | null }>>;
+  members: Member[] | null;
+  notices: { list: Notice[]; unread: number } | null;
+  board: { week: string; rows: BoardRow[] } | null;
+  challenges: ChallengeState | null;
+}
+let seen: Seen | null = null;
+function seenNow(): Seen {
+  const owner = DEMO ? 'demo' : (getSession().account?.id ?? '');
+  if (seen?.owner !== owner) seen = { owner, feeds: {}, members: null, notices: null, board: null, challenges: null };
+  return seen;
+}
 
 const hue = (id: string) => {
   let h = 0;
@@ -136,15 +157,22 @@ export function Club({
   const [view, setView] = useState<View>('feed');
   // En quittant le club, l'extrait en cours s'arrête.
   useEffect(() => stopMusic, []);
-  const [posts, setPosts] = useState<ClubPost[] | null>(null);
-  const [next, setNext] = useState<string | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [memo] = useState(seenNow);
+  const monday = mondayOf(dayKey());
+  const [posts, setPosts] = useState<ClubPost[] | null>(() => memo.feeds.all?.posts ?? null);
+  const [next, setNext] = useState<string | null>(() => memo.feeds.all?.next ?? null);
+  // Le fil auquel appartient la liste affichée (elle peut rester celle d'avant le temps du chargement).
+  const [shownFeed, setShownFeed] = useState<Feed>('all');
+  const [members, setMembers] = useState<Member[]>(() => memo.members ?? []);
+  const [board, setBoard] = useState<BoardRow[] | null>(() => (memo.board?.week === monday ? memo.board.rows : null));
+  const [challenges, setChallenges] = useState<ChallengeState | null>(() => memo.challenges);
+  const ticket = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [composer, setComposer] = useState<string | null>(compose ?? null);
   const [open, setOpen] = useState<string | null>(openPost ?? null);
   const [person, setPerson] = useState<Member | null>(null);
   const memberShown = useRef(false);
-  const [notices, setNotices] = useState<{ list: Notice[]; unread: number } | null>(null);
+  const [notices, setNotices] = useState<{ list: Notice[]; unread: number } | null>(() => memo.notices);
   // Notification « demande d'abonnement » touchée : la liste s'ouvre directement.
   const [showNotices, setShowNotices] = useState(() => new URLSearchParams(location.search).get('requests') === '1');
   const can = DEMO || signedIn();
@@ -158,14 +186,27 @@ export function Club({
 
   const load = useCallback(async () => {
     if (!can) return;
+    const turn = ++ticket.current;
     setError(null);
     try {
-      const filter = view === 'following' ? 'following' : 'all';
-      const [f, m, n] = await Promise.all([view === 'members' ? Promise.resolve(null) : club.feed(filter), club.members(), club.notices()]);
+      const filter = feedOf(view);
+      // Le classement et les défis arrivent avec le fil : rien ne vient se glisser au-dessus une fois la page affichée.
+      const [f, m, n, b, c] = await Promise.all([
+        view === 'members' ? Promise.resolve(null) : club.feed(filter),
+        club.members(),
+        club.notices(),
+        view === 'members' ? Promise.resolve(null) : club.leaderboard(monday).catch(() => null),
+        loadChallenges().catch(() => null),
+      ]);
+      // Une réponse plus ancienne (onglet changé entre-temps) n'écrase pas la plus récente.
+      if (turn !== ticket.current) return;
       if (f) {
         setPosts(f.posts);
         setNext(f.next);
+        setShownFeed(filter);
       }
+      if (b) setBoard(b.rows);
+      if (c) setChallenges(c);
       setMembers(m.members);
       if (openMember && !memberShown.current) {
         // Lien de profil : on ouvre la fiche une seule fois, puis l'adresse redevient celle du club.
@@ -195,11 +236,37 @@ export function Club({
     } catch (e) {
       setError(errorText(e));
     }
-  }, [view, can, openMember]);
+  }, [view, can, openMember, monday]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const reload = () => void loadChallenges().then(setChallenges, () => undefined);
+    window.addEventListener('shred:challenges', reload);
+    return () => window.removeEventListener('shred:challenges', reload);
+  }, []);
+
+  // Ce qui est à l'écran reste en mémoire pour le prochain passage sur l'onglet.
+  useEffect(() => {
+    if (posts) memo.feeds[shownFeed] = { posts, next };
+    memo.members = members;
+    memo.notices = notices;
+    if (board) memo.board = { week: monday, rows: board };
+    if (challenges) memo.challenges = challenges;
+  });
+
+  /** Autre fil : sa dernière liste connue tout de suite, sinon le squelette, jamais celle de l'autre fil. */
+  const pick = (v: View) => {
+    if (v !== 'members' && feedOf(v) !== shownFeed) {
+      const known = memo.feeds[feedOf(v)];
+      setPosts(known?.posts ?? null);
+      setNext(known?.next ?? null);
+      setShownFeed(feedOf(v));
+    }
+    setView(v);
+  };
 
   const more = async () => {
     if (!next) return;
@@ -279,14 +346,14 @@ export function Club({
             ['members', tr('Membres')],
           ] as [View, string][]
         ).map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={view === id} className={view === id ? 'on' : ''} onClick={() => setView(id)}>
+          <button key={id} role="tab" aria-selected={view === id} className={view === id ? 'on' : ''} onClick={() => pick(id)}>
             {label}
           </button>
         ))}
       </div>
 
-      {view !== 'members' && <Leaderboard onOpen={(id) => void openPerson(id)} />}
-      {view !== 'members' && <ChallengeStrip me={members.find((x) => x.me)?.id ?? null} onUpdate={load} />}
+      {view !== 'members' && <Leaderboard rows={board} onOpen={(id) => void openPerson(id)} />}
+      {view !== 'members' && <ChallengeStrip state={challenges} me={members.find((x) => x.me)?.id ?? null} onUpdate={load} />}
 
       {error && (
         <div className="card stack" style={{ gap: 8 }}>
@@ -459,14 +526,9 @@ function WeekDots({ days, today }: { days: number; today: number }) {
 }
 
 /** Classement de la semaine entre toi et les personnes que tu suis : séances validées, puis tonnage. */
-function Leaderboard({ onOpen }: { onOpen: (id: string) => void }) {
-  const [rows, setRows] = useState<BoardRow[] | null>(null);
+function Leaderboard({ rows, onOpen }: { rows: BoardRow[] | null; onOpen: (id: string) => void }) {
   const [all, setAll] = useState(false);
   const today = dayKey();
-  const monday = mondayOf(today);
-  useEffect(() => {
-    club.leaderboard(monday).then((r) => setRows(r.rows), () => setRows([]));
-  }, [monday]);
   if (!rows || rows.length < 2) return null;
   // Jours restants jusqu'à dimanche (getDay : dimanche = 0), et la place d'aujourd'hui dans la semaine (lundi = 0).
   const left = (7 - weekdayOf(today)) % 7;
@@ -1845,16 +1907,10 @@ function ChallengeSheet({ m, rematch, onClose }: { m: Pick<Member, 'id' | 'name'
 const RECENT = 24 * 3600_000;
 
 /** En haut du fil : les défis en cours, relevés ou ratés ces dernières 24 h, avec le gage et la revanche. */
-function ChallengeStrip({ me, onUpdate }: { me: string | null; onUpdate: () => void }) {
-  const [state, setState] = useState<ChallengeState | null>(null);
+/** Les défis en cours ou tout juste finis, chargés avec le fil par l'écran du club. */
+function ChallengeStrip({ state, me, onUpdate }: { state: ChallengeState | null; me: string | null; onUpdate: () => void }) {
   const [rematch, setRematch] = useState<Challenge | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  useEffect(() => {
-    const load = () => loadChallenges().then(setState, () => undefined);
-    void load();
-    window.addEventListener('shred:challenges', load);
-    return () => window.removeEventListener('shred:challenges', load);
-  }, []);
   const now = Date.now();
   const shown = (state?.challenges ?? [])
     .filter(
