@@ -18,28 +18,30 @@ const Body3D = lazy(() => import('./Body3D'));
 
 /* ---------- Couleurs des muscles ---------- */
 
-const IDLE = '#423b35';
+// Ce qui n'a pas travaillé garde la couleur de la peau : le corps est un mannequin gris, et seuls les muscles
+// travaillés s'allument (ils s'éclairent eux-mêmes au lieu de plonger dans l'ombre).
 const SKIN = '#5a524b';
 const MINT = '#4cb86b';
 const AMBER = '#f2bd2c';
 const ROSE = '#ef5a45';
-/** Séries de la semaine : une seule teinte, de plus en plus vive (1 à 5, 6 à 11, 12 et plus). */
-const WEEK = ['#7a5a1c', '#b98a22', '#f2bd2c'];
+/**
+ * Séries de la semaine : un bleu de plus en plus clair (1 à 5, 6 à 11, 12 et plus), loin du gris de la peau et des
+ * couleurs de la récupération (menthe, ambre, rose). Clartés OKLCH 0,56, 0,69 et 0,83.
+ */
+const WEEK = ['#2072d5', '#589cf6', '#98caff'];
+const WEEK_GLOW = [0.6, 0.8, 1];
 
-function mix(a: string, b: string, t: number): string {
-  const c = (h: string, i: number) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
-  return `#${[0, 1, 2].map((i) => Math.round(c(a, i) + (c(b, i) - c(a, i)) * t).toString(16).padStart(2, '0')).join('')}`;
-}
+/** Palier des séries de la semaine : -1 rien, puis 0, 1, 2. */
+const weekLevel = (n = 0) => (n < 0.5 ? -1 : n < 6 ? 0 : n < 12 ? 1 : 2);
+const weekColor = (n?: number) => WEEK[weekLevel(n)] ?? SKIN;
+const weekGlow = (n?: number) => WEEK_GLOW[weekLevel(n)] ?? 0;
 
-/** Couleur d'un muscle selon sa récupération : neutre s'il n'a rien fait depuis 7 jours, de la menthe au rose. */
+/** Couleur d'un muscle selon sa récupération : la peau s'il n'a rien fait depuis 7 jours, sinon menthe, ambre ou rose. */
 function recoveryColor(m?: MuscleState): string {
-  if (!m || m.hours === null) return IDLE;
-  if (m.fatigue >= 0.55) return mix(IDLE, ROSE, Math.min(1, 0.55 + m.fatigue * 0.45));
-  if (m.fatigue >= 0.2) return mix(IDLE, AMBER, Math.min(1, 0.55 + m.fatigue * 0.6));
-  return mix(IDLE, MINT, 0.62);
+  if (!m || m.hours === null) return SKIN;
+  return m.fatigue >= 0.55 ? ROSE : m.fatigue >= 0.2 ? AMBER : MINT;
 }
-
-const weekColor = (n = 0) => (n < 0.5 ? IDLE : n < 6 ? WEEK[0] : n < 12 ? WEEK[1] : WEEK[2]);
+const recoveryGlow = (m?: MuscleState) => (!m || m.hours === null ? 0 : m.fatigue >= 0.55 ? 0.95 : m.fatigue >= 0.2 ? 0.8 : 0.6);
 
 type Mode = 'week' | 'recovery';
 
@@ -131,14 +133,23 @@ export const webgl2 = () => {
 };
 
 /** Tes muscles en 3D, ou la silhouette 2D si la 3D n'est pas possible sur ce téléphone. */
-function MuscleFigure({ colorOf, titleOf }: { colorOf: (r: Region) => string; titleOf: (r: Region) => string }) {
+function MuscleFigure({ colorOf, glowOf, titleOf }: { colorOf: (r: Region) => string; glowOf: (r: Region) => number; titleOf: (r: Region) => string }) {
   const [flat, setFlat] = useState(() => !webgl2());
   if (flat) return <BodyMap colorOf={colorOf} titleOf={titleOf} />;
-  const colors = { skin: SKIN, other: IDLE } as Record<Part, string>;
-  for (const r of Object.keys(REGION_NAMES) as Region[]) colors[r] = colorOf(r);
+  const colors = { skin: SKIN, other: SKIN } as Record<Part, string>;
+  const glow: Partial<Record<Part, number>> = {};
+  for (const r of Object.keys(REGION_NAMES) as Region[]) {
+    colors[r] = colorOf(r);
+    glow[r] = glowOf(r);
+  }
   return (
     <Suspense fallback={<div className="body3d" aria-hidden="true" />}>
-      <Body3D colors={colors} labelOf={(p) => (p === 'skin' ? null : p === 'other' ? tr('Muscle que Shred ne suit pas') : titleOf(p))} onFail={() => setFlat(true)} />
+      <Body3D
+        colors={colors}
+        glow={glow}
+        labelOf={(p) => (p === 'skin' ? null : p === 'other' ? tr('Muscle que Shred ne suit pas') : titleOf(p))}
+        onFail={() => setFlat(true)}
+      />
     </Suspense>
   );
 }
@@ -204,6 +215,8 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
   const [mode, setMode] = useState<Mode>('week');
   const week = weekSets(s, today);
   const ranked = [...week].filter(([, n]) => n >= 0.5).sort((a, b) => b[1] - a[1]);
+  // Ce qui n'a rien fait depuis lundi, dit en toutes lettres (la couleur seule ne suffit pas).
+  const idle = (Object.keys(REGION_NAMES) as Region[]).filter((r) => (week.get(r) ?? 0) < 0.5);
   const missed = s.settings.variety?.catchUp !== false ? missedThisWeek(s, today) : [];
   return (
     <Sheet title={tr('Forme du jour')} onClose={onClose}>
@@ -274,6 +287,7 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
             <>
               <MuscleFigure
                 colorOf={(r) => weekColor(week.get(r))}
+                glowOf={(r) => weekGlow(week.get(r))}
                 titleOf={(r) => {
                   const n = Math.round(week.get(r) ?? 0);
                   return n
@@ -292,20 +306,29 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
                   <i style={{ background: WEEK[2] }} />{' '}{tr('12 et plus')}
                 </span>
                 <span>
-                  <i style={{ background: IDLE }} />{' '}{tr('Pas travaillé')}
+                  <i style={{ background: SKIN }} />{' '}{tr('Pas travaillé')}
                 </span>
               </div>
               {ranked.length > 0 ? (
-                <div className="group">
-                  {ranked.slice(0, 6).map(([r, n]) => (
-                    <div key={r} className="row" style={{ gap: 12 }}>
-                      <span className="grow" style={{ fontWeight: 650 }}>
-                        {REGION_NAMES[r]}
-                      </span>
-                      <span className="num muted">{tn(Math.round(n), '{n} série', '{n} séries')}</span>
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <div className="group">
+                    {ranked.slice(0, 6).map(([r, n]) => (
+                      <div key={r} className="row" style={{ gap: 12 }}>
+                        <i className="swatch" style={{ background: weekColor(n) }} aria-hidden="true" />
+                        <span className="grow" style={{ fontWeight: 650 }}>
+                          {REGION_NAMES[r]}
+                        </span>
+                        <span className="num muted">{tn(Math.round(n), '{n} série', '{n} séries')}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {idle.length > 0 && (
+                    <p className="small" style={{ margin: 0 }}>
+                      <i className="swatch" style={{ background: SKIN, marginRight: 8 }} aria-hidden="true" />
+                      {tr('Pas encore travaillés cette semaine : {names}.', { names: list(idle.map((r) => lower(REGION_NAMES[r]))) })}
+                    </p>
+                  )}
+                </>
               ) : (
                 <p className="small muted" style={{ margin: 0 }}>
                   {tr('Aucune série depuis lundi.')}
@@ -314,7 +337,10 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
               {missed.length > 0 && (
                 <p className="small" style={{ margin: 0 }}>
                   <Icon name="bolt" size={13} />{' '}
-                  {tr('Resté de côté cette semaine : {names}. Tes prochaines séances ajoutent un exercice pour rattraper.', { names: list(missed.map((m) => lower(regionName(m.region)))) })}
+                  {/* La liste des muscles au repos est juste au-dessus : pas besoin de la répéter. */}
+                  {ranked.length > 0 && idle.length > 0
+                    ? tr('Tes prochaines séances ajoutent un exercice pour rattraper ce que ton programme prévoyait.')
+                    : tr('Resté de côté cette semaine : {names}. Tes prochaines séances ajoutent un exercice pour rattraper.', { names: list(missed.map((m) => lower(regionName(m.region)))) })}
                 </p>
               )}
               <p className="small faint" style={{ margin: 0 }}>
@@ -325,6 +351,7 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
             <>
               <MuscleFigure
                 colorOf={(r) => recoveryColor(byRegion.get(r))}
+                glowOf={(r) => recoveryGlow(byRegion.get(r))}
                 titleOf={(r) => {
                   const m = byRegion.get(r);
                   return m && m.hours !== null
@@ -334,7 +361,7 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
               />
               <div className="body-legend small">
                 <span>
-                  <i style={{ background: mix(IDLE, MINT, 0.62) }} />{' '}{tr('Récupéré')}
+                  <i style={{ background: MINT }} />{' '}{tr('Récupéré')}
                 </span>
                 <span>
                   <i style={{ background: AMBER }} />{' '}{tr('En cours')}
@@ -343,7 +370,7 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
                   <i style={{ background: ROSE }} />{' '}{tr('Fatigué')}
                 </span>
                 <span>
-                  <i style={{ background: IDLE }} />{' '}{tr('Pas travaillé')}
+                  <i style={{ background: SKIN }} />{' '}{tr('Pas travaillé')}
                 </span>
               </div>
               {worked.length > 0 ? (

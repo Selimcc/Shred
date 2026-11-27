@@ -5691,13 +5691,19 @@ html[data-nav]::view-transition-new(root) {
   gap: 6px 14px;
   color: var(--ink-2);
 }
-.body-legend i {
+.body-legend i,
+.swatch {
   display: inline-block;
   width: 10px;
   height: 10px;
   margin-right: 6px;
   border-radius: 3px;
   vertical-align: -1px;
+}
+
+.row > .swatch {
+  flex: none;
+  margin-right: 0;
 }
 
 /* ---------- Mode séance ---------- */

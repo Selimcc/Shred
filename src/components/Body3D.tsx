@@ -38,6 +38,7 @@ export default function Body3D({
   shape,
   lines = 0.75,
   line = '#120f0e',
+  glow,
   label: ariaLabel,
 }: {
   /** Couleur de chaque partie, en #rrggbb. */
@@ -51,6 +52,8 @@ export default function Body3D({
   lines?: number;
   /** Couleur des séparations. */
   line?: string;
+  /** Éclat des parties à faire ressortir (0 à 1) : elles s'éclairent elles-mêmes au lieu de plonger dans l'ombre. */
+  glow?: Partial<Record<Part, number>>;
   /** Ce que lit un lecteur d'écran. */
   label?: string;
 }) {
@@ -63,7 +66,8 @@ export default function Body3D({
   const [ready, setReady] = useState(false);
   const [label, setLabel] = useState<string | null>(null);
   const palette = PARTS.map((p) => rgb(colors[p]));
-  const key = palette.flat().join(',');
+  const shine = PARTS.map((p) => glow?.[p] ?? 0);
+  const key = [...palette.flat(), ...shine].join(',');
   const shapeKey = shape ? [...shape.muscle, shape.fat, shape.female].map((v) => v.toFixed(4)).join(',') : '';
 
   useEffect(() => {
@@ -98,7 +102,7 @@ export default function Body3D({
     const v = viewer.current;
     if (!v) return;
     v.lines = lines;
-    v.setPalette(palette, rgb(line));
+    v.setPalette(palette, rgb(line), shine);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, ready, lines, line]);
 

@@ -70,6 +70,7 @@ in float vAo;
 uniform sampler2D uPrims;
 uniform int uCount;
 uniform vec3 uColors[20];
+uniform float uGlow[20];
 uniform vec3 uLineColor;
 uniform float uLines;
 out vec4 outColor;
@@ -153,6 +154,11 @@ void main() {
   float spec = pow(max(dot(n, normalize(key + v)), 0.0), 36.0) * 0.08;
   float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * (0.25 + 0.5 * max(dot(n, rimDir), 0.0));
   vec3 col = base * diff * ao + vec3(spec) + vec3(1.0, 0.9, 0.78) * rim * 0.16 * ao;
+  // Muscle mis en avant : il s'éclaire un peu lui-même (pas de côté éteint dans l'ombre) et garde un liseré de sa
+  // couleur sur les bords. Les séparations restent sombres.
+  float glow = uGlow[part] * (1.0 - line * uLines);
+  vec3 lifted = base * (0.6 + 0.42 * diff) * mix(1.0, ao, 0.45) + base * rim * 0.85 + vec3(spec);
+  col = mix(col, lifted, glow);
   outColor = vec4(pow(col, vec3(1.0 / 2.2)), 1.0);
 }`;
 
@@ -187,6 +193,8 @@ export class BodyViewer {
   private mesh: BodyMesh;
   private loc: Record<string, WebGLUniformLocation | null> = {};
   private colors = new Float32Array(20 * 3);
+  /** Éclat propre de chaque partie (0 à 1) : les muscles à montrer ressortent. */
+  private glow = new Float32Array(20);
   private line = new Float32Array([0.08, 0.07, 0.06]);
   /** Force des séparations entre muscles (0 à 1) : moins nettes quand il y a plus de gras. */
   lines = 0.75;
@@ -222,7 +230,7 @@ export class BodyViewer {
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) ?? 'link');
     this.prog = prog;
-    for (const u of ['uProj', 'uRot', 'uLo', 'uHi', 'uLift', 'uPrims', 'uCount', 'uColors', 'uLineColor', 'uLines', 'uRaw']) this.loc[u] = gl.getUniformLocation(prog, u);
+    for (const u of ['uProj', 'uRot', 'uLo', 'uHi', 'uLift', 'uPrims', 'uCount', 'uColors', 'uGlow', 'uLineColor', 'uLines', 'uRaw']) this.loc[u] = gl.getUniformLocation(prog, u);
 
     const vao = gl.createVertexArray()!;
     this.vao = vao;
@@ -266,8 +274,11 @@ export class BodyViewer {
     this.lost = true;
   };
 
-  setPalette(p: Palette, line: [number, number, number]) {
+  /** Couleur de chaque partie, couleur des séparations, et éclat de chaque partie (0 par défaut). */
+  setPalette(p: Palette, line: [number, number, number], glow: number[] = []) {
     p.forEach((c, i) => this.colors.set(c, i * 3));
+    this.glow.fill(0);
+    glow.forEach((g, i) => (this.glow[i] = Math.max(0, Math.min(1, g))));
     this.line.set(line);
     this.draw();
   }
@@ -345,6 +356,7 @@ export class BodyViewer {
     gl.uniformMatrix4fv(this.loc.uProj, false, proj);
     gl.uniformMatrix3fv(this.loc.uRot, false, rot);
     gl.uniform3fv(this.loc.uColors, this.colors);
+    gl.uniform1fv(this.loc.uGlow, this.glow);
     gl.uniform3fv(this.loc.uLineColor, this.line);
     gl.uniform1f(this.loc.uLines, this.lines);
     gl.uniform1i(this.loc.uRaw, this.deformed ? 1 : 0);
