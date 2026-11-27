@@ -477,6 +477,17 @@ export function GymForm({ gym, onGym }: { gym: Gym; onGym: (g: Gym) => void }) {
           />
         ))}
       </div>
+      {gym.equipment.dumbbells && (
+        <Field label={tr('Écart entre deux paires d’haltères')} hint={tr('Les charges conseillées tombent alors sur des haltères qui existent dans ta salle.')}>
+          <div className="chips">
+            {([1, 2, 2.5] as const).map((n) => (
+              <button key={n} type="button" className={chip(gym.dumbbellStep === n)} onClick={() => onGym({ ...gym, dumbbellStep: gym.dumbbellStep === n ? undefined : n })}>
+                {tr('{n} kg', { n: n.toLocaleString(loc()) })}
+              </button>
+            ))}
+          </div>
+        </Field>
+      )}
     </div>
   );
 }

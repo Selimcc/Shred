@@ -12,7 +12,7 @@ import { type FoodHit, foodQuery, toFoodHits } from '../shared/food';
 
 type Fetcher = typeof fetch;
 
-const FIELDS = (lang: Lang) => ['code', 'product_name', `product_name_${lang}`, 'product_name_en', 'brands', 'nutriments', 'serving_quantity', 'image_front_small_url', 'image_small_url'];
+const FIELDS = (lang: Lang) => ['code', 'product_name', `product_name_${lang}`, 'product_name_en', 'brands', 'nutriments', 'serving_quantity', 'serving_quantity_unit', 'serving_size', 'quantity', 'product_quantity', 'product_quantity_unit', 'image_front_small_url', 'image_small_url'];
 
 /** Search-a-licious : null si le moteur ne répond pas ou si sa réponse ne se lit pas. */
 async function searchALicious(fetcher: Fetcher, ua: string, q: string, lang: Lang): Promise<FoodHit[] | null> {

@@ -35,20 +35,24 @@ export function parseMesh(buf: ArrayBuffer): BodyMesh {
   };
 }
 
+// aRest : le corps de départ (sert à retrouver les muscles) ; aPos : le corps déformé quand une forme est donnée.
 const VS = `#version 300 es
-in vec3 aPos;
+in vec3 aRest;
 in vec4 aNrm;
+in vec3 aPos;
 uniform mat4 uProj;
 uniform mat3 uRot;
 uniform vec3 uLo;
 uniform vec3 uHi;
 uniform float uLift;
+uniform bool uRaw;
 out vec3 vModel;
 out vec3 vNormal;
 out float vAo;
 void main() {
-  vec3 p = mix(uLo, uHi, aPos);
-  vModel = p;
+  vec3 r = mix(uLo, uHi, aRest);
+  vec3 p = uRaw ? aPos : r;
+  vModel = r;
   vNormal = uRot * aNrm.xyz;
   vAo = aNrm.w;
   vec3 w = uRot * (p - vec3(0.0, uLift, 0.0));
@@ -67,6 +71,7 @@ uniform sampler2D uPrims;
 uniform int uCount;
 uniform vec3 uColors[20];
 uniform vec3 uLineColor;
+uniform float uLines;
 out vec4 outColor;
 
 float ellipsoid(vec3 p, vec3 r) {
@@ -136,7 +141,7 @@ void main() {
   // Largeur bornée : la dérivée saute là où le muscle voisin change, ce qui ferait des points noirs.
   float w = clamp(fwidth(gap) * 1.2, 0.0004, 0.0022) + 0.0004;
   float line = 1.0 - smoothstep(0.0, w, gap);
-  base = mix(base, toLinear(uLineColor), line * 0.75);
+  base = mix(base, toLinear(uLineColor), line * uLines);
 
   vec3 n = normalize(vNormal);
   vec3 v = vec3(0.0, 0.0, 1.0);
@@ -183,6 +188,13 @@ export class BodyViewer {
   private loc: Record<string, WebGLUniformLocation | null> = {};
   private colors = new Float32Array(20 * 3);
   private line = new Float32Array([0.08, 0.07, 0.06]);
+  /** Force des séparations entre muscles (0 à 1) : moins nettes quand il y a plus de gras. */
+  lines = 0.75;
+  private vao: WebGLVertexArrayObject;
+  private nb: WebGLBuffer;
+  private shapePos: WebGLBuffer | null = null;
+  private shapeNrm: WebGLBuffer | null = null;
+  private deformed = false;
   yaw = 0;
   pitch = 0;
   private frame = 0;
@@ -204,25 +216,29 @@ export class BodyViewer {
     const prog = gl.createProgram()!;
     gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VS));
     gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FS));
-    gl.bindAttribLocation(prog, 0, 'aPos');
+    gl.bindAttribLocation(prog, 0, 'aRest');
     gl.bindAttribLocation(prog, 1, 'aNrm');
+    gl.bindAttribLocation(prog, 2, 'aPos');
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) ?? 'link');
     this.prog = prog;
-    for (const u of ['uProj', 'uRot', 'uLo', 'uHi', 'uLift', 'uPrims', 'uCount', 'uColors', 'uLineColor']) this.loc[u] = gl.getUniformLocation(prog, u);
+    for (const u of ['uProj', 'uRot', 'uLo', 'uHi', 'uLift', 'uPrims', 'uCount', 'uColors', 'uLineColor', 'uLines', 'uRaw']) this.loc[u] = gl.getUniformLocation(prog, u);
 
-    const vao = gl.createVertexArray();
+    const vao = gl.createVertexArray()!;
+    this.vao = vao;
     gl.bindVertexArray(vao);
     const pb = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, pb);
     gl.bufferData(gl.ARRAY_BUFFER, mesh.positions, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.UNSIGNED_SHORT, true, 0, 0);
-    const nb = gl.createBuffer();
+    const nb = gl.createBuffer()!;
+    this.nb = nb;
     gl.bindBuffer(gl.ARRAY_BUFFER, nb);
     gl.bufferData(gl.ARRAY_BUFFER, mesh.normals, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 4, gl.BYTE, true, 0, 0);
+    gl.vertexAttrib3f(2, 0, 0, 0);
     const ib = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
@@ -253,6 +269,31 @@ export class BodyViewer {
   setPalette(p: Palette, line: [number, number, number]) {
     p.forEach((c, i) => this.colors.set(c, i * 3));
     this.line.set(line);
+    this.draw();
+  }
+
+  /** Corps déformé (positions en mètres, normales + occlusion), ou null pour revenir au corps de départ. */
+  setGeometry(g: { positions: Float32Array; normals: Float32Array } | null) {
+    const { gl } = this;
+    if (this.lost) return;
+    gl.bindVertexArray(this.vao);
+    if (!g) {
+      gl.disableVertexAttribArray(2);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.nb);
+      gl.vertexAttribPointer(1, 4, gl.BYTE, true, 0, 0);
+      this.deformed = false;
+    } else {
+      this.shapePos ??= gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.shapePos);
+      gl.bufferData(gl.ARRAY_BUFFER, g.positions, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, 0, 0);
+      this.shapeNrm ??= gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.shapeNrm);
+      gl.bufferData(gl.ARRAY_BUFFER, g.normals, gl.DYNAMIC_DRAW);
+      gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 0, 0);
+      this.deformed = true;
+    }
     this.draw();
   }
 
@@ -305,6 +346,8 @@ export class BodyViewer {
     gl.uniformMatrix3fv(this.loc.uRot, false, rot);
     gl.uniform3fv(this.loc.uColors, this.colors);
     gl.uniform3fv(this.loc.uLineColor, this.line);
+    gl.uniform1f(this.loc.uLines, this.lines);
+    gl.uniform1i(this.loc.uRaw, this.deformed ? 1 : 0);
     gl.drawElements(gl.TRIANGLES, this.mesh.count, this.mesh.indices instanceof Uint32Array ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, 0);
   }
 

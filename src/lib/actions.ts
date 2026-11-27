@@ -1,7 +1,7 @@
 import { type Exercise, type HabitId, type PlannedMeal, scheduleFor, type SessionId } from '../../shared/program';
 import { weekdayOf } from './date';
 import { lastPerformance, nextTarget, sessionAutoComplete, sessionFor } from './logic';
-import { adviseLoad } from './advisor';
+import { adviseLoad, startingLoad } from './advisor';
 import { type AppState, ensureDay, getState, type MealEntry, setState, type SetLog, uid } from './store';
 
 /** Coche ou décoche une série. Remplit automatiquement charge et reps avec l'objectif du jour. */
@@ -31,13 +31,15 @@ export function toggleSet(date: string, ex: Exercise, index: number): boolean {
 
 /**
  * Ce qu'une série propose avant qu'on y touche : la charge de la série d'avant, sinon celle que conseille Pulse,
- * sinon celle de la dernière fois ; les reps de la dernière fois, ou le bas de la fourchette si la charge monte.
+ * sinon celle de la dernière fois (la première fois : une charge de départ estimée) ; les reps de la dernière fois,
+ * ou le bas de la fourchette si la charge monte.
  */
 export function setDefaults(s: AppState, ex: Exercise, date: string, logs: SetLog[], index: number): { w?: number; r?: number; up: boolean } {
   const last = lastPerformance(s, ex.key, date);
   const target = nextTarget(ex, last);
   const advice = adviseLoad(s, ex, date);
-  const aim = advice ? { weight: advice.weight, up: advice.weight > (last ? Math.max(...last.sets.map((l) => l.w ?? 0)) : 0) } : target;
+  const start = !last && !advice ? startingLoad(s, ex, date) : null;
+  const aim = advice ? { weight: advice.weight, up: advice.weight > (last ? Math.max(...last.sets.map((l) => l.w ?? 0)) : 0) } : start ? { weight: start.weight, up: false } : target;
   return {
     w: ex.noLoad ? undefined : (previousWeight(logs, index) ?? aim.weight ?? last?.sets[index]?.w),
     r: ex.repMin === undefined ? undefined : aim.up ? ex.repMin : (last?.sets[index]?.r ?? ex.repMin),

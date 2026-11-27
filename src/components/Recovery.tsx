@@ -121,7 +121,8 @@ export function BodyMap({ colorOf, titleOf }: { colorOf: (r: Region) => string; 
   );
 }
 
-const webgl2 = () => {
+/** La 3D est possible sur ce téléphone. */
+export const webgl2 = () => {
   try {
     return typeof WebGL2RenderingContext !== 'undefined' && Boolean(document.createElement('canvas').getContext('webgl2'));
   } catch {

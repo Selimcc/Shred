@@ -24,6 +24,10 @@ export interface CatalogEntry {
   defaults: { sets: number; reps: string; rest: number };
   /** Saut de charge conseillé quand la fourchette haute est atteinte (kg). */
   step?: number;
+  /** Charge = poids d'un haltère : le saut suit l'écart entre les haltères de ta salle. */
+  dumbbell?: boolean;
+  /** Pourquoi cet exercice plutôt qu'un autre, d'après les études. */
+  why?: string;
   /** Pas de charge à saisir (poids du corps, chrono, tâche). */
   noLoad?: boolean;
   /** Créé par l'utilisateur dans l'app. */

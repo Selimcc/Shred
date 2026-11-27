@@ -4,9 +4,9 @@ import { DISCIPLINE_ICON, Icon } from '../components/Icon';
 import { Ring } from '../components/Ring';
 import { ask, Bar, Check, Sheet, toast } from '../components/ui';
 import { chooseSession, finishSession, parseDecimal, previousWeight, toggleSet, updateSet } from '../lib/actions';
-import { formatNumber, formatShort, weekdayOf, WEEKDAY_NAMES } from '../lib/date';
+import { dayKey, formatNumber, formatShort, weekdayOf, WEEKDAY_NAMES } from '../lib/date';
 import { exerciseFrames, exerciseInfo, videoUrl } from '../lib/exercise-info';
-import { adviseLoad, loadFor } from '../lib/advisor';
+import { adviseLoad, benchmarks, firstTimeText, loadFor, startingLoad } from '../lib/advisor';
 import { e1rm } from '../lib/strength';
 import { fmtKg, formatSets, HALF_SESSION, lastPerformance, nextTarget, ruleOf, sessionFor, setProgress, workoutOk } from '../lib/logic';
 import { type Form, getState, readDay, type SetLog, useApp } from '../lib/store';
@@ -442,7 +442,9 @@ function ExerciseCard({
   const last = lastPerformance(s, ex.key, date);
   const target = nextTarget(ex, last);
   const advice = adviseLoad(s, ex, date);
-  const aim = advice ? { weight: advice.weight, up: advice.weight > (last ? Math.max(...last.sets.map((l) => l.w ?? 0)) : 0) } : target;
+  // Jamais fait : une charge de départ d'après ton poids et ton niveau sur tes autres exercices.
+  const start = !last && !advice ? startingLoad(s, ex, date) : null;
+  const aim = advice ? { weight: advice.weight, up: advice.weight > (last ? Math.max(...last.sets.map((l) => l.w ?? 0)) : 0) } : start ? { weight: start.weight, up: false } : target;
   const done = logs.filter((l) => l.done).length;
   const complete = done >= ex.sets;
   const isTask = ex.kind === 'task';
@@ -525,7 +527,7 @@ function ExerciseCard({
               )}
               {aim.weight !== undefined && (
                 <span className={`tag num ${aim.up ? 'up' : 'blue'}`}>
-                  {aim.up ? '↑ ' : ''}
+                  {aim.up ? '↑ ' : start ? '≈ ' : ''}
                   {fmtKg(aim.weight)}
                 </span>
               )}
@@ -556,9 +558,9 @@ function ExerciseCard({
           <Icon name="bolt" size={13} /> {advice.text}
         </p>
       )}
-      {!last && ex.change && loaded && !complete && (
+      {!last && loaded && !complete && (start || ex.change) && (
         <p className="small advice" style={{ margin: '8px 0 0' }}>
-          <Icon name="bolt" size={13} />{' '}{tr('Nouvel exercice pour toi : commence léger, garde 2 à 3 reps en réserve sur la 1re série, puis ajuste. La prochaine fois, Pulse aura tes chiffres.')}
+          <Icon name="bolt" size={13} />{' '}{start ? firstTimeText(start, ex) : tr('Nouvel exercice pour toi : commence léger, garde 2 à 3 reps en réserve sur la 1re série, puis ajuste. La prochaine fois, Pulse aura tes chiffres.')}
         </p>
       )}
 
@@ -702,6 +704,33 @@ function SwapSheet({ ex, date, sessionId, taken, onClose }: { ex: Exercise; date
   );
 }
 
+/** Ce que soulèvent les pratiquants de ton poids sur cet exercice, du niveau E au niveau A, et où tu te situes. */
+function Benchmarks({ ex }: { ex: Exercise }) {
+  const s = useApp();
+  const b = benchmarks(s, ex, dayKey());
+  if (!b) return null;
+  return (
+    <section className="bench" aria-label={tr('Repères de charge')}>
+      <div className="bench-head small muted">
+        {tr('Repères à {reps} reps pour {kg} kg de poids de corps, de E (débutant) à A (avancé)', { reps: b.reps, kg: formatNumber(b.bodyweight, 0) })}
+      </div>
+      <div className="bench-row">
+        {b.levels.map((l) => (
+          <div key={l.grade} className={`bench-cell ${b.mine === l.grade ? 'mine' : ''}`}>
+            <span className={`grade ${l.grade}`}>{l.grade}</span>
+            <b className="num">{fmtKg(l.weight)}</b>
+          </div>
+        ))}
+      </div>
+      <p className="small faint" style={{ margin: 0 }}>
+        {b.mine
+          ? tr('Tu es au niveau {grade} sur cet exercice. Repères tirés de ce que soulèvent les pratiquants, ramenés à ton poids.', { grade: b.mine })
+          : tr('Repères tirés de ce que soulèvent les pratiquants, ramenés à ton poids. Ta note s’affichera après ta première séance.')}
+      </p>
+    </section>
+  );
+}
+
 function DemoSheet({ ex, onClose }: { ex: Exercise; onClose: () => void }) {
   const frames = exerciseFrames(ex.key);
   const info = exerciseInfo(ex.key, useApp().customExercises);
@@ -734,6 +763,12 @@ function DemoSheet({ ex, onClose }: { ex: Exercise; onClose: () => void }) {
           {ex.rest > 0 ? tr(', {rest} de repos', { rest: fmtRest(ex.rest) }) : ''}.
         </p>
       )}
+      {info.why && (
+        <p className="small why" style={{ margin: '12px 2px 0' }}>
+          {info.why}
+        </p>
+      )}
+      <Benchmarks ex={ex} />
       <ExerciseInsights ex={ex} />
       <LoadCalculator ex={ex} />
       <a className="btn block" style={{ marginTop: 18, textDecoration: 'none' }} href={videoUrl(ex.name)} target="_blank" rel="noreferrer">

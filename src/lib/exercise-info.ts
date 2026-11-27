@@ -6,11 +6,13 @@ import { tr } from '../../shared/i18n';
 
 const frames = import.meta.glob('../assets/exercises/*.jpg', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 
-export function exerciseInfo(key: string, custom: Record<string, CatalogEntry> = {}): { muscles: string[]; cue: string } {
+export function exerciseInfo(key: string, custom: Record<string, CatalogEntry> = {}): { muscles: string[]; cue: string; why?: string } {
   const e = catalogEntry(key, custom);
   if (!e) return { muscles: [], cue: '' };
   // La bibliothèque est traduite ; un exercice créé par l'utilisateur garde ses mots.
-  return e.custom ? { muscles: e.muscles, cue: e.cue ?? '' } : { muscles: e.muscles.map((m) => tr(m)), cue: e.cue ? tr(e.cue) : '' };
+  return e.custom
+    ? { muscles: e.muscles, cue: e.cue ?? '' }
+    : { muscles: e.muscles.map((m) => tr(m)), cue: e.cue ? tr(e.cue) : '', ...(e.why ? { why: tr(e.why) } : {}) };
 }
 
 /** Les deux positions (départ, arrivée) de la démo, ou null si aucune image. */

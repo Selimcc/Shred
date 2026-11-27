@@ -6,10 +6,11 @@
 // Ce sont des estimations : elles servent à choisir un point de départ, pas à remplacer les sensations.
 import { catalogEntry } from '../../shared/catalog';
 import type { Exercise, MuscleGroup } from '../../shared/types';
+import { isBarbell } from '../../shared/warmup';
 import { addDays } from './date';
 import type { AppState, SetLog } from './state';
 import { isDeload } from './recovery';
-import { e1rm, strengthProfile } from './strength';
+import { bodyweightAt, e1rm, GRADES, type Grade, gradeFor, levelFor, ratioAt, scoreOf, sexFactor, standardOf, strengthProfile } from './strength';
 import { loc, lower, tn, tr } from '../../shared/i18n';
 
 /** Charge réalisable pour `reps` reps en gardant `rir` reps en réserve. */
@@ -69,6 +70,64 @@ function range(ex: Exercise): [number, number] {
   return [min, ex.repMax ?? min];
 }
 
+/** Une série vaut en général la charge d'un exercice ; pour un haltère, c'est le poids d'un haltère. */
+const minLoad = (ex: Exercise, step: number) => (isBarbell(ex.key, catalogEntry(ex.key)?.name ?? ex.name) ? 20 : step);
+
+export interface StartLoad {
+  weight: number;
+  /** D'où vient ton niveau : tes autres exercices du même groupe, tous tes groupes, ou ton expérience déclarée. */
+  from: 'group' | 'lifts' | 'experience';
+}
+
+/**
+ * Charge de départ d'un exercice jamais fait : les repères de l'exercice à ton poids, à ton niveau (un cran en
+ * dessous, le temps d'apprendre le mouvement), pour le milieu de la fourchette avec 3 reps en réserve.
+ */
+export function startingLoad(s: AppState, ex: Exercise, date: string): StartLoad | null {
+  if (ex.noLoad || ex.kind === 'task' || ex.kind === 'cardio') return null;
+  const std = standardOf(ex.key);
+  if (!std || std.bodyweight) return null;
+  const { kg } = bodyweightAt(s, date);
+  const lvl = levelFor(s, ex.key, date);
+  const oneRm = kg * ratioAt(std.t, Math.max(0.6, lvl.score - 0.3)) * sexFactor(ex.key, s.settings.athlete.sex);
+  const [lo, hi] = range(ex);
+  const step = ex.step ?? 2.5;
+  const weight = Math.max(minLoad(ex, step), floorTo(loadFor(oneRm, Math.round((lo + hi) / 2), 3), step));
+  return { weight, from: lvl.from };
+}
+
+/** La première fois : la charge de départ estimée, et d'où elle vient. */
+export function firstTimeText(start: StartLoad, ex: Exercise): string {
+  const vars = { fmt: fmt(start.weight), reps: ex.reps };
+  return start.from === 'experience'
+    ? tr('Première fois : environ {fmt} pour {reps} reps, avec 2 à 3 reps en réserve. Estimé d’après ton poids et ton niveau déclaré : ajuste dès la 1re série.', vars)
+    : tr('Première fois : environ {fmt} pour {reps} reps, avec 2 à 3 reps en réserve. Estimé d’après ton poids et tes charges sur tes autres exercices : ajuste dès la 1re série.', vars);
+}
+
+export interface Benchmark {
+  grade: Grade;
+  weight: number;
+}
+
+/**
+ * Ce que soulèvent les pratiquants de ton poids sur cet exercice, du niveau E au niveau A, pour le milieu de ta
+ * fourchette de reps (2 en réserve) : de quoi voir qu'une élévation latérale à 8 kg, c'est normal. Et ta note.
+ */
+export function benchmarks(s: AppState, ex: Exercise, date: string): { reps: number; levels: Benchmark[]; mine: Grade | null; bodyweight: number } | null {
+  if (ex.noLoad || ex.kind === 'task' || ex.kind === 'cardio') return null;
+  const std = standardOf(ex.key);
+  if (!std || std.bodyweight) return null;
+  const { kg } = bodyweightAt(s, date);
+  const f = sexFactor(ex.key, s.settings.athlete.sex);
+  const [lo, hi] = range(ex);
+  const reps = Math.round((lo + hi) / 2);
+  const step = ex.step ?? 2.5;
+  const min = minLoad(ex, step);
+  const levels = GRADES.map((grade, i) => ({ grade, weight: Math.max(min, roundTo(loadFor(kg * std.t[i] * f, reps), step)) }));
+  const best = history(s, ex.key, addDays(date, 1), 4).reduce((m, o) => Math.max(m, o.best), 0);
+  return { reps, levels, mine: best ? gradeFor(scoreOf(ex.key, best / kg / f)) : null, bodyweight: kg };
+}
+
 export function adviseLoad(s: AppState, ex: Exercise, date: string): LoadAdvice | null {
   if (ex.noLoad || ex.kind === 'task' || ex.kind === 'cardio') return null;
   const h = history(s, ex.key, date);
@@ -93,7 +152,12 @@ export function adviseLoad(s: AppState, ex: Exercise, date: string): LoadAdvice 
   }
 
   const ideal = floorTo(loadFor(oneRm, Math.round((lo + hi) / 2)), step);
-  const allTop = last.sets.length >= ex.sets && last.sets.every((l) => (l.r ?? 0) >= hi);
+  // Petit muscle, petites charges : l'haltère du dessus est un gros saut (8 → 10 kg, c'est +25 %). On monte d'abord
+  // les reps au-delà de la fourchette, puis la charge, pour retomber dans la fourchette après le saut.
+  const jump = last.top > 0 ? step / last.top : 0;
+  const repsFirst = ex.kind !== 'compound' && jump > 0.12;
+  const top = repsFirst ? Math.min(hi + 3, 25) : hi;
+  const allTop = last.sets.length >= ex.sets && last.sets.every((l) => (l.r ?? 0) >= top);
   let weight: number;
   let sets = ex.sets;
   let text: string;
@@ -108,16 +172,24 @@ export function adviseLoad(s: AppState, ex: Exercise, date: string): LoadAdvice 
     weight = Math.max(roundTo(last.top + step, step), ideal);
     text =
       weight > last.top + step
-        ? tr('Trop facile : {length} séries à {hi} reps ou plus. Passe directement à {fmt} pour {lo} à {hi} reps.', { length: last.sets.length, hi, fmt: fmt(weight), lo })
-        : tr('Toutes tes séries à {hi} reps : passe à {fmt} et vise {lo} reps.', { hi, fmt: fmt(weight), lo });
-  } else if (ideal >= last.top + step) {
+        ? tr('Trop facile : {length} séries à {hi} reps ou plus. Passe directement à {fmt} pour {lo} à {hi} reps.', { length: last.sets.length, hi: top, fmt: fmt(weight), lo })
+        : tr('Toutes tes séries à {hi} reps : passe à {fmt} et vise {lo} reps.', { hi: top, fmt: fmt(weight), lo });
+  } else if (!repsFirst && ideal >= last.top + step) {
     weight = ideal;
     text = tr('Tu as de la marge : {fmt} pour {lo} à {hi} reps devrait passer.', { fmt: fmt(weight), lo, hi });
   } else {
     weight = last.top;
     const reps = last.sets.map((l) => l.r ?? 0);
-    const goal = Math.min(hi, Math.max(...reps) + 1);
-    text = tr('Reste à {fmt} et ajoute 1 rep par série (vise {goal}) avant de monter.', { fmt: fmt(weight), goal });
+    const goal = Math.min(top, Math.max(...reps) + 1);
+    text =
+      repsFirst && Math.max(...reps) >= hi
+        ? tr('La charge du dessus, c’est +{pct} % : reste à {fmt} et monte jusqu’à {top} reps sur chaque série, puis passe à {next}.', {
+            pct: Math.round(jump * 100),
+            fmt: fmt(weight),
+            top,
+            next: fmt(roundTo(last.top + step, step)),
+          })
+        : tr('Reste à {fmt} et ajoute 1 rep par série (vise {goal}) avant de monter.', { fmt: fmt(weight), goal });
   }
 
   // À la limite haute du volume ou en plein déficit, une série de plus n'aide pas : on le signale seulement si le groupe manque de volume.

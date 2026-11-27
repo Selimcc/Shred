@@ -2,16 +2,33 @@
 // macros pour 100 g. Le même code sert au serveur (recherche relayée, mise en cache) et à l'app (recherche directe,
 // code-barres). Textes nettoyés et bornés, images acceptées seulement depuis Open Food Facts.
 
+/** Une mesure de tous les jours : une tasse, un verre, une tranche, un pot. */
+export interface Measure {
+  name: string;
+  /** En grammes, ou en ml pour une boisson. */
+  amount: number;
+}
+
 export interface FoodHit {
   code: string;
   name: string;
   brand?: string;
   image?: string;
+  /** Pour 100 g, ou pour 100 ml quand c'est une boisson (comme sur l'étiquette). */
   per100: { kcal: number; protein: number; carbs: number; fat: number };
   serving?: number;
+  /** Boisson : les quantités se comptent en ml. */
+  unit?: 'ml';
+  /** Contenance du produit entier quand elle tient en une fois (un pot, une canette, une barre). */
+  pack?: number;
+  /** Mesures proposées, la première d'abord. */
+  measures?: Measure[];
   /** Aliment de base de l'app (valeurs moyennes), pas un produit d'Open Food Facts. */
   generic?: boolean;
 }
+
+/** Produit entier proposé comme mesure en dessous de cette contenance (g ou ml). */
+export const PACK_MAX = 750;
 
 /** Texte d'Open Food Facts : sans caractères de contrôle ni balises, longueur bornée. */
 export function offText(v: unknown, max: number): string {
@@ -89,6 +106,18 @@ export function productImage(p: Record<string, unknown>, code: string, lang: str
   return undefined;
 }
 
+/**
+ * Une boisson se compte en ml : l'unité de la portion ou du produit quand Open Food Facts la donne, sinon celle
+ * écrite sur l'emballage (« 33 cl », « 1 L », « 6 x 25 cl »).
+ */
+export function offUnit(p: Record<string, unknown>): 'ml' | undefined {
+  const units = [p.serving_quantity_unit, p.product_quantity_unit].map((v) => text(v).trim().toLowerCase());
+  if (units.includes('ml')) return 'ml';
+  if (units.includes('g')) return undefined;
+  const q = `${text(p.quantity)} ${text(p.serving_size)}`.toLowerCase();
+  return /\d\s*(ml|cl|dl|l|litres?|liters?)\b/.test(q) && !/\d\s*(g|kg|mg|gr)\b/.test(q) ? 'ml' : undefined;
+}
+
 /** Calories pour 100 g : en kcal, sinon converties depuis les kJ. */
 export function kcalPer100(n: Record<string, unknown>): number {
   const kcal = num(n['energy-kcal_100g'], 950);
@@ -107,6 +136,8 @@ export function toFoodHit(p: unknown, lang: string): FoodHit | null {
   const brand = productBrand(r);
   const image = productImage(r, code, lang);
   const serving = num(r.serving_quantity, 5000);
+  const unit = offUnit(r);
+  const pack = num(r.product_quantity, 5000);
   return {
     code,
     name,
@@ -114,6 +145,8 @@ export function toFoodHit(p: unknown, lang: string): FoodHit | null {
     ...(image ? { image } : {}),
     per100: { kcal, protein: num(n.proteins_100g, 100), carbs: num(n.carbohydrates_100g, 100), fat: num(n.fat_100g, 100) },
     ...(serving ? { serving } : {}),
+    ...(unit ? { unit } : {}),
+    ...(pack >= 5 && pack <= PACK_MAX ? { pack } : {}),
   };
 }
 
@@ -145,6 +178,7 @@ export function cleanHit(v: unknown): FoodHit | null {
   const brand = offText(h.brand, 40);
   const image = offImage(h.image);
   const serving = num(h.serving, 5000);
+  const pack = num(h.pack, PACK_MAX);
   return {
     code: offText(h.code, 20).replace(/\D/g, ''),
     name,
@@ -152,6 +186,8 @@ export function cleanHit(v: unknown): FoodHit | null {
     ...(image ? { image } : {}),
     per100: { kcal, protein: num(per100.protein, 100), carbs: num(per100.carbs, 100), fat: num(per100.fat, 100) },
     ...(serving ? { serving } : {}),
+    ...(h.unit === 'ml' ? { unit: 'ml' as const } : {}),
+    ...(pack >= 5 ? { pack } : {}),
   };
 }
 

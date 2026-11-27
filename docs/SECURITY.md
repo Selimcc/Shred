@@ -184,6 +184,14 @@ If a secret is ever pushed, deleting the commit is not enough: it has already be
 | Info | Variety and catch-up. | Computed on the phone from the program and the logged sets; two new fields in the encrypted backup (`settings.variety`, `DayLog.noCatchUp`), nothing new reaches the server. |
 | Info | 3D muscle map. | The mesh is a static file of the app (`/assets/body3d-*.bin`, same origin, `connect-src 'self'`), parsed with a fixed format check; WebGL only draws, no script or data comes from elsewhere. `meshoptimizer` is a development dependency used by the mesh script, not shipped. |
 
+## Version 0.35
+
+| Severity | Finding | Fix |
+| --- | --- | --- |
+| Info | Estimated body, portions, starting loads. | Computed on the phone from data already in the encrypted backup; two new optional fields in it (`MealItem.unit`, `Gym.dumbbellStep`). Nothing new reaches the server. |
+| Low | More Open Food Facts fields (quantity, units, package size). | Read by the same parser: the unit is only ever `ml` or absent, sizes are numbers clamped to 5,000 and to 750 for a whole pack; the app checks the server's answer again (`cleanHit`). |
+| Info | Photo analysis may answer in ml. | The tool schema allows `unit` in `g` or `ml`; anything else is dropped by `sanitizeMeal`. |
+
 ## Accepted
 
 | Severity | Finding | Why |

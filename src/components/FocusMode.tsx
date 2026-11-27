@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom';
 import { repMeters } from '../../shared/effort';
 import type { Exercise } from '../../shared/program';
 import { finishSession, parseDecimal, setDefaults, toggleSet, updateSet } from '../lib/actions';
-import { adviseLoad } from '../lib/advisor';
+import { adviseLoad, firstTimeText, startingLoad } from '../lib/advisor';
 import { beep, primeAudio } from '../lib/beep';
 import { sessionSummary } from '../lib/club';
 import { exerciseFrames } from '../lib/exercise-info';
@@ -614,6 +614,7 @@ function SetView({
   const log = logs[set] ?? { done: false };
   const last = lastPerformance(s, ex.key, today);
   const advice = adviseLoad(s, ex, today);
+  const start = !last && !advice ? startingLoad(s, ex, today) : null;
   const def = setDefaults(s, ex, today, logs, set);
   const isTask = ex.kind === 'task';
   const rounds = ex.kind === 'cardio';
@@ -679,6 +680,11 @@ function SetView({
       {advice && !log.done && set === 0 && (
         <p className="small advice focus-line">
           <Icon name="bolt" size={13} /> {advice.text}
+        </p>
+      )}
+      {!advice && !last && start && !log.done && set === 0 && (
+        <p className="small advice focus-line">
+          <Icon name="bolt" size={13} /> {firstTimeText(start, ex)}
         </p>
       )}
       {(isTask || cont) && ex.note && <p className="small muted focus-line">{ex.note}</p>}

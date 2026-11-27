@@ -38,6 +38,8 @@ async function callClaude(env: Env, body: Record<string, unknown>): Promise<Cont
 export interface MealItem {
   name: string;
   grams: number;
+  /** Boisson : `grams` est en ml. */
+  unit?: 'ml';
   kcal: number;
   protein: number;
   carbs: number;
@@ -79,7 +81,8 @@ const MEAL_TOOL = {
           type: 'object',
           properties: {
             name: { type: 'string' },
-            grams: { type: 'number', description: 'Poids estimé de la portion, tel que servi' },
+            grams: { type: 'number', description: 'Poids estimé de la portion, tel que servi (en ml pour une boisson)' },
+            unit: { type: 'string', enum: ['g', 'ml'], description: 'ml pour une boisson (café, lait, jus, soda), g sinon' },
             kcal: { type: 'number' },
             protein: { type: 'number', description: 'grammes' },
             carbs: { type: 'number', description: 'grammes' },
@@ -177,6 +180,7 @@ function sanitizeMeal(m: MealAnalysis): MealAnalysis {
     items: (Array.isArray(m.items) ? m.items : []).slice(0, 15).map((i) => ({
       name: String(i.name ?? 'Aliment').slice(0, 60),
       grams: num(i.grams),
+      ...(i.unit === 'ml' ? { unit: 'ml' as const } : {}),
       kcal: num(i.kcal),
       protein: num(i.protein),
       carbs: num(i.carbs),

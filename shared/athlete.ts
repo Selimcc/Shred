@@ -154,6 +154,8 @@ export interface Gym {
   /** Position de la salle, pour proposer la séance en arrivant. */
   place?: GymPlace;
   equipment: Partial<Record<Equipment, boolean>>;
+  /** Écart entre deux paires d'haltères (kg) : les charges conseillées tombent sur des haltères qui existent. */
+  dumbbellStep?: 1 | 2 | 2.5;
 }
 
 export function gymDefaults(chain: GymChain): Gym {

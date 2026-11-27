@@ -3,7 +3,9 @@
 import { type TouchEvent, useEffect, useRef, useState } from 'react';
 import { addMeal } from '../lib/actions';
 import { codeVariants, confirmer, scanRegion, sharpenBars, validBarcode } from '../lib/barcode';
-import { kcalPer100, productBrand, productImage, productName } from '../../shared/food';
+import { kcalPer100, offUnit, PACK_MAX, productBrand, productImage, productName } from '../../shared/food';
+import { amountOf, defaultPortion, fmtAmount, type Portion, unitOf } from '../lib/portions';
+import { PortionPicker } from './PortionPicker';
 import { formatNumber } from '../lib/date';
 import type { MealSlot } from '../../shared/types';
 import { ADD_TO_SLOT } from '../../shared/program';
@@ -16,9 +18,13 @@ export interface Product {
   name: string;
   brand?: string;
   image?: string;
-  /** Valeurs pour 100 g (ou 100 ml). */
+  /** Valeurs pour 100 g (ou 100 ml pour une boisson). */
   per100: { kcal: number; protein: number; carbs: number; fat: number };
   serving?: number;
+  /** Boisson : quantités en ml. */
+  unit?: 'ml';
+  /** Contenance du produit entier, s'il se mange ou se boit en une fois. */
+  pack?: number;
 }
 
 const CACHE_KEY = 'shred:products';
@@ -59,7 +65,7 @@ const clamp = (v: number, max: number) => Math.max(0, Math.min(v, max));
 
 async function fetchProduct(ean: string): Promise<Product | null> {
   const l = lang();
-  const fields = `code,product_name,product_name_${l},product_name_en,brands,nutriments,serving_quantity,image_front_small_url,image_small_url,images`;
+  const fields = `code,product_name,product_name_${l},product_name_en,brands,nutriments,serving_quantity,serving_quantity_unit,serving_size,quantity,product_quantity,product_quantity_unit,image_front_small_url,image_small_url,images`;
   const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(ean)}.json?fields=${fields}`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(tr('Open Food Facts {status}', { status: res.status }));
@@ -81,6 +87,10 @@ async function fetchProduct(ean: string): Promise<Product | null> {
     },
     serving: clamp(num(p.serving_quantity), 5000) || undefined,
   };
+  const unit = offUnit(p);
+  if (unit) product.unit = unit;
+  const pack = clamp(num(p.product_quantity), 5000);
+  if (pack >= 5 && pack <= PACK_MAX) product.pack = pack;
   remember(product);
   return product;
 }
@@ -284,7 +294,7 @@ function ScanCamera({ onCode, onFail }: { onCode: (code: string) => void; onFail
 export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string; slot: MealSlot; onClose: () => void }) {
   const [status, setStatus] = useState<'camera' | 'looking' | 'found' | 'missing' | 'nocam' | 'manual'>('camera');
   const [product, setProduct] = useState<Product | null>(null);
-  const [grams, setGrams] = useState('100');
+  const [portion, setPortion] = useState<Portion>({ measure: -1, qty: 100 });
   const [slot, setSlot] = useState<MealSlot>(initialSlot);
   const [manual, setManual] = useState('');
   const recent = readCache().slice(0, 8);
@@ -304,7 +314,7 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
         return;
       }
       setProduct(p);
-      setGrams(String(p.serving ?? 100));
+      setPortion(defaultPortion(p));
       setStatus('found');
     } catch {
       toast(tr('Pas de réseau pour chercher le produit. Réessaie, ou note-le à la main.'), true);
@@ -313,17 +323,18 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
     }
   };
 
-  const g = Math.max(0, Number(grams.replace(',', '.')) || 0);
+  const g = product ? amountOf(product, portion) : 0;
+  const unit = product ? unitOf(product) : 'g';
   const m = product ? macrosFor(product, g) : null;
 
   const add = () => {
     if (!product || !m || g <= 0) return;
     addMeal(today, {
       slot,
-      label: `${product.name}${product.brand ? `, ${product.brand}` : ''} (${formatNumber(g)} g)`,
+      label: `${product.name}${product.brand ? `, ${product.brand}` : ''} (${fmtAmount(g, unit)})`,
       ...m,
       source: 'scan',
-      items: [{ name: product.name, grams: g, ...m }],
+      items: [{ name: product.name, grams: g, ...m, ...(unit === 'ml' ? { unit } : {}) }],
     });
     toast(tr('{name} ajouté', { name: product.name }));
     onClose();
@@ -389,26 +400,13 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
               <div style={{ fontWeight: 650, lineHeight: 1.25 }}>{product.name}</div>
               <div className="small muted">
                 {product.brand ? `${product.brand}, ` : ''}
-                {tr('{kcal} kcal pour 100 g', { kcal: product.per100.kcal })}
+                {unit === 'ml' ? tr('{kcal} kcal pour 100 ml', { kcal: product.per100.kcal }) : tr('{kcal} kcal pour 100 g', { kcal: product.per100.kcal })}
               </div>
               <div className="small faint num">{tr('Code {ean}', { ean: product.ean })}</div>
             </div>
           </div>
 
-          <div className="builder-row">
-            <span className="small muted">{tr('Quantité (g)')}</span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input className="input num center" style={{ width: 96 }} inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} aria-label={tr('Quantité en grammes')} />
-              <div className="chips">
-                {[...new Set([product.serving, 50, 100, 150, 200].filter((x): x is number => Boolean(x)))].slice(0, 4).map((x) => (
-                  <button key={x} type="button" className={`chip ${g === x ? 'on' : ''}`} onClick={() => setGrams(String(x))}>
-                    {x}
-                    {x === product.serving ? ` (${tr('portion')})` : ''}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <PortionPicker food={product} value={portion} onChange={setPortion} />
 
           <div className="macro-grid card" style={{ padding: 16 }}>
             <div className="macro">
@@ -416,7 +414,7 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
                 {formatNumber(m.kcal)}
                 <small>{tr('kcal')}</small>
               </b>
-              <span>{tr('pour {n} g', { n: formatNumber(g) })}</span>
+              <span>{tr('pour {amount}', { amount: fmtAmount(g, unit) })}</span>
             </div>
             <div className="macro">
               <b>
@@ -457,7 +455,7 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
                 style={{ width: '100%', border: 0, background: 'none', textAlign: 'left' }}
                 onClick={() => {
                   setProduct(p);
-                  setGrams(String(p.serving ?? 100));
+                  setPortion(defaultPortion(p));
                   setStatus('found');
                 }}
               >
@@ -465,7 +463,9 @@ export function ScanSheet({ today, slot: initialSlot, onClose }: { today: string
                   <div className="title">{p.name}</div>
                   <div className="small muted">
                     {p.brand ? `${p.brand}, ` : ''}
-                    {tr('{kcal} kcal et {n} g de protéines pour 100 g', { kcal: p.per100.kcal, n: formatNumber(p.per100.protein, 1) })}
+                    {p.unit === 'ml'
+                      ? tr('{kcal} kcal et {n} g de protéines pour 100 ml', { kcal: p.per100.kcal, n: formatNumber(p.per100.protein, 1) })
+                      : tr('{kcal} kcal et {n} g de protéines pour 100 g', { kcal: p.per100.kcal, n: formatNumber(p.per100.protein, 1) })}
                   </div>
                 </div>
                 <Icon name="chevron" />

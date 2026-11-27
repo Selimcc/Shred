@@ -1,3 +1,4 @@
+import { catalogEntry } from '../../shared/catalog';
 import { adaptSession } from './dynamic';
 import { type Exercise, findSession, type Macros, resolveSession, scheduleFor, type Session } from '../../shared/program';
 import { addDays, mondayOf, weekdayOf } from './date';
@@ -12,7 +13,20 @@ export function sessionIdFor(s: AppState, key: string): string {
 /** La séance du jour, avec les changements du jour (remplacements, pannes, forme, temps dispo). */
 export function sessionFor(s: AppState, key: string): Session {
   const def = findSession(s.program, sessionIdFor(s, key));
-  return adaptSession(def, resolveSession(def, s.customExercises), s, key);
+  return withGymSteps(s, adaptSession(def, resolveSession(def, s.customExercises), s, key));
+}
+
+/** Les exercices aux haltères montent de l'écart entre les haltères de ta salle (1, 2 ou 2,5 kg). */
+export function withGymSteps(s: AppState, session: Session): Session {
+  const step = s.settings.gym.dumbbellStep;
+  if (!step) return session;
+  let changed = false;
+  const exercises = session.exercises.map((e) => {
+    if (!catalogEntry(e.key, s.customExercises)?.dumbbell || e.step === step) return e;
+    changed = true;
+    return { ...e, step };
+  });
+  return changed ? { ...session, exercises } : session;
 }
 
 /** Règle de validation d'une journée, d'après les réglages et les modules actifs. */

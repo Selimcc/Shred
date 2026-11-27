@@ -1,3 +1,4 @@
+import { BodyCard } from '../components/BodyCard';
 import { BodyPhotos } from '../components/BodyPhotos';
 import { TrophyCase } from '../components/Trophies';
 import { RecapCards } from '../components/MonthRecap';
@@ -78,6 +79,8 @@ export function Progress({ today, openSettings, openCoach }: { today: string; op
       {mod.strength && <Lifts today={today} />}
 
       <Reports today={today} openCoach={openCoach} />
+
+      {(mod.strength || mod.weight) && <BodyCard today={today} openProfile={() => openSettings('profile')} />}
 
       {mod.strength && <Strength today={today} />}
       {mod.strength && <Focus today={today} />}

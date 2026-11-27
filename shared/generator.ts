@@ -121,13 +121,16 @@ export const PATTERNS = {
   latIso: { region: 'back', role: 'iso', keys: ['straight-arm-pulldown', 'neutral-pulldown', 'db-row'] },
   traps: { region: 'traps', role: 'small', keys: ['shrug', 'farmer-walk'] },
   biceps: { region: 'biceps', role: 'small', keys: ['incline-curl', 'barbell-curl', 'hammer-curl', 'cable-curl', 'preacher-curl'] },
-  triceps: { region: 'triceps', role: 'small', keys: ['rope-pushdown', 'overhead-triceps', 'skullcrusher', 'dips', 'close-grip-bench', 'pushup'] },
+  // Au-dessus de la tête d'abord : le long chef étiré grossit davantage (Maeo et coll., 2022).
+  triceps: { region: 'triceps', role: 'small', keys: ['overhead-triceps', 'rope-pushdown', 'skullcrusher', 'dips', 'close-grip-bench', 'pushup'] },
   squat: { region: 'quads', role: 'compound', keys: ['squat', 'hack-squat', 'leg-press', 'smith-squat', 'front-squat', 'goblet-squat', 'bulgarian'] },
   quad2: { region: 'quads', role: 'compound', keys: ['leg-press', 'bulgarian', 'hack-squat', 'walking-lunge', 'goblet-squat', 'lunge'] },
   quadIso: { region: 'quads', role: 'iso', keys: ['leg-extension', 'bulgarian', 'lunge'] },
   hinge: { region: 'posterior', role: 'compound', keys: ['rdl', 'deadlift', 'hip-thrust', 'good-morning', 'kettlebell-swing'] },
   glute: { region: 'posterior', role: 'compound', keys: ['hip-thrust', 'bulgarian', 'walking-lunge', 'lunge'] },
-  hamIso: { region: 'posterior', role: 'iso', keys: ['leg-curl', 'hip-thrust', 'rdl'] },
+  // Assis avant allongé : ischios plus étirés, plus de muscle (Maeo et coll., 2021).
+  hamIso: { region: 'posterior', role: 'iso', keys: ['seated-leg-curl', 'leg-curl', 'hip-thrust', 'rdl'] },
+  // Debout avant assis : les jumeaux ne grossissent presque pas genou plié (Kinoshita et coll., 2023).
   calves: { region: 'calves', role: 'small', keys: ['standing-calf', 'seated-calf'] },
   abs: { region: 'abs', role: 'core', keys: ['hanging-leg-raise', 'cable-crunch', 'ab-wheel', 'crunch'] },
   obliques: { region: 'abs', role: 'core', keys: ['pallof', 'wood-chop', 'side-plank', 'russian-twist'] },

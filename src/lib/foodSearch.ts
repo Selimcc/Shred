@@ -24,7 +24,7 @@ async function direct(q: string): Promise<FoodHit[]> {
     page_size: '30',
     lc: l,
     sort_by: 'unique_scans_n',
-    fields: `code,product_name,product_name_${l},product_name_en,brands,nutriments,serving_quantity,image_front_small_url,image_small_url`,
+    fields: `code,product_name,product_name_${l},product_name_en,brands,nutriments,serving_quantity,serving_quantity_unit,serving_size,quantity,product_quantity,product_quantity_unit,image_front_small_url,image_small_url`,
   });
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 9000);

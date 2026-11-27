@@ -8,6 +8,8 @@ import { Ring } from '../components/Ring';
 import { Bar, errorText, PhotoThumb, Sheet, toast } from '../components/ui';
 import { addMeal, addWater, parseDecimal, removeMeal, togglePlannedMeal } from '../lib/actions';
 import { type FoodHit, forGrams, recentFoods, searchFoods } from '../lib/foodSearch';
+import { amountOf, defaultPortion, fmtAmount, type Portion, unitOf } from '../lib/portions';
+import { PortionPicker } from '../components/PortionPicker';
 import { searchGeneric } from '../lib/genericFoods';
 import { foodQuery } from '../../shared/food';
 import { api, type MealAnalysis } from '../lib/api';
@@ -450,7 +452,7 @@ function PhotoSheet({ file, initialSlot, today, onClose }: { file: File; initial
                   </div>
                 </div>
                 <label style={{ width: 84 }}>
-                  <span className="visually-hidden">{tr('Grammes de {name}', { name: it.name })}</span>
+                  <span className="visually-hidden">{it.unit === 'ml' ? tr('Millilitres de {name}', { name: it.name }) : tr('Grammes de {name}', { name: it.name })}</span>
                   <input
                     className="input center num"
                     style={{ minHeight: 40 }}
@@ -459,7 +461,7 @@ function PhotoSheet({ file, initialSlot, today, onClose }: { file: File; initial
                     onBlur={(e) => setGrams(i, parseDecimal(e.target.value))}
                   />
                 </label>
-                <span className="small faint">g</span>
+                <span className="small faint">{it.unit === 'ml' ? 'ml' : 'g'}</span>
                 <button
                   className="icon-btn"
                   style={{ width: 36, height: 36, boxShadow: 'none', background: 'transparent' }}
@@ -600,7 +602,7 @@ function HitRow({ hit, onPick }: { hit: FoodHit; onPick: (h: FoodHit) => void })
         </span>
         <span className="small muted ellipsis" style={{ display: 'block' }}>
           {hit.brand ? `${hit.brand}, ` : ''}
-          {tr('{n} kcal pour 100 g', { n: formatNumber(hit.per100.kcal) })}
+          {hit.unit === 'ml' ? tr('{n} kcal pour 100 ml', { n: formatNumber(hit.per100.kcal) }) : tr('{n} kcal pour 100 g', { n: formatNumber(hit.per100.kcal) })}
         </span>
       </span>
     </button>
@@ -619,7 +621,7 @@ function ManualSheet({ slot, today, onClose, onPhoto, onScan }: { slot: MealSlot
   const [now, setNow] = useState('');
   const [retry, setRetry] = useState(0);
   const [pick, setPick] = useState<FoodHit | null>(null);
-  const [grams, setGrams] = useState('100');
+  const [portion, setPortion] = useState<Portion>({ measure: -1, qty: 100 });
   const query = foodQuery(q);
   const local = useMemo(() => searchGeneric(query), [query]);
 
@@ -658,9 +660,10 @@ function ManualSheet({ slot, today, onClose, onPhoto, onScan }: { slot: MealSlot
   };
   const choose = (h: FoodHit) => {
     setPick(h);
-    setGrams(String(h.serving ?? 100));
+    setPortion(defaultPortion(h));
   };
-  const g = parseDecimal(grams) ?? 0;
+  const g = pick ? amountOf(pick, portion) : 0;
+  const unit = pick ? unitOf(pick) : 'g';
   const products = query.length >= 3 && remote ? remote.hits : [];
   const stale = remote !== null && remote.q !== query;
 
@@ -790,22 +793,12 @@ function ManualSheet({ slot, today, onClose, onPhoto, onScan }: { slot: MealSlot
           </button>
           <div style={{ fontWeight: 800 }}>{pick.name}</div>
           {pick.brand ? <div className="small muted">{pick.brand}</div> : pick.generic ? <div className="small muted">{tr('Valeurs moyennes, sans marque')}</div> : null}
-          <label className="field">
-            <span>{tr('Quantité (g)')}</span>
-            <input className="input num" inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} />
-          </label>
-          <div className="chips" style={{ gap: 6 }}>
-            {[...new Set([50, 100, 150, 200, ...(pick.serving ? [pick.serving] : [])])].map((v) => (
-              <button key={v} className={`chip ${g === v ? 'on' : ''}`} onClick={() => setGrams(String(v))}>
-                {pick.serving === v ? tr('{n} g (portion)', { n: formatNumber(v) }) : `${formatNumber(v)} g`}
-              </button>
-            ))}
-          </div>
+          <PortionPicker food={pick} value={portion} onChange={setPortion} />
           {g > 0 && (
             <div className="small muted num">
               {(() => {
                 const m = forGrams(pick, g);
-                return tr('{n} kcal, {protein} g P, {carbs} g G, {fat} g L', { n: formatNumber(m.kcal), protein: m.protein, carbs: m.carbs, fat: m.fat });
+                return tr('{amount} : {n} kcal, {protein} g P, {carbs} g G, {fat} g L', { amount: fmtAmount(g, unit), n: formatNumber(m.kcal), protein: m.protein, carbs: m.carbs, fat: m.fat });
               })()}
             </div>
           )}
@@ -814,12 +807,12 @@ function ManualSheet({ slot, today, onClose, onPhoto, onScan }: { slot: MealSlot
             disabled={!(g > 0 && g <= 5000)}
             onClick={() => {
               const m = forGrams(pick, g);
-              const label = `${pick.name}${pick.brand ? ` (${pick.brand})` : ''}`.slice(0, 80);
-              addMeal(today, { slot, label, ...m, source: 'manual', items: [{ name: pick.name, grams: g, ...m }] });
+              const label = `${pick.name}${pick.brand ? `, ${pick.brand}` : ''}`.slice(0, 66) + ` (${fmtAmount(g, unit)})`;
+              addMeal(today, { slot, label, ...m, source: 'manual', items: [{ name: pick.name, grams: g, ...m, ...(unit === 'ml' ? { unit } : {}) }] });
               done(pick.name);
             }}
           >
-            {tr('Ajouter')}{' '}{g > 0 ? `${formatNumber(g)} g` : ''}
+            {tr('Ajouter')}{' '}{g > 0 ? fmtAmount(g, unit) : ''}
           </button>
         </div>
       )}

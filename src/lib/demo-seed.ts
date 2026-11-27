@@ -49,7 +49,13 @@ export function demoState(base: AppState): AppState {
       .map((m, j) => ({ ...m, id: `${d}-${j}`, planId: m.id, source: 'plan' as const, at: 0 }));
     days[d] = { sets, mainDone: ok, meals, habits: { creatine: true, steps: i % 3 !== 0 } };
     if (i % 5 !== 3) weight[d] = Math.round((75.1 - i * 0.075 + Math.sin(i * 1.7) * 0.35) * 10) / 10;
-    if (weekdayOf(d) === 0) waist[d] = Math.round((84.5 - i * 0.06) * 10) / 10;
+    if (weekdayOf(d) === 0) waist[d] = Math.round((82.5 - i * 0.085) * 10) / 10;
+  }
+  // Trois mois de sèche avant : pesées et tour de taille, pour que le corps estimé ait de quoi comparer.
+  for (let i = -70; i < 0; i++) {
+    const d = addDays(start, i);
+    if (i % 3 !== 1) weight[d] = Math.round((75.1 - i * 0.075 + Math.sin(i * 1.7) * 0.35) * 10) / 10;
+    if (weekdayOf(d) === 0) waist[d] = Math.round((82.5 - i * 0.085) * 10) / 10;
   }
 
   days[today] = {
@@ -66,6 +72,8 @@ export function demoState(base: AppState): AppState {
     settings: {
       ...base.settings,
       onboarded: true,
+      age: 29,
+      height: 178,
       ai: 'api',
       coachNotes: tr('Objectif : sèche en gardant mes charges. Meal prep le dimanche, budget serré.'),
       athlete: { ...base.settings.athlete, physique: 'aesthetic', priorities: ['delts', 'back'], days: 5, minutes: 75 },

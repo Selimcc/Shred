@@ -111,35 +111,35 @@ s0.program = gen({ physique: 'aesthetic', days: 5, minutes: 75, priorities: ['de
 s0.days[today] = { sets: {}, mainDone: false, meals: [], habits: {}, session: s0.program.sessions.find((x) => x.name === 'Bas du corps').id };
 k.replaceState(s0);
 let sess = k.sessionFor(k.getState(), today);
-const target = sess.exercises.find((e) => e.key === 'leg-curl');
+const target = sess.exercises.find((e) => e.key === 'seated-leg-curl');
 check('séance du jour trouvée', Boolean(target), sess.exercises.map((e) => e.key).join(','));
-const alts = k.alternatives(k.getState(), 'leg-curl', today, sess.exercises.map((e) => e.key));
-check('remplaçants du leg curl : même muscle, dispo', alts.length > 0 && alts.every((a) => k.regionOf(a.key) === 'posterior' || a.why !== 'Même mouvement'), alts.map((a) => a.key).join(','));
-k.swapExercise(today, 'leg-curl', alts[0].key, { reason: 'busy' });
+const alts = k.alternatives(k.getState(), 'seated-leg-curl', today, sess.exercises.map((e) => e.key));
+check('remplaçants du leg curl assis : même muscle, dispo', alts.length > 0 && alts.every((a) => k.regionOf(a.key) === 'posterior' || a.why !== 'Même mouvement'), alts.map((a) => a.key).join(','));
+k.swapExercise(today, 'seated-leg-curl', alts[0].key, { reason: 'busy' });
 sess = k.sessionFor(k.getState(), today);
-const swapped = sess.exercises.find((e) => e.slotKey === 'leg-curl');
+const swapped = sess.exercises.find((e) => e.slotKey === 'seated-leg-curl');
 check('remplacement du jour appliqué', swapped?.key === alts[0].key && swapped.change === 'swap');
-check('le programme ne change pas', k.getState().program.sessions.some((x) => x.exercises.some((e) => e.key === 'leg-curl')));
-k.undoSwap(today, 'leg-curl');
-check('annuler le remplacement', k.sessionFor(k.getState(), today).exercises.some((e) => e.key === 'leg-curl' && !e.change));
+check('le programme ne change pas', k.getState().program.sessions.some((x) => x.exercises.some((e) => e.key === 'seated-leg-curl')));
+k.undoSwap(today, 'seated-leg-curl');
+check('annuler le remplacement', k.sessionFor(k.getState(), today).exercises.some((e) => e.key === 'seated-leg-curl' && !e.change));
 
 // Machine en panne : remplacée automatiquement 7 jours, aussi sur une autre séance qui l'utilise.
-k.swapExercise(today, 'leg-curl', alts[0].key, { reason: 'broken' });
+k.swapExercise(today, 'seated-leg-curl', alts[0].key, { reason: 'broken' });
 const later = k.addDays(today, 3);
 const s1 = k.getState();
 const legsId = s1.program.sessions.find((x) => x.name === 'Legs').id;
 k.replaceState({ ...s1, days: { ...s1.days, [later]: { sets: {}, mainDone: false, meals: [], habits: {}, session: legsId } } });
-const auto = k.sessionFor(k.getState(), later).exercises.find((e) => e.slotKey === 'leg-curl');
-check('panne : remplacé automatiquement les jours suivants', auto?.change === 'broken' && auto.key !== 'leg-curl', auto?.key);
-check('panne : finie après 7 jours', !k.isBroken(k.getState(), 'leg-curl', k.addDays(today, 8)));
-k.markRepaired('leg-curl');
-check('machine réparée : retour à la normale', k.sessionFor(k.getState(), later).exercises.some((e) => e.key === 'leg-curl'));
+const auto = k.sessionFor(k.getState(), later).exercises.find((e) => e.slotKey === 'seated-leg-curl');
+check('panne : remplacé automatiquement les jours suivants', auto?.change === 'broken' && auto.key !== 'seated-leg-curl', auto?.key);
+check('panne : finie après 7 jours', !k.isBroken(k.getState(), 'seated-leg-curl', k.addDays(today, 8)));
+k.markRepaired('seated-leg-curl');
+check('machine réparée : retour à la normale', k.sessionFor(k.getState(), later).exercises.some((e) => e.key === 'seated-leg-curl'));
 
 // Garder dans le programme
 const sid = k.sessionFor(k.getState(), today).id;
-k.swapExercise(today, 'leg-curl', 'hip-thrust', { reason: 'vary', always: true, sessionId: sid });
+k.swapExercise(today, 'seated-leg-curl', 'hip-thrust', { reason: 'vary', always: true, sessionId: sid });
 const def = k.getState().program.sessions.find((x) => x.id === sid);
-check('« garder » remplace dans le programme', def.exercises.some((e) => e.key === 'hip-thrust') && !def.exercises.some((e) => e.key === 'leg-curl'));
+check('« garder » remplace dans le programme', def.exercises.some((e) => e.key === 'hip-thrust') && !def.exercises.some((e) => e.key === 'seated-leg-curl'));
 
 // Sauter, ajouter
 k.skipExercise(today, 'hip-thrust');

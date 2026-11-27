@@ -69,7 +69,7 @@ function collect(files, { server = false } = {}) {
           if (a[4]?.type === 'ArrayExpression') for (const m of a[4].elements) add(str(m), file);
           add(str(a[5]), file);
           const extra = a[7];
-          if (extra?.type === 'ObjectExpression') for (const p of extra.properties) if (p.key?.name === 'note') add(str(p.value), file);
+          if (extra?.type === 'ObjectExpression') for (const p of extra.properties) if (p.key?.name === 'note' || p.key?.name === 'why') add(str(p.value), file);
         }
       }
       if (server && n.type === 'NewExpression' && n.callee.type === 'Identifier' && n.callee.name === 'HttpError') add(str(n.arguments[1]), file);

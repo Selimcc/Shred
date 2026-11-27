@@ -28,7 +28,9 @@ export interface SetLog {
 
 export interface MealItem {
   name: string;
+  /** Quantité en grammes, ou en ml quand `unit` vaut 'ml'. */
   grams: number;
+  unit?: 'ml';
   kcal: number;
   protein: number;
   carbs: number;
