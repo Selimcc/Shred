@@ -1,11 +1,12 @@
 {
   "name": "shred",
   "private": true,
-  "version": "0.33.1",
+  "version": "0.34.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:api": "wrangler dev --test-scheduled",
+    "gen:body": "node scripts/gen-body.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:history": "node scripts/check-secrets.mjs --history",
     "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
@@ -40,6 +41,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "esbuild": "^0.28.2",
     "http_ece": "^1.2.1",
+    "meshoptimizer": "^0.22.0",
     "qrcode-terminal": "^0.12.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",

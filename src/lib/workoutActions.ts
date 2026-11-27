@@ -17,6 +17,8 @@ export function swapExercise(date: string, slotKey: string, toKey: string, opts:
         const to = catalogEntry(toKey, d.customExercises);
         slot.key = toKey;
         slot.note = undefined;
+        // Choisi pour de bon : il ne passe plus à une autre variante au bloc suivant.
+        slot.pin = true;
         if (from && to && from.kind !== to.kind) {
           slot.reps = undefined;
           slot.rest = undefined;
@@ -43,6 +45,18 @@ export function markRepaired(key: string) {
   setState((d) => {
     if (d.settings.broken) delete d.settings.broken[key];
   });
+}
+
+/** Garde un exercice d'isolation à chaque bloc : il ne change plus de variante (ou de nouveau, avec `pin` faux). */
+export function pinExercise(key: string, pin = true) {
+  setState((d) => {
+    for (const def of d.program.sessions) for (const x of def.exercises) if (x.key === key) x.pin = pin || undefined;
+  });
+}
+
+/** Pas de rattrapage ce jour-là. */
+export function dropCatchUp(date: string) {
+  setState((d) => void (ensureDay(d, date).noCatchUp = true));
 }
 
 export function skipExercise(date: string, slotKey: string, skip = true) {

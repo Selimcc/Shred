@@ -30,7 +30,9 @@ import { PHYSIQUES, regionName } from '../../shared/generator';
 import { Pulse } from '../components/Pulse';
 import { ProgramBuilder } from './ProgramBuilder';
 import { applyTweak, dismissTweak, programTweaks } from '../lib/tweaks';
-import { addDays, dayKey, formatShort } from '../lib/date';
+import { addDays, dayKey, formatShort, mondayOf } from '../lib/date';
+import { blockOf, nextRotation, rotates, rotationFor } from '../lib/variety';
+import { exerciseName } from '../../shared/catalog';
 import { loc, lower, tn, tr } from '../../shared/i18n';
 
 const TYPE_NAMES: Record<SessionType, string> = { lifting: tr('Muscu'), cardio: tr('Cardio'), rest: tr('Repos') };
@@ -217,6 +219,8 @@ export function ProgramEditor() {
         </div>
       </section>
 
+      <VarietySection />
+
       <section>
         <div className="section-head">
           <h2>{tr('Avant chaque séance')}</h2>
@@ -231,6 +235,46 @@ export function ProgramEditor() {
         </div>
       </section>
     </div>
+  );
+}
+
+/** Les exercices d'isolation qui changent à chaque bloc, et le rattrapage d'un muscle oublié dans la semaine. */
+function VarietySection() {
+  const s = useApp();
+  const v = s.settings.variety ?? { on: true, since: dayKey(), catchUp: true };
+  const today = dayKey();
+  const block = blockOf(s, today);
+  const next = nextRotation(s, today);
+  const set = (patch: Partial<typeof v>) => setState((d) => void (d.settings.variety = { ...v, ...patch }));
+  return (
+    <section>
+      <div className="section-head">
+        <h2>{tr('Variété')}</h2>
+      </div>
+      <div className="group">
+        <Toggle
+          title={tr('Changer les exercices d’isolation toutes les 4 semaines')}
+          text={
+            v.on
+              ? next
+                ? block
+                  ? tr('Prochain changement le {date} (bloc {n}). Les polyarticulaires ne bougent pas : ce sont eux qui montrent ta progression.', { n: block, date: formatShort(next) })
+                  : tr('Premier changement le {date}, puis toutes les 4 semaines. Les polyarticulaires ne bougent pas : ce sont eux qui montrent ta progression.', { date: formatShort(next) })
+                : ''
+              : tr('Tes exercices restent les mêmes de semaine en semaine.')
+          }
+          on={v.on}
+          // Rallumée : les exercices changent dès le lundi qui vient.
+          onChange={(on) => set(on && v.since < today ? { on, since: addDays(mondayOf(today), 7) } : { on })}
+        />
+        <Toggle
+          title={tr('Rattraper un muscle oublié')}
+          text={tr('Si une séance saute dans la semaine, la suivante ajoute un exercice pour le muscle qui n’a pas eu ses séries.')}
+          on={v.catchUp}
+          onChange={(catchUp) => set({ catchUp })}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -252,6 +296,8 @@ function SessionCard({
   const s = useApp();
   const session = resolveSession(def, s.customExercises);
   const [editing, setEditing] = useState<number | null>(null);
+  const rotation = rotationFor(s, def, dayKey());
+  const variety = s.settings.variety?.on !== false;
 
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -319,6 +365,11 @@ function SessionCard({
                       <span className="small muted num">
                         {tr('{sets} × {reps}, repos {rest}', { sets: ex.sets, reps: ex.reps, rest: fmtRest(ex.rest) })}
                       </span>
+                      {rotation.has(slot.key) && (
+                        <span className="small faint" style={{ display: 'block' }}>
+                          {tr('Ce bloc : {name}', { name: lower(exerciseName(rotation.get(slot.key)!, s.customExercises)) })}
+                        </span>
+                      )}
                     </span>
                   </button>
                   {isOpen && (
@@ -349,6 +400,14 @@ function SessionCard({
                           </select>
                         </label>
                       </div>
+                      {variety && def.type === 'lifting' && rotates(s, slot.key) && (
+                        <Toggle
+                          title={tr('Changer de variante à chaque bloc')}
+                          text={slot.pin ? tr('Gardé à chaque bloc.') : tr('Passe à un autre exercice du même mouvement toutes les 4 semaines.')}
+                          on={!slot.pin}
+                          onChange={(on) => updateSlot(def.id, i, { pin: on ? undefined : true })}
+                        />
+                      )}
                       <label className="field">
                         <span>{tr('Note (optionnel)')}</span>
                         <input className="input" defaultValue={slot.note ?? ''} placeholder={tr('ex. dernière série en dégressive')} onBlur={(e) => updateSlot(def.id, i, { note: e.target.value.trim() || undefined })} />

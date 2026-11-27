@@ -47,6 +47,8 @@ export interface ExerciseSlot {
   zone?: Zone;
   /** Endurance : l'allure ou la zone visée, en clair (« 4:35/km », « 88–94 % FTP »). */
   target?: string;
+  /** Isolation : garder cet exercice à chaque bloc au lieu de passer à une autre variante. */
+  pin?: boolean;
 }
 
 export type SessionType = 'lifting' | 'cardio' | 'rest';
@@ -95,7 +97,9 @@ export interface Exercise {
   /** Clé de l'exercice prévu dans le programme, quand il est remplacé aujourd'hui. */
   slotKey?: string;
   /** Pourquoi il a changé : remplacé à la main, machine en panne, ou ajouté pour la séance. */
-  change?: 'swap' | 'broken' | 'extra';
+  change?: 'swap' | 'broken' | 'extra' | 'rotate' | 'catchup';
+  /** Variante du bloc : son numéro. Rattrapage : la zone à rattraper. */
+  because?: string;
   discipline?: Discipline;
   zone?: Zone;
   sec?: number;

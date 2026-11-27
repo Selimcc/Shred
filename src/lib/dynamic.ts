@@ -1,13 +1,15 @@
 // La séance s'adapte au jour : exercice remplacé (machine prise ou en panne, douleur, envie de varier),
 // sauté ou ajouté, forme du jour, temps disponible. Le programme ne change que si tu le demandes.
 import { CATALOG, catalogEntry } from '../../shared/catalog';
-import { patternsOf, PATTERNS, type PatternId, regionOf } from '../../shared/generator';
+import { patternsOf, PATTERNS, type PatternId, regionName, regionOf } from '../../shared/generator';
 import { swapsFor, usable } from '../../shared/plans';
 import { estimateDuration, resolveExercise } from '../../shared/program';
 import type { Exercise, Session, SessionDef } from '../../shared/types';
 import { isDeload } from './recovery';
 import type { AppState } from './state';
-import { tr } from '../../shared/i18n';
+import { dayKey } from './date';
+import { blockOf, catchUpFor, rotationFor } from './variety';
+import { lower, tr } from '../../shared/i18n';
 
 export type SwapReason = 'busy' | 'broken' | 'pain' | 'vary';
 
@@ -59,11 +61,16 @@ export function alternatives(s: AppState, key: string, date: string, exclude: st
   return out;
 }
 
-/** Applique à la séance prévue les changements du jour : remplacements, pannes, sauts, ajouts, forme, temps. */
-export function adaptSession(def: SessionDef, base: Session, s: AppState, date: string): Session {
+/**
+ * Applique à la séance prévue les changements du jour : variante du bloc, remplacements, pannes, sauts, ajouts,
+ * rattrapage d'un muscle oublié dans la semaine, forme, temps.
+ */
+export function adaptSession(def: SessionDef, base: Session, s: AppState, date: string, today = dayKey()): Session {
   const day = s.days[date];
   const custom = s.customExercises;
-  if (!day && !s.settings.broken && !s.deload?.week) return base;
+  const rotation = rotationFor(s, def, date);
+  const catching = def.type === 'lifting' && s.settings.variety?.catchUp !== false && date <= today;
+  if (!day && !s.settings.broken && !s.deload?.week && !rotation.size && !catching) return base;
   const exercises: Exercise[] = [];
   const used = new Set<string>();
   const planned = new Set(def.exercises.map((x) => x.key));
@@ -73,9 +80,13 @@ export function adaptSession(def: SessionDef, base: Session, s: AppState, date: 
     let key = slot.key;
     let change: Exercise['change'];
     const manual = day?.swaps?.[slot.key];
+    const turn = rotation.get(slot.key);
     if (manual) {
       key = manual;
       change = 'swap';
+    } else if (turn) {
+      key = turn;
+      change = 'rotate';
     } else if (isBroken(s, slot.key, date)) {
       const alt = alternatives(s, slot.key, date, [...planned, ...used])[0];
       if (alt) {
@@ -94,12 +105,23 @@ export function adaptSession(def: SessionDef, base: Session, s: AppState, date: 
     // Même famille (polyarticulaire ↔ polyarticulaire) : on garde les reps prévues ; sinon celles du nouvel exercice.
     const sameKind = from && to && from.kind === to.kind;
     const ex = resolveExercise({ key, sets: slot.sets, reps: sameKind ? slot.reps : undefined, rest: sameKind ? slot.rest : undefined }, custom);
-    exercises.push({ ...ex, slotKey: slot.key, change });
+    exercises.push({ ...ex, slotKey: slot.key, change, ...(change === 'rotate' ? { because: String(blockOf(s, date)) } : {}) });
   }
   for (const slot of day?.extra ?? []) {
     if (used.has(slot.key)) continue;
     used.add(slot.key);
     exercises.push({ ...resolveExercise(slot, custom), change: 'extra' });
+  }
+  // Un muscle prévu cette semaine est resté de côté : un exercice pour le rattraper, en fin de séance.
+  if (catching && !isDeload(s, date) && day?.form !== 'low') {
+    const minutes = exercises.reduce((n, e) => n + e.sets * (40 + e.rest), 0) / 60;
+    for (const slot of catchUpFor(s, def, date, used, minutes)) {
+      const swap = day?.swaps?.[slot.key];
+      const key = swap && !used.has(swap) ? swap : slot.key;
+      used.add(key);
+      const r = regionOf(slot.key, custom);
+      exercises.push({ ...resolveExercise({ ...slot, key }, custom), ...(key !== slot.key ? { slotKey: slot.key } : {}), change: 'catchup', ...(r ? { because: lower(regionName(r)) } : {}) });
+    }
   }
 
   let list = exercises;

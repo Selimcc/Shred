@@ -15,7 +15,7 @@ import { type Athlete, DEFAULT_ATHLETE, DEFAULT_GYM, type Gym, type WeightGoal }
 import type { MealPrep } from '../../shared/meals';
 import { DEFAULT_PROGRAM } from '../../shared/templates';
 import type { CatalogEntry, Discipline, ExerciseSlot, HabitDef, PlannedMeal, Program } from '../../shared/types';
-import { addDays, dayKey } from './date';
+import { addDays, dayKey, mondayOf } from './date';
 
 export interface SetLog {
   w?: number;
@@ -56,6 +56,8 @@ export interface DayLog {
   swaps?: Record<string, string>;
   /** Exercices sautés aujourd'hui (clé prévue). */
   skipped?: string[];
+  /** Rattrapage retiré pour ce jour-là. */
+  noCatchUp?: boolean;
   /** Exercices ajoutés pour la séance du jour. */
   extra?: ExerciseSlot[];
   form?: Form;
@@ -136,6 +138,11 @@ export interface Settings {
   season?: SeasonPref;
   /** Échauffement proposé avant chaque séance (oui par défaut). */
   warmup?: boolean;
+  /**
+   * Variété : les exercices d'isolation changent de variante à chaque bloc de 4 semaines (le premier commence le
+   * lundi `since`), et un exercice de rattrapage s'ajoute quand un muscle prévu dans la semaine est resté de côté.
+   */
+  variety?: { on: boolean; since: string; catchUp: boolean };
 }
 
 export interface PublicProfileSettings {
@@ -300,6 +307,8 @@ export function initial(): AppState {
       athlete: structuredClone(DEFAULT_ATHLETE),
       gym: structuredClone(DEFAULT_GYM),
       reportEmail: false,
+      // Les exercices du programme restent 4 semaines avant la première rotation.
+      variety: { on: true, since: addDays(mondayOf(today), 28), catchUp: true },
     },
     program: structuredClone(DEFAULT_PROGRAM),
     customExercises: {},
@@ -358,6 +367,8 @@ export function migrate(saved: Partial<AppState> & { settings?: Partial<Settings
       profile: { ...base.settings.profile, ...settings.profile, show: { ...base.settings.profile.show, ...settings.profile?.show } },
       athlete: { ...base.settings.athlete, ...settings.athlete, diet: { ...base.settings.athlete.diet, ...settings.athlete?.diet } },
       gym: { ...base.settings.gym, ...settings.gym, equipment: { ...base.settings.gym.equipment, ...settings.gym?.equipment } },
+      // Déjà là avant la variété : les exercices tournent dès le lundi qui vient.
+      variety: settings.variety ?? { on: true, since: addDays(mondayOf(dayKey()), 7), catchUp: true },
     },
     program,
     customExercises: { ...saved.customExercises },

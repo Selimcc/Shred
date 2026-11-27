@@ -13,7 +13,7 @@ import { type Form, getState, readDay, type SetLog, useApp } from '../lib/store'
 import { cancelRestPush, scheduleRestPush } from '../lib/restPush';
 import { formHint, isDeload } from '../lib/recovery';
 import { alternatives, BROKEN_DAYS, isBroken, SWAP_REASONS, type SwapReason } from '../lib/dynamic';
-import { addExtra, markRepaired, removeExtra, setExpress, setForm, skipExercise, stopDeload, swapExercise, undoSwap } from '../lib/workoutActions';
+import { addExtra, dropCatchUp, markRepaired, pinExercise, removeExtra, setExpress, setForm, skipExercise, stopDeload, swapExercise, undoSwap } from '../lib/workoutActions';
 import { applyTweak, dismissTweak, programTweaks } from '../lib/tweaks';
 import { catalogEntry, exerciseName } from '../../shared/catalog';
 import { planWeek } from '../../shared/program';
@@ -473,6 +473,26 @@ function ExerciseCard({
                     {tr('retirer')}
                   </button>
                 </>
+              ) : ex.change === 'rotate' ? (
+                <>
+                  {tr('Bloc {n} : remplace {name}', { n: ex.because ?? '', name: lower(exerciseName(ex.slotKey!, s.customExercises)) })}{' '}
+                  <button
+                    className="link"
+                    onClick={() => {
+                      pinExercise(ex.slotKey!);
+                      toast(tr('{name} reste à chaque bloc', { name: exerciseName(ex.slotKey!, s.customExercises) }));
+                    }}
+                  >
+                    {tr('garder l’ancien')}
+                  </button>
+                </>
+              ) : ex.change === 'catchup' ? (
+                <>
+                  {tr('Pour rattraper la semaine : {region}', { region: ex.because ?? '' })}{' '}
+                  <button className="link" onClick={() => dropCatchUp(date)}>
+                    {tr('retirer')}
+                  </button>
+                </>
               ) : (
                 <>
                   {ex.change === 'broken'
@@ -609,7 +629,7 @@ function SwapSheet({ ex, date, sessionId, taken, onClose }: { ex: Exercise; date
   const alts = alternatives(s, slotKey, date, taken.filter((k) => k !== ex.key)).filter((a) => a.key !== ex.key).slice(0, 8);
   const original = catalogEntry(slotKey, s.customExercises);
   return (
-    <Sheet title={tr('Remplacer : {n}', { n: original?.name ?? ex.name })} onClose={onClose}>
+    <Sheet title={tr('Remplacer : {n}', { n: ex.change === 'rotate' || ex.change === 'catchup' ? ex.name : exerciseName(slotKey, s.customExercises) })} onClose={onClose}>
       <div className="stack" style={{ gap: 14 }}>
         <div className="chips" role="group" aria-label={tr('Pourquoi')}>
           {SWAP_REASONS.map((r) => (

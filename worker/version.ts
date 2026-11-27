@@ -1,2 +1,2 @@
 /** Version déployée : /api/version (vérifiée par la CI après chaque déploiement) et le serveur MCP. */
-export const VERSION = '0.33.1';
+export const VERSION = '0.34.0';

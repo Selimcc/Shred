@@ -7,7 +7,7 @@ import { generateProgram, runnerStrength } from '../../shared/generator';
 import { adaptToGym, hyroxPlan, isRoadRace, runningPlan } from '../../shared/plans';
 import { combatBlock } from '../../shared/combat';
 import type { Program } from '../../shared/types';
-import { dayKey } from './date';
+import { addDays, dayKey, mondayOf } from './date';
 import type { Advice } from './report';
 import { type AppState, getState, setState } from './store';
 import { lower, tr } from '../../shared/i18n';
@@ -95,10 +95,12 @@ function enduranceNotes(a: Athlete, p: Program): string[] {
 }
 
 /** Applique un programme en gardant l'ancien de côté (5 derniers), pour pouvoir revenir en arrière. */
-export function applyProgram(program: Program) {
+/** `fresh` : un nouveau programme, dont les exercices restent 4 semaines avant de changer de variante. */
+export function applyProgram(program: Program, { fresh = true } = {}) {
   setState((d) => {
     d.programHistory = [{ program: d.program, replacedAt: dayKey() }, ...(d.programHistory ?? [])].slice(0, 5);
     d.program = program;
+    if (fresh && d.settings.variety) d.settings.variety.since = addDays(mondayOf(dayKey()), 28);
   });
 }
 
@@ -115,7 +117,7 @@ export function restorePreviousProgram(): boolean {
 export function adaptCurrentProgram() {
   const s = getState();
   const r = adaptToGym(s.program, s.settings.gym, nameOf);
-  if (r.swaps.length) applyProgram(r.program);
+  if (r.swaps.length) applyProgram(r.program, { fresh: false });
   return r.swaps;
 }
 

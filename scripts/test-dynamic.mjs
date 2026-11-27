@@ -23,6 +23,8 @@ await build({
       export { programFor, applyProgram, restorePreviousProgram } from './src/lib/coaching';
       export { adviseLoad } from './src/lib/advisor';
       export { addDays } from './src/lib/date';
+      export * from './src/lib/variety';
+      export { mergeDay } from './src/lib/merge';
     `,
     resolveDir: process.cwd(),
     loader: 'ts',
@@ -234,6 +236,86 @@ check('revenir au programme précédent', k.restorePreviousProgram() && k.getSta
   check('flamme : jour de repos, les repas suffisent', k.dayValidated(st, restDay));
   st.days[restDay] = { sets: {}, mainDone: false, meals: meals.slice(0, 2), habits: {} };
   check('flamme : jour de repos, il faut quand même les repas', !k.dayValidated(st, restDay));
+}
+
+/* ---------- Variété : isolation qui tourne par bloc, rattrapage d'un muscle oublié ---------- */
+{
+  const st = k.initial();
+  st.createdAt = '2026-10-01';
+  st.program = gen({ physique: 'aesthetic', days: 5, minutes: 75 }).program;
+  st.settings.variety = { on: true, since: '2026-11-30', catchUp: false };
+  const lifting = st.program.sessions.filter((x) => x.type === 'lifting');
+  const at = (def, date, s = st) => k.adaptSession(def, k.resolveSession(def, s.customExercises), s, date, date);
+  const kinds = (key) => k.catalogEntry(key).kind;
+
+  check('bloc : 0 avant le premier lundi', k.blockOf(st, '2026-11-29') === 0);
+  check('bloc : 1 du 30 novembre au 27 décembre', k.blockOf(st, '2026-11-30') === 1 && k.blockOf(st, '2026-12-27') === 1);
+  check('bloc : 2 à partir du 28 décembre', k.blockOf(st, '2026-12-28') === 2);
+  check('bloc : prochain changement', k.nextRotation(st, '2026-12-05') === '2026-12-28' && k.nextRotation(st, '2026-11-20') === '2026-11-30');
+
+  const before = lifting.flatMap((def) => at(def, '2026-11-27').exercises);
+  check('bloc 0 : le programme tel quel', before.every((e) => e.change !== 'rotate'));
+
+  const b1 = lifting.map((def) => ({ def, list: at(def, '2026-12-01').exercises }));
+  const rotated = b1.flatMap(({ list }) => list.filter((e) => e.change === 'rotate'));
+  check('bloc 1 : des exercices d’isolation changent', rotated.length >= 3, `${rotated.length} changés`);
+  check('bloc 1 : même zone, toujours de l’isolation ou du gainage', rotated.every((e) => k.regionOf(e.key) === k.regionOf(e.slotKey) && ['isolation', 'core'].includes(kinds(e.key))), rotated.map((e) => `${e.slotKey}→${e.key}`).join(' '));
+  check('bloc 1 : les polyarticulaires ne bougent pas', b1.every(({ def, list }) => list.filter((e) => kinds(e.key) === 'compound').every((e) => !e.change && def.exercises.some((x) => x.key === e.key))));
+  check('bloc 1 : pas deux fois le même exercice dans une séance', b1.every(({ list }) => new Set(list.map((e) => e.key)).size === list.length));
+  check('bloc 1 : le badge donne le numéro du bloc', rotated.every((e) => e.because === '1'));
+
+  const keysAt = (date) => lifting.map((def) => at(def, date).exercises.map((e) => e.key).join(',')).join('|');
+  check('bloc 2 : encore d’autres variantes', keysAt('2026-12-29') !== keysAt('2026-12-01'));
+  check('dans un bloc, la semaine se répète', keysAt('2026-12-01') === keysAt('2026-12-15'));
+
+  const one = rotated[0];
+  const pinned = structuredClone(st);
+  for (const def of pinned.program.sessions) for (const x of def.exercises) if (x.key === one.slotKey) x.pin = true;
+  const host = pinned.program.sessions.find((def) => def.exercises.some((x) => x.key === one.slotKey));
+  check('épinglé : il reste à chaque bloc', at(host, '2026-12-01', pinned).exercises.some((e) => e.key === one.slotKey && !e.change));
+
+  const off = structuredClone(st);
+  off.settings.variety.on = false;
+  check('variété coupée : rien ne tourne', lifting.every((def) => at(def, '2026-12-01', off).exercises.every((e) => e.change !== 'rotate')));
+
+  const swapped = structuredClone(st);
+  swapped.days['2026-12-01'] = { sets: {}, mainDone: false, meals: [], habits: {}, swaps: { [one.slotKey]: 'cable-curl' } };
+  const sHost = swapped.program.sessions.find((def) => def.exercises.some((x) => x.key === one.slotKey));
+  check('un remplacement du jour passe avant la variante du bloc', at(sHost, '2026-12-01', swapped).exercises.some((e) => e.slotKey === one.slotKey && e.change === 'swap'));
+
+  // Rattrapage : semaine du lundi 23 novembre, push lundi et pull mardi faits, legs mercredi sauté.
+  const cu = k.initial();
+  cu.createdAt = '2026-10-01';
+  cu.program = gen({ physique: 'aesthetic', days: 5, minutes: 75 }).program;
+  cu.settings.variety = { on: false, since: '2027-01-04', catchUp: true };
+  const sessionOf = (date) => k.findSession(cu.program, cu.program.schedule[new Date(`${date}T12:00:00`).getDay()]);
+  const doneAll = (date) => {
+    const def = sessionOf(date);
+    cu.days[date] = { sets: Object.fromEntries(def.exercises.map((x) => [x.key, Array.from({ length: x.sets ?? 3 }, () => ({ w: 20, r: 10, done: true }))])), mainDone: true, meals: [], habits: {} };
+  };
+  doneAll('2026-11-23');
+  doneAll('2026-11-24');
+  const friday = sessionOf('2026-11-27');
+  const legsRegions = ['quads', 'posterior', 'calves'];
+  const fri = at(friday, '2026-11-27', cu).exercises.filter((e) => e.change === 'catchup');
+  check('rattrapage : legs sauté mercredi, la séance de vendredi rattrape les jambes', fri.length >= 1 && fri.every((e) => legsRegions.includes(k.regionOf(e.key))), fri.map((e) => e.key).join(','));
+  check('rattrapage : 2 ou 3 séries, en fin de séance', fri.every((e) => e.sets >= 2 && e.sets <= 3) && at(friday, '2026-11-27', cu).exercises.slice(-fri.length).every((e) => e.change === 'catchup'));
+  check('rattrapage : la zone est nommée dans le badge', fri.every((e) => e.because && e.because.length > 2), fri.map((e) => e.because).join(','));
+  check('rattrapage : jamais pour un jour à venir', at(friday, '2026-11-27', cu).exercises.length === k.adaptSession(friday, k.resolveSession(friday), cu, '2026-11-27', '2026-11-26').exercises.length + fri.length);
+  const monday = sessionOf('2026-11-30');
+  check('rattrapage : rien le lundi, toute la semaine est devant', at(monday, '2026-11-30', cu).exercises.every((e) => e.change !== 'catchup'));
+  doneAll('2026-11-25');
+  check('rattrapage : rien si legs a été fait', at(friday, '2026-11-27', cu).exercises.every((e) => e.change !== 'catchup'));
+  delete cu.days['2026-11-25'];
+  cu.days['2026-11-27'] = { sets: {}, mainDone: false, meals: [], habits: {}, noCatchUp: true };
+  check('rattrapage : retiré pour la journée', at(friday, '2026-11-27', cu).exercises.every((e) => e.change !== 'catchup'));
+  cu.days['2026-11-27'] = { sets: {}, mainDone: false, meals: [], habits: {}, form: 'low' };
+  check('rattrapage : pas un jour de fatigue', at(friday, '2026-11-27', cu).exercises.every((e) => e.change !== 'catchup'));
+  delete cu.days['2026-11-27'];
+  cu.settings.variety.catchUp = false;
+  check('rattrapage coupé : rien', at(friday, '2026-11-27', cu).exercises.every((e) => e.change !== 'catchup'));
+  const merged = k.mergeDay({ sets: {}, meals: [], habits: {}, mainDone: false, noCatchUp: true }, { sets: { bench: [{ w: 60, r: 8, done: true }] }, meals: [], habits: {}, mainDone: false });
+  check('rattrapage retiré : gardé à la fusion de deux appareils', merged.noCatchUp === true);
 }
 
 console.log(failures ? `\n${failures} échec(s).` : '\nTous les tests passent.');

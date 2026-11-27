@@ -7,7 +7,7 @@
 // Récupération musculaire : chaque série faite fatigue ses muscles (principal 1, secondaires 0,5), et cette
 // fatigue s'efface avec le temps (demi-vie d'environ 24 h). 8 séries « fraîches » = muscle à plat.
 import { catalogEntry } from '../../shared/catalog';
-import { addDays, diffDays } from './date';
+import { addDays, diffDays, mondayOf } from './date';
 import type { AppState } from './state';
 import { tr } from '../../shared/i18n';
 
@@ -142,7 +142,7 @@ export const REGION_NAMES: Record<Region, string> = {
   chest: tr('Pectoraux'),
   delts: tr('Épaules'),
   biceps: tr('Biceps'),
-  forearms: 'Avant-bras',
+  forearms: tr('Avant-bras'),
   abs: tr('Abdos'),
   obliques: tr('Obliques'),
   quads: tr('Quadriceps'),
@@ -198,6 +198,21 @@ export interface MuscleState {
   recovery: number;
   /** Heures depuis la dernière série qui l'a travaillé (null : rien depuis 7 jours). */
   hours: number | null;
+}
+
+/** Séries de la semaine (depuis lundi) par zone : le muscle principal compte pour 1, les autres pour une demie. */
+export function weekSets(s: AppState, today: string): Map<Region, number> {
+  const out = new Map<Region, number>();
+  for (let date = mondayOf(today); date <= today; date = addDays(date, 1)) {
+    for (const [key, logs] of Object.entries(s.days[date]?.sets ?? {})) {
+      const done = logs.filter((l) => l.done).length;
+      if (!done) continue;
+      const entry = catalogEntry(key, s.customExercises);
+      if (!entry || entry.kind === 'cardio' || entry.kind === 'task') continue;
+      for (const { region, weight } of regionsOf(entry.muscles)) out.set(region, (out.get(region) ?? 0) + done * weight);
+    }
+  }
+  return out;
 }
 
 const HALF_LIFE_H = 24;

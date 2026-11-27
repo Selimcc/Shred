@@ -1,14 +1,47 @@
-// Forme du jour (anneau et conseil sur Aujourd'hui) et carte de récupération musculaire (silhouette face et dos).
-import { useMemo, useState } from 'react';
+// Forme du jour (anneau et conseil sur Aujourd'hui) et tes muscles : en 3D, colorés selon les séries de la semaine
+// ou selon leur récupération. La silhouette 2D reste là quand le téléphone ne sait pas afficher la 3D.
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { setForm } from '../lib/workoutActions';
-import { muscleRecovery, type MuscleState, readiness, type Region, REGION_NAMES } from '../lib/readiness';
+import { muscleRecovery, type MuscleState, readiness, type Region, REGION_NAMES, weekSets } from '../lib/readiness';
 import { readDay, useApp } from '../lib/store';
+import type { Part } from '../lib/body3d/figure';
+import { missedThisWeek } from '../lib/variety';
+import { regionName } from '../../shared/generator';
 import { Icon } from './Icon';
 import { Ring } from './Ring';
 import { Sheet, toast } from './ui';
-import { lower, pct, tr } from '../../shared/i18n';
+import { list, lower, pct, tn, tr } from '../../shared/i18n';
 
 const TONE_COLOR = { go: 'var(--mint)', ok: 'var(--amber)', low: 'var(--rose)' } as const;
+
+const Body3D = lazy(() => import('./Body3D'));
+
+/* ---------- Couleurs des muscles ---------- */
+
+const IDLE = '#423b35';
+const SKIN = '#5a524b';
+const MINT = '#4cb86b';
+const AMBER = '#f2bd2c';
+const ROSE = '#ef5a45';
+/** Séries de la semaine : une seule teinte, de plus en plus vive (1 à 5, 6 à 11, 12 et plus). */
+const WEEK = ['#7a5a1c', '#b98a22', '#f2bd2c'];
+
+function mix(a: string, b: string, t: number): string {
+  const c = (h: string, i: number) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+  return `#${[0, 1, 2].map((i) => Math.round(c(a, i) + (c(b, i) - c(a, i)) * t).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Couleur d'un muscle selon sa récupération : neutre s'il n'a rien fait depuis 7 jours, de la menthe au rose. */
+function recoveryColor(m?: MuscleState): string {
+  if (!m || m.hours === null) return IDLE;
+  if (m.fatigue >= 0.55) return mix(IDLE, ROSE, Math.min(1, 0.55 + m.fatigue * 0.45));
+  if (m.fatigue >= 0.2) return mix(IDLE, AMBER, Math.min(1, 0.55 + m.fatigue * 0.6));
+  return mix(IDLE, MINT, 0.62);
+}
+
+const weekColor = (n = 0) => (n < 0.5 ? IDLE : n < 6 ? WEEK[0] : n < 12 ? WEEK[1] : WEEK[2]);
+
+type Mode = 'week' | 'recovery';
 
 /* ---------- Silhouette ---------- */
 
@@ -53,15 +86,7 @@ const BACK: [Region, string[]][] = [
   ['calves', ellBoth(50, 230, 6.2, 19)],
 ];
 
-/** Couleur d'un muscle : neutre s'il n'a rien fait depuis 7 jours, sinon de la menthe (récupéré) au rose (à plat). */
-function fill(m?: MuscleState): string {
-  if (!m || m.hours === null) return 'var(--map-idle)';
-  if (m.fatigue >= 0.55) return `color-mix(in srgb, var(--rose) ${Math.round(55 + m.fatigue * 45)}%, var(--map-idle))`;
-  if (m.fatigue >= 0.2) return `color-mix(in srgb, var(--amber) ${Math.round(55 + m.fatigue * 60)}%, var(--map-idle))`;
-  return 'color-mix(in srgb, var(--mint) 62%, var(--map-idle))';
-}
-
-function Figure({ parts, neutral, states, label, front }: { parts: [Region, string[]][]; neutral: string[]; states: Map<Region, MuscleState>; label: string; front: boolean }) {
+function Figure({ parts, neutral, colorOf, titleOf, label, front }: { parts: [Region, string[]][]; neutral: string[]; colorOf: (r: Region) => string; titleOf: (r: Region) => string; label: string; front: boolean }) {
   return (
     <figure className="body-figure">
       <svg viewBox={`0 0 ${W} 270`} role="img" aria-label={label}>
@@ -70,11 +95,8 @@ function Figure({ parts, neutral, states, label, front }: { parts: [Region, stri
         ))}
         {parts.map(([region, ds]) =>
           ds.map((d, i) => (
-            <path key={`${region}${i}`} d={d} fill={fill(states.get(region))} className="body-muscle">
-              <title>
-                {REGION_NAMES[region]}
-                {states.get(region)?.hours !== null && states.get(region) ? tr(', récupéré à {recovery} %', { recovery: states.get(region)!.recovery }) : ''}
-              </title>
+            <path key={`${region}${i}`} d={d} fill={colorOf(region)} className="body-muscle">
+              <title>{titleOf(region)}</title>
             </path>
           )),
         )}
@@ -89,13 +111,34 @@ function Figure({ parts, neutral, states, label, front }: { parts: [Region, stri
 /** Heures avant qu'un muscle redevienne frais (fatigue sous 25 %). */
 const readyIn = (m: MuscleState) => (m.fatigue <= 0.25 ? 0 : Math.ceil(24 * Math.log2(m.fatigue / 0.25)));
 
-export function BodyMap({ states }: { states: MuscleState[] }) {
-  const byRegion = useMemo(() => new Map(states.map((m) => [m.region, m])), [states]);
+/** La silhouette 2D, face et dos. */
+export function BodyMap({ colorOf, titleOf }: { colorOf: (r: Region) => string; titleOf: (r: Region) => string }) {
   return (
     <div className="body-map">
-      <Figure parts={FRONT} neutral={NEUTRAL} states={byRegion} label={tr('Face : récupération par muscle')} front />
-      <Figure parts={BACK} neutral={NEUTRAL} states={byRegion} label={tr('Dos : récupération par muscle')} front={false} />
+      <Figure parts={FRONT} neutral={NEUTRAL} colorOf={colorOf} titleOf={titleOf} label={tr('Face : tes muscles')} front />
+      <Figure parts={BACK} neutral={NEUTRAL} colorOf={colorOf} titleOf={titleOf} label={tr('Dos : tes muscles')} front={false} />
     </div>
+  );
+}
+
+const webgl2 = () => {
+  try {
+    return typeof WebGL2RenderingContext !== 'undefined' && Boolean(document.createElement('canvas').getContext('webgl2'));
+  } catch {
+    return false;
+  }
+};
+
+/** Tes muscles en 3D, ou la silhouette 2D si la 3D n'est pas possible sur ce téléphone. */
+function MuscleFigure({ colorOf, titleOf }: { colorOf: (r: Region) => string; titleOf: (r: Region) => string }) {
+  const [flat, setFlat] = useState(() => !webgl2());
+  if (flat) return <BodyMap colorOf={colorOf} titleOf={titleOf} />;
+  const colors = { skin: SKIN, other: IDLE } as Record<Part, string>;
+  for (const r of Object.keys(REGION_NAMES) as Region[]) colors[r] = colorOf(r);
+  return (
+    <Suspense fallback={<div className="body3d" aria-hidden="true" />}>
+      <Body3D colors={colors} labelOf={(p) => (p === 'skin' ? null : p === 'other' ? tr('Muscle que Shred ne suit pas') : titleOf(p))} onFail={() => setFlat(true)} />
+    </Suspense>
   );
 }
 
@@ -155,7 +198,12 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
   const r = readiness(s, today);
   const muscles = muscleRecovery(s, today);
   const worked = muscles.filter((m) => m.hours !== null).sort((a, b) => b.fatigue - a.fatigue);
+  const byRegion = new Map(muscles.map((m) => [m.region, m]));
   const form = readDay(s, today).form;
+  const [mode, setMode] = useState<Mode>('week');
+  const week = weekSets(s, today);
+  const ranked = [...week].filter(([, n]) => n >= 0.5).sort((a, b) => b[1] - a[1]);
+  const missed = s.settings.variety?.catchUp !== false ? missedThisWeek(s, today) : [];
   return (
     <Sheet title={tr('Forme du jour')} onClose={onClose}>
       <div className="stack" style={{ gap: 18 }}>
@@ -211,52 +259,122 @@ function RecoverySheet({ today, onClose }: { today: string; onClose: () => void 
 
         <section className="stack" style={{ gap: 10 }}>
           <div className="section-head" style={{ margin: 0 }}>
-            <h2 style={{ fontSize: '1.05rem' }}>{tr('Récupération musculaire')}</h2>
-            <span className="small faint">{tr('7 derniers jours')}</span>
+            <h2 style={{ fontSize: '1.05rem' }}>{tr('Tes muscles')}</h2>
           </div>
-          <BodyMap states={muscles} />
-          <div className="body-legend small">
-            <span>
-              <i style={{ background: 'color-mix(in srgb, var(--mint) 62%, var(--map-idle))' }} />{' '}{tr('Récupéré')}
-            </span>
-            <span>
-              <i style={{ background: 'var(--amber)' }} />{' '}{tr('En cours')}
-            </span>
-            <span>
-              <i style={{ background: 'var(--rose)' }} />{' '}{tr('Fatigué')}
-            </span>
-            <span>
-              <i style={{ background: 'var(--map-idle)' }} />{' '}{tr('Pas travaillé')}
-            </span>
+          <div className="seg" role="tablist" aria-label={tr('Ce que montrent les couleurs')}>
+            <button type="button" role="tab" aria-selected={mode === 'week'} className={mode === 'week' ? 'on' : ''} onClick={() => setMode('week')}>
+              {tr('Cette semaine')}
+            </button>
+            <button type="button" role="tab" aria-selected={mode === 'recovery'} className={mode === 'recovery' ? 'on' : ''} onClick={() => setMode('recovery')}>
+              {tr('Récupération')}
+            </button>
           </div>
-          {worked.length > 0 ? (
-            <div className="group">
-              {worked.slice(0, 6).map((m) => (
-                <div key={m.region} className="row" style={{ gap: 12 }}>
-                  <span className="grow">
-                    <span style={{ display: 'block', fontWeight: 650 }}>{REGION_NAMES[m.region]}</span>
-                    <span className="small muted">
-                      {m.hours! < 24 ? tr('travaillé il y a {hours} h', { hours: m.hours }) : tr('travaillé il y a {n} j', { n: Math.round(m.hours! / 24) })}
-                      {readyIn(m) > 0 ? tr(', frais dans {v}', { v: readyIn(m) < 24 ? `${readyIn(m)} h` : `${Math.round(readyIn(m) / 24)} j` }) : ''}
-                    </span>
-                  </span>
-                  <span
-                    className="num"
-                    style={{ fontWeight: 800, color: m.fatigue >= 0.55 ? 'var(--rose)' : m.fatigue >= 0.2 ? 'var(--amber)' : 'var(--mint)' }}
-                  >
-                    {pct(m.recovery)}
-                  </span>
+          {mode === 'week' ? (
+            <>
+              <MuscleFigure
+                colorOf={(r) => weekColor(week.get(r))}
+                titleOf={(r) => {
+                  const n = Math.round(week.get(r) ?? 0);
+                  return n
+                    ? tn(n, '{region} : {n} série cette semaine', '{region} : {n} séries cette semaine', { region: REGION_NAMES[r] })
+                    : tr('{region} : aucune série cette semaine', { region: REGION_NAMES[r] });
+                }}
+              />
+              <div className="body-legend small">
+                <span>
+                  <i style={{ background: WEEK[0] }} />{' '}{tr('1 à 5 séries')}
+                </span>
+                <span>
+                  <i style={{ background: WEEK[1] }} />{' '}{tr('6 à 11')}
+                </span>
+                <span>
+                  <i style={{ background: WEEK[2] }} />{' '}{tr('12 et plus')}
+                </span>
+                <span>
+                  <i style={{ background: IDLE }} />{' '}{tr('Pas travaillé')}
+                </span>
+              </div>
+              {ranked.length > 0 ? (
+                <div className="group">
+                  {ranked.slice(0, 6).map(([r, n]) => (
+                    <div key={r} className="row" style={{ gap: 12 }}>
+                      <span className="grow" style={{ fontWeight: 650 }}>
+                        {REGION_NAMES[r]}
+                      </span>
+                      <span className="num muted">{tn(Math.round(n), '{n} série', '{n} séries')}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              ) : (
+                <p className="small muted" style={{ margin: 0 }}>
+                  {tr('Aucune série depuis lundi.')}
+                </p>
+              )}
+              {missed.length > 0 && (
+                <p className="small" style={{ margin: 0 }}>
+                  <Icon name="bolt" size={13} />{' '}
+                  {tr('Resté de côté cette semaine : {names}. Tes prochaines séances ajoutent un exercice pour rattraper.', { names: list(missed.map((m) => lower(regionName(m.region)))) })}
+                </p>
+              )}
+              <p className="small faint" style={{ margin: 0 }}>
+                {tr('Séries faites depuis lundi : le muscle principal d’un exercice compte pour une série, les autres pour une demie. Repère : environ 10 à 20 séries par muscle et par semaine.')}
+              </p>
+            </>
           ) : (
-            <p className="small muted" style={{ margin: 0 }}>
-              {tr('Aucune série ces 7 derniers jours : tout est frais.')}
-            </p>
+            <>
+              <MuscleFigure
+                colorOf={(r) => recoveryColor(byRegion.get(r))}
+                titleOf={(r) => {
+                  const m = byRegion.get(r);
+                  return m && m.hours !== null
+                    ? tr('{region} : récupération à {recovery} %', { region: REGION_NAMES[r], recovery: m.recovery })
+                    : tr('{region} : rien ces 7 derniers jours', { region: REGION_NAMES[r] });
+                }}
+              />
+              <div className="body-legend small">
+                <span>
+                  <i style={{ background: mix(IDLE, MINT, 0.62) }} />{' '}{tr('Récupéré')}
+                </span>
+                <span>
+                  <i style={{ background: AMBER }} />{' '}{tr('En cours')}
+                </span>
+                <span>
+                  <i style={{ background: ROSE }} />{' '}{tr('Fatigué')}
+                </span>
+                <span>
+                  <i style={{ background: IDLE }} />{' '}{tr('Pas travaillé')}
+                </span>
+              </div>
+              {worked.length > 0 ? (
+                <div className="group">
+                  {worked.slice(0, 6).map((m) => (
+                    <div key={m.region} className="row" style={{ gap: 12 }}>
+                      <span className="grow">
+                        <span style={{ display: 'block', fontWeight: 650 }}>{REGION_NAMES[m.region]}</span>
+                        <span className="small muted">
+                          {m.hours! < 24 ? tr('travaillé il y a {hours} h', { hours: m.hours }) : tr('travaillé il y a {n} j', { n: Math.round(m.hours! / 24) })}
+                          {readyIn(m) > 0 ? tr(', frais dans {v}', { v: readyIn(m) < 24 ? `${readyIn(m)} h` : `${Math.round(readyIn(m) / 24)} j` }) : ''}
+                        </span>
+                      </span>
+                      <span
+                        className="num"
+                        style={{ fontWeight: 800, color: m.fatigue >= 0.55 ? 'var(--rose)' : m.fatigue >= 0.2 ? 'var(--amber)' : 'var(--mint)' }}
+                      >
+                        {pct(m.recovery)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="small muted" style={{ margin: 0 }}>
+                  {tr('Aucune série ces 7 derniers jours : tout est frais.')}
+                </p>
+              )}
+              <p className="small faint" style={{ margin: 0 }}>
+                {tr('Chaque série fatigue ses muscles (le principal en entier, les autres à moitié) ; la fatigue diminue de moitié environ toutes les 24 heures. Estimation, pas un avis médical.')}
+              </p>
+            </>
           )}
-          <p className="small faint" style={{ margin: 0 }}>
-            {tr('Chaque série fatigue ses muscles (le principal en entier, les autres à moitié) ; la fatigue diminue de moitié environ toutes les 24 heures. Estimation, pas un avis médical.')}
-          </p>
         </section>
       </div>
     </Sheet>
